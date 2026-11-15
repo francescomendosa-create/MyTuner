@@ -903,10 +903,20 @@ function bindScale(el) {
 function drawScale(svg, { min, max, step, labels }) {
   const ns = 'http://www.w3.org/2000/svg';
   const width = 1000;
-  const height = 52;
+  const height = 64;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.replaceChildren();
   const xOf = (freq) => ((freq - min) / (max - min)) * width;
+
+  const baseline = document.createElementNS(ns, 'line');
+  baseline.setAttribute('x1', '0');
+  baseline.setAttribute('x2', String(width));
+  baseline.setAttribute('y1', '36');
+  baseline.setAttribute('y2', '36');
+  baseline.setAttribute('stroke', 'rgba(180, 255, 245, 0.55)');
+  baseline.setAttribute('stroke-width', '1.4');
+  svg.appendChild(baseline);
+
   for (let freq = min; freq <= max + 1e-6; freq += step) {
     const rounded = Math.round(freq * 10) / 10;
     const major = labels.some((label) => Math.abs(label - rounded) < step * 0.45);
@@ -914,20 +924,21 @@ function drawScale(svg, { min, max, step, labels }) {
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
-    line.setAttribute('y1', '0');
-    line.setAttribute('y2', major ? '16' : '8');
-    line.setAttribute('stroke', major ? '#d8fff8' : '#79d5cc');
-    line.setAttribute('stroke-width', major ? '2.2' : '1.1');
-    line.setAttribute('opacity', major ? '0.95' : '0.4');
+    line.setAttribute('y1', major ? '22' : '28');
+    line.setAttribute('y2', '36');
+    line.setAttribute('stroke', major ? '#e8fffb' : '#7ad8ce');
+    line.setAttribute('stroke-width', major ? '1.8' : '1');
+    line.setAttribute('opacity', major ? '0.95' : '0.45');
     svg.appendChild(line);
     if (!major) continue;
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', x);
-    text.setAttribute('y', '38');
+    text.setAttribute('y', '16');
     text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('fill', '#d7fff8');
-    text.setAttribute('font-size', '20');
-    text.setAttribute('font-family', 'Oswald, sans-serif');
+    text.setAttribute('fill', '#d9fff8');
+    text.setAttribute('font-size', '17');
+    text.setAttribute('font-family', 'Oswald, Arial Narrow, sans-serif');
+    text.setAttribute('letter-spacing', '0.04em');
     text.textContent = String(Math.round(rounded));
     svg.appendChild(text);
   }
@@ -997,14 +1008,30 @@ function frame(now) {
 }
 
 function placeVolumeNumbers() {
+  const ticks = document.getElementById('volTicks');
   for (let i = 0; i <= 10; i += 1) {
     const deg = -150 + (i / 10) * 300;
     const rad = (deg * Math.PI) / 180;
     const span = document.createElement('span');
     span.textContent = String(i);
-    span.style.left = `${50 + Math.sin(rad) * 46}%`;
-    span.style.top = `${50 - Math.cos(rad) * 46}%`;
+    span.style.left = `${50 + Math.sin(rad) * 47}%`;
+    span.style.top = `${50 - Math.cos(rad) * 47}%`;
     volNums.append(span);
+
+    if (!ticks) continue;
+    for (let t = 0; t < 5; t += 1) {
+      if (i === 10 && t > 0) break;
+      const tickDeg = deg + (t / 5) * 30;
+      const tickRad = (tickDeg * Math.PI) / 180;
+      const major = t === 0;
+      const r = major ? 39.5 : 38.2;
+      const tick = document.createElement('i');
+      tick.className = major ? 'tick major' : 'tick';
+      tick.style.left = `${50 + Math.sin(tickRad) * r}%`;
+      tick.style.top = `${50 - Math.cos(tickRad) * r}%`;
+      tick.style.transform = `translate(-50%, -50%) rotate(${tickDeg}deg)`;
+      ticks.append(tick);
+    }
   }
 }
 
@@ -1230,7 +1257,7 @@ drawScale(document.getElementById('scaleAm'), {
   min: AM.min,
   max: AM.max,
   step: 10,
-  labels: [530, 700, 900, 1100, 1300, 1500, 1600]
+  labels: [530, 600, 700, 800, 900, 1000, 1200, 1400, 1600]
 });
 
 placeVolumeNumbers();

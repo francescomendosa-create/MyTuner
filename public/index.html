@@ -102,6 +102,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
         <div class="group vol-group">
           <div class="lbl">VOLUME</div>
           <div class="vol-wrap" id="volWrap">
+            <div class="vol-ticks" id="volTicks" aria-hidden="true"></div>
             <div class="vol-nums" id="volNums"></div>
             <div class="knob-well vol-well">
               <div class="knob vol" id="volKnob" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5" tabindex="0">
@@ -118,7 +119,10 @@ window.__onGCastApiAvailable = function (isAvailable) {
         </div>
 
         <div class="group tune-group">
-          <div class="lbl">TUNING</div>
+          <div class="tune-heading">
+            <div class="lbl">TUNING</div>
+            <i class="tune-led" aria-hidden="true"></i>
+          </div>
           <div class="knob-slot">
             <div class="tune-ring" aria-hidden="true"></div>
             <div class="knob-well tune-well">
