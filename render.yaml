@@ -3,9 +3,9 @@ services:
     name: mytuner
     runtime: node
     plan: free
-    region: frankfurt
-    buildCommand: "npm install --omit=dev || echo no-deps"
-    startCommand: "npm start"
+    region: oregon
+    buildCommand: "echo ready"
+    startCommand: "node --use-system-ca server.js"
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
