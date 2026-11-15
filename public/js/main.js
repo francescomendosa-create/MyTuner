@@ -900,10 +900,10 @@ function bindScale(el) {
   el.addEventListener('pointercancel', end);
 }
 
-function drawScale(svg, { min, max, step, labels }) {
+function drawScale(svg, { min, max, step, labels, unit }) {
   const ns = 'http://www.w3.org/2000/svg';
   const width = 1000;
-  const height = 64;
+  const height = 80;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.replaceChildren();
   const xOf = (freq) => ((freq - min) / (max - min)) * width;
@@ -911,10 +911,10 @@ function drawScale(svg, { min, max, step, labels }) {
   const baseline = document.createElementNS(ns, 'line');
   baseline.setAttribute('x1', '0');
   baseline.setAttribute('x2', String(width));
-  baseline.setAttribute('y1', '36');
-  baseline.setAttribute('y2', '36');
-  baseline.setAttribute('stroke', 'rgba(180, 255, 245, 0.55)');
-  baseline.setAttribute('stroke-width', '1.4');
+  baseline.setAttribute('y1', '34');
+  baseline.setAttribute('y2', '34');
+  baseline.setAttribute('stroke', 'rgba(90, 230, 220, 0.45)');
+  baseline.setAttribute('stroke-width', '1');
   svg.appendChild(baseline);
 
   for (let freq = min; freq <= max + 1e-6; freq += step) {
@@ -924,25 +924,37 @@ function drawScale(svg, { min, max, step, labels }) {
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
-    line.setAttribute('y1', major ? '22' : '28');
-    line.setAttribute('y2', '36');
-    line.setAttribute('stroke', major ? '#e8fffb' : '#7ad8ce');
-    line.setAttribute('stroke-width', major ? '1.8' : '1');
-    line.setAttribute('opacity', major ? '0.95' : '0.45');
+    line.setAttribute('y1', major ? '22' : '27');
+    line.setAttribute('y2', '34');
+    line.setAttribute('stroke', major ? '#8ef6ee' : '#4ecfc6');
+    line.setAttribute('stroke-width', major ? '1.4' : '0.8');
+    line.setAttribute('opacity', major ? '0.9' : '0.4');
     svg.appendChild(line);
     if (!major) continue;
     const nx = x / width;
-    if (nx > 0.34 && nx < 0.66) continue;
+    if (nx > 0.32 && nx < 0.68) continue;
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', x);
     text.setAttribute('y', '16');
     text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('fill', '#d9fff8');
-    text.setAttribute('font-size', '17');
-    text.setAttribute('font-family', 'Orbitron, Share Tech Mono, monospace');
-    text.setAttribute('letter-spacing', '0.04em');
+    text.setAttribute('fill', '#7eefe6');
+    text.setAttribute('font-size', '15');
+    text.setAttribute('font-family', 'Rajdhani, Segoe UI, sans-serif');
+    text.setAttribute('font-weight', '600');
     text.textContent = String(Math.round(rounded));
     svg.appendChild(text);
+  }
+  if (unit) {
+    const end = document.createElementNS(ns, 'text');
+    end.setAttribute('x', String(width - 2));
+    end.setAttribute('y', '16');
+    end.setAttribute('text-anchor', 'end');
+    end.setAttribute('fill', '#7eefe6');
+    end.setAttribute('font-size', '15');
+    end.setAttribute('font-family', 'Rajdhani, Segoe UI, sans-serif');
+    end.setAttribute('font-weight', '600');
+    end.textContent = unit;
+    svg.appendChild(end);
   }
 }
 
@@ -1253,13 +1265,15 @@ drawScale(document.getElementById('scaleFm'), {
   min: FM.min,
   max: FM.max,
   step: 0.5,
-  labels: [88, 92, 96, 100, 104, 108]
+  labels: [88, 92, 96, 100, 104, 108],
+  unit: 'MHz'
 });
 drawScale(document.getElementById('scaleAm'), {
   min: AM.min,
   max: AM.max,
   step: 10,
-  labels: [530, 600, 700, 800, 900, 1000, 1200, 1400, 1600]
+  labels: [530, 600, 700, 800, 900, 1000, 1200, 1400, 1600],
+  unit: 'kHz'
 });
 
 placeVolumeNumbers();
