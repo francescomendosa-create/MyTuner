@@ -2,6 +2,9 @@
   "name": "mytuner",
   "private": true,
   "description": "MyTuner — radio web a schermo intero con stazioni internet",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node --use-system-ca server.js"
   }
