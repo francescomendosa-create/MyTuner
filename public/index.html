@@ -34,136 +34,154 @@ window.__onGCastApiAvailable = function (isAvailable) {
 </svg>
 
 <div class="radio" id="radio">
-  <div class="metal" aria-hidden="true"></div>
-  <div class="sheen" aria-hidden="true"></div>
+  <div class="chassis">
+    <div class="metal" aria-hidden="true"></div>
+    <div class="sheen" aria-hidden="true"></div>
 
-  <div class="panel">
-    <section class="bezel" id="bezel">
-      <div class="glass" id="glass">
-        <div class="dial">
-          <div class="band is-active" id="bandFm" data-band="fm">
-            <div class="band-tag">FM</div>
-            <div class="band-body" data-band="fm">
-              <svg class="scale" id="scaleFm"></svg>
-              <div class="needle" id="needleFm"></div>
-              <div class="readout">
-                <span class="freq" id="freqFm">98.1</span>
-                <span class="unit">MHz</span>
+    <div class="panel">
+      <section class="bezel" id="bezel">
+        <div class="bezel-lip" aria-hidden="true"></div>
+        <div class="glass" id="glass">
+          <div class="dial">
+            <div class="band is-active" id="bandFm" data-band="fm">
+              <div class="band-tag">FM</div>
+              <div class="band-body" data-band="fm">
+                <svg class="scale" id="scaleFm"></svg>
+                <div class="needle" id="needleFm"></div>
+                <div class="readout">
+                  <span class="freq" id="freqFm">98.1</span>
+                  <span class="unit">MHz</span>
+                </div>
+              </div>
+            </div>
+            <div class="band" id="bandAm" data-band="am">
+              <div class="band-tag">AM</div>
+              <div class="band-body" data-band="am">
+                <svg class="scale" id="scaleAm"></svg>
+                <div class="needle" id="needleAm"></div>
+                <div class="readout">
+                  <span class="freq" id="freqAm">810</span>
+                  <span class="unit">kHz</span>
+                </div>
+              </div>
+            </div>
+            <div class="dial-foot">
+              <div class="station" id="stationLine" aria-live="polite"></div>
+              <div class="eq">
+                <div class="eq-unit">
+                  <span class="eq-label">BASS</span>
+                  <div class="mini" id="bassKnob" role="slider" aria-label="Bassi" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" tabindex="0"><i></i></div>
+                </div>
+                <div class="eq-unit">
+                  <span class="eq-label">TREBLE</span>
+                  <div class="mini" id="trebleKnob" role="slider" aria-label="Alti" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" tabindex="0"><i></i></div>
+                </div>
               </div>
             </div>
           </div>
-          <div class="band" id="bandAm" data-band="am">
-            <div class="band-tag">AM</div>
-            <div class="band-body" data-band="am">
-              <svg class="scale" id="scaleAm"></svg>
-              <div class="needle" id="needleAm"></div>
-              <div class="readout">
-                <span class="freq" id="freqAm">810</span>
-                <span class="unit">kHz</span>
-              </div>
+
+          <div class="spec">
+            <div class="spec-title">SPECTRUM ANALYZER</div>
+            <div class="spec-well">
+              <div class="bars" id="bars"></div>
+              <div class="spec-labels" id="specLabels"></div>
             </div>
           </div>
-          <div class="dial-foot">
-            <div class="station" id="stationLine" aria-live="polite"></div>
-            <div class="eq">
-              <div class="eq-unit">
-                <span class="eq-label">BASS</span>
-                <div class="mini" id="bassKnob" role="slider" aria-label="Bassi" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" tabindex="0"><i></i></div>
-              </div>
-              <div class="eq-unit">
-                <span class="eq-label">TREBLE</span>
-                <div class="mini" id="trebleKnob" role="slider" aria-label="Alti" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" tabindex="0"><i></i></div>
-              </div>
-            </div>
-          </div>
+          <div class="glass-reflect" aria-hidden="true"></div>
         </div>
+      </section>
 
-        <div class="spec">
-          <div class="spec-title">SPECTRUM ANALYZER</div>
-          <div class="spec-well">
-            <div class="bars" id="bars"></div>
-            <div class="spec-labels" id="specLabels"></div>
-          </div>
-        </div>
-        <div class="glass-reflect" aria-hidden="true"></div>
-      </div>
-    </section>
-
-    <section class="controls">
-      <div class="group power-stack">
-        <div class="ctrl power-ctrl">
-          <div class="lbl">POWER</div>
-          <button type="button" class="rocker" id="btnPower" aria-label="Interruttore alimentazione" aria-pressed="false">
-            <span class="rocker-bezel">
-              <span class="rocker-face">
-                <span class="rocker-half on" data-side="on"><b>|</b></span>
-                <span class="rocker-half off" data-side="off"><b>O</b></span>
+      <section class="controls">
+        <div class="group power-stack">
+          <div class="ctrl power-ctrl">
+            <div class="lbl">POWER</div>
+            <button type="button" class="rocker" id="btnPower" aria-label="Interruttore alimentazione" aria-pressed="false">
+              <span class="rocker-bezel">
+                <span class="rocker-face">
+                  <span class="rocker-half on" data-side="on"><b>|</b></span>
+                  <span class="rocker-half off" data-side="off"><b>O</b></span>
+                </span>
               </span>
-            </span>
-          </button>
-        </div>
-        <div class="ctrl">
-          <div class="lbl" id="lblTransport">STOP</div>
-          <button type="button" class="lamp transport" id="btnStop" aria-label="Stop" aria-pressed="false">
-            <span class="transport-face">
-              <b class="transport-text">STOP</b>
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <div class="group vol-group">
-        <div class="lbl">VOLUME</div>
-        <div class="vol-wrap" id="volWrap">
-          <div class="vol-nums" id="volNums"></div>
-          <div class="knob vol" id="volKnob" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5" tabindex="0">
-            <div class="knurl"></div>
-            <div class="face"><i class="mark"></i></div>
+            </button>
           </div>
-          <div class="knob-sheen vol-sheen" aria-hidden="true"></div>
-        </div>
-      </div>
-
-      <div class="group tune-group">
-        <div class="lbl">TUNING</div>
-        <div class="knob-slot">
-          <div class="knob tune" id="tuneKnob" role="slider" aria-label="Sintonia" tabindex="0">
-            <div class="knurl"></div>
-            <div class="cap"></div>
+          <div class="ctrl">
+            <div class="lbl" id="lblTransport">STOP</div>
+            <button type="button" class="lamp transport" id="btnStop" aria-label="Stop" aria-pressed="false">
+              <span class="transport-face">
+                <b class="transport-text">STOP</b>
+              </span>
+            </button>
           </div>
-          <div class="knob-sheen" aria-hidden="true"></div>
         </div>
-        <div class="channel-row">
-          <button type="button" class="ch-btn" id="btnChDown" aria-label="Canale precedente">CH −</button>
-          <button type="button" class="ch-btn" id="btnChUp" aria-label="Canale successivo">CH +</button>
-        </div>
-      </div>
 
-      <div class="group modes">
-        <div class="mode">
-          <div class="lbl compact" id="lblBand"><span class="is-active" data-v="fm">FM</span>/<span data-v="am">AM</span></div>
-          <button type="button" class="key" id="btnBand" aria-label="FM o AM"></button>
+        <div class="group vol-group">
+          <div class="lbl">VOLUME</div>
+          <div class="vol-wrap" id="volWrap">
+            <div class="vol-nums" id="volNums"></div>
+            <div class="knob-well vol-well">
+              <div class="knob vol" id="volKnob" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5" tabindex="0">
+                <div class="knurl"></div>
+                <div class="rim"></div>
+                <div class="face">
+                  <i class="brush" aria-hidden="true"></i>
+                  <i class="mark"></i>
+                </div>
+              </div>
+              <div class="knob-sheen vol-sheen" aria-hidden="true"></div>
+            </div>
+          </div>
         </div>
-        <div class="mode">
-          <div class="lbl compact" id="lblStereo"><span data-v="mo">MONO</span>/<span class="is-active" data-v="st">STEREO</span></div>
-          <button type="button" class="key" id="btnMono" aria-label="Mono o stereo"></button>
+
+        <div class="group tune-group">
+          <div class="lbl">TUNING</div>
+          <div class="knob-slot">
+            <div class="tune-ring" aria-hidden="true"></div>
+            <div class="knob-well tune-well">
+              <div class="knob tune" id="tuneKnob" role="slider" aria-label="Sintonia" tabindex="0">
+                <div class="knurl"></div>
+                <div class="rim"></div>
+                <div class="cap">
+                  <i class="cap-rings" aria-hidden="true"></i>
+                </div>
+              </div>
+              <div class="knob-sheen" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="channel-row">
+            <button type="button" class="ch-btn" id="btnChDown" aria-label="Canale precedente">CH −</button>
+            <button type="button" class="ch-btn" id="btnChUp" aria-label="Canale successivo">CH +</button>
+          </div>
         </div>
-        <div class="mode">
-          <div class="lbl compact" id="lblAuto"><span data-v="auto">AUTO</span>/<span class="is-active" data-v="man">MANUAL</span></div>
-          <button type="button" class="key" id="btnAuto" aria-label="Ricerca automatica o manuale"></button>
+
+        <div class="group modes">
+          <div class="mode">
+            <div class="lbl compact" id="lblBand"><span class="is-active" data-v="fm">FM</span>/<span data-v="am">AM</span></div>
+            <div class="key-well"><button type="button" class="key" id="btnBand" aria-label="FM o AM"></button></div>
+          </div>
+          <div class="mode">
+            <div class="lbl compact" id="lblStereo"><span data-v="mo">MONO</span>/<span class="is-active" data-v="st">STEREO</span></div>
+            <div class="key-well"><button type="button" class="key" id="btnMono" aria-label="Mono o stereo"></button></div>
+          </div>
+          <div class="mode">
+            <div class="lbl compact" id="lblAuto"><span data-v="auto">AUTO</span>/<span class="is-active" data-v="man">MANUAL</span></div>
+            <div class="key-well"><button type="button" class="key" id="btnAuto" aria-label="Ricerca automatica o manuale"></button></div>
+          </div>
+          <div class="mode">
+            <div class="lbl compact">PRESET</div>
+            <div class="key-well preset-well">
+              <i class="preset-led" aria-hidden="true"></i>
+              <button type="button" class="key" id="btnPreset" aria-label="Memorie. Tieni premuto per salvare."></button>
+            </div>
+          </div>
+          <div class="mode">
+            <div class="lbl compact" id="lblCast">CAST</div>
+            <div class="key-well"><button type="button" class="key cast" id="btnCast" aria-label="Trasmetti a Google Home" aria-pressed="false"></button></div>
+          </div>
         </div>
-        <div class="mode">
-          <div class="lbl compact">PRESET</div>
-          <button type="button" class="key" id="btnPreset" aria-label="Memorie. Tieni premuto per salvare."></button>
-        </div>
-        <div class="mode">
-          <div class="lbl compact" id="lblCast">CAST</div>
-          <button type="button" class="key cast" id="btnCast" aria-label="Trasmetti a Google Home" aria-pressed="false"></button>
-        </div>
-      </div>
-    </section>
+      </section>
+    </div>
+    <div class="vignette" aria-hidden="true"></div>
   </div>
-  <div class="vignette" aria-hidden="true"></div>
 </div>
 <audio id="player" playsinline preload="none"></audio>
 <script type="module" src="js/main.js"></script>
