@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mytuner
+    name: mytuner-radio
     runtime: node
     plan: free
     region: oregon
