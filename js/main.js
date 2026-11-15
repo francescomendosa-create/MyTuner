@@ -504,8 +504,7 @@ function paintCast() {
   btnCast.classList.toggle('is-lit', castUi.casting);
   btnCast.setAttribute('aria-pressed', String(castUi.casting));
   if (lblCast) {
-    lblCast.textContent = castUi.casting ? 'CAST ON' : 'CAST';
-    lblCast.classList.toggle('is-active', castUi.casting);
+    lblCast.textContent = castUi.casting ? 'Connesso · disconnetti' : 'CAST · Google Home';
   }
 }
 
