@@ -184,25 +184,22 @@ function createEngine(media) {
     gR.connect(merger, 0, 0);
     gR.connect(merger, 0, 1);
 
+    /* Analyser in serie: su iOS Safari il ramo parallelo a gain 0 resta spesso muto */
     volume.connect(comp);
     comp.connect(ctx.destination);
-    const tap = ctx.createGain();
-    tap.gain.value = 0;
-    analyser.connect(tap);
-    tap.connect(ctx.destination);
-    eng.tap = tap;
 
     eng.signal = signal;
     eng.noise = noiseGain;
     eng.volume = volume;
     eng.bass = bass;
     eng.treble = treble;
+    eng.comp = comp;
     eng.analyser = analyser;
     eng.bins = new Uint8Array(analyser.frequencyBinCount);
     eng.ready = true;
     routeMode();
     noise.start();
-    ctx.resume();
+    ctx.resume().catch(() => {});
   }
 
   function routeMode() {
@@ -210,15 +207,16 @@ function createEngine(media) {
     try { eng.treble.disconnect(); } catch (e) { /* prima connessione */ }
     try { merger.disconnect(); } catch (e) { /* prima connessione */ }
     try { eng.analyser.disconnect(); } catch (e) { /* prima connessione */ }
+    try { eng.volume.disconnect(); } catch (e) { /* ignore */ }
+
     if (state.stereo) {
-      eng.treble.connect(eng.volume);
       eng.treble.connect(eng.analyser);
     } else {
       eng.treble.connect(splitter);
-      merger.connect(eng.volume);
       merger.connect(eng.analyser);
     }
-    eng.analyser.connect(eng.tap);
+    eng.analyser.connect(eng.volume);
+    eng.volume.connect(eng.comp);
   }
 
   function setMix(signalLevel, noiseLevel) {
@@ -1013,30 +1011,18 @@ function frame(now) {
   }
   const raw = new Array(SPEC.length).fill(0);
   let frameMax = 0.08;
-  let heardSum = 0;
   if (powered && engine.ready && engine.bins) {
     for (let i = 0; i < SPEC.length; i += 1) {
       raw[i] = bandEnergy(engine.bins, SPEC[i].hz, engine.ctx.sampleRate);
-      heardSum += raw[i];
       if (raw[i] > frameMax) frameMax = raw[i];
     }
   }
-  /* iOS: se l'analyser resta muto ma stiamo riproducendo, anima uno spettro sintetico */
-  const playing = powered && (!audio.paused || Boolean(engine.currentUrl));
-  const needFake = powered && heardSum < 0.04 && playing;
-  const t = now * 0.001;
   for (let i = 0; i < SPEC.length; i += 1) {
     let level = 0;
-    if (powered) {
-      if (needFake) {
-        const wave = 0.22 + 0.35 * Math.abs(Math.sin(t * (1.3 + i * 0.37) + i))
-          + 0.18 * Math.abs(Math.sin(t * 2.1 + i * 0.9));
-        level = Math.min(0.88, wave * (0.55 + state.volume / 16));
-      } else if (engine.ready && engine.bins) {
-        const relative = raw[i] / frameMax;
-        const shaped = Math.pow(Math.max(0, relative), 1.35);
-        level = Math.max(0.03, Math.min(0.92, shaped * 0.9 + raw[i] * 0.35));
-      }
+    if (powered && engine.ready && engine.bins) {
+      const relative = raw[i] / frameMax;
+      const shaped = Math.pow(Math.max(0, relative), 1.35);
+      level = Math.max(0.03, Math.min(0.92, shaped * 0.9 + raw[i] * 0.35));
     }
     peaks[i] = Math.max(level, peaks[i] * 0.965);
     fills[i].style.transform = `scaleY(${level})`;
