@@ -505,28 +505,6 @@ button { font: inherit; color: inherit; }
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
 
-.lamp.stop span {
-  background: radial-gradient(circle at 40% 32%, #3a1818, #1a0c0c 72%);
-  box-shadow:
-    inset 0 4px 10px rgba(0, 0, 0, 0.8),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.radio.is-on .lamp.stop span {
-  background: radial-gradient(circle at 40% 32%, #ffd0d0 0%, #ff5a5a 30%, #e01818 60%, #7a0808 100%);
-  box-shadow:
-    0 0 14px #ff3b3b,
-    0 0 26px rgba(255, 40, 40, 0.4),
-    inset 0 0 10px rgba(255, 255, 255, 0.35);
-}
-
-.radio.is-on.is-stopped .lamp.stop span {
-  filter: brightness(1.25);
-  box-shadow:
-    0 0 18px #ff2020,
-    inset 0 4px 8px rgba(0, 0, 0, 0.25);
-}
-
 .lamp:active {
   transform: translateY(2px);
   box-shadow:
@@ -534,128 +512,163 @@ button { font: inherit; color: inherit; }
     0 4px 8px rgba(0, 0, 0, 0.55);
 }
 
-.lamp:active span { transform: scale(0.97); }
-
-/* Interruttore a bilanciere POWER — stile anni 80 */
-.rocker {
-  width: clamp(58px, 7.4vw, 86px);
-  height: clamp(86px, 12vh, 118px);
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
+/* STOP / PLAY */
+.lamp.transport .transport-face {
+  display: grid;
+  place-items: center;
   background:
-    linear-gradient(180deg, #4e4e4e 0%, #1c1c1c 40%, #0a0a0a 100%);
+    radial-gradient(circle at 38% 30%, #ff8a8a 0%, #e01818 42%, #6a0808 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 10px 16px rgba(0, 0, 0, 0.65),
-    0 2px 0 #050505;
+    inset 0 2px 4px rgba(255, 255, 255, 0.35),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.45),
+    0 0 12px rgba(255, 40, 40, 0.35);
 }
 
-.rocker-well {
-  display: block;
-  height: 100%;
-  margin: 6px;
-  border-radius: 7px;
-  background: #050505;
+.lamp.transport .transport-text {
+  font-family: Oswald, "Arial Narrow", sans-serif;
+  font-size: clamp(11px, 1.15vw, 14px);
+  letter-spacing: 0.14em;
+  color: #fff5f5;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.radio:not(.is-on) .lamp.transport .transport-face {
+  background: radial-gradient(circle at 40% 32%, #3a1818, #1a0c0c 72%);
+  box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8);
+  filter: brightness(0.55);
+}
+
+.radio.is-on.is-stopped .lamp.transport .transport-face {
+  background:
+    radial-gradient(circle at 38% 30%, #eaffdf 0%, #5dff63 35%, #12a828 68%, #065a12 100%);
   box-shadow:
-    inset 0 6px 12px rgba(0, 0, 0, 0.85),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 2px 4px rgba(255, 255, 255, 0.45),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.35),
+    0 0 16px rgba(40, 255, 80, 0.55);
+}
+
+.radio.is-on.is-stopped .lamp.transport .transport-text {
+  color: #041408;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+}
+
+/* Interruttore rosso a bilanciere — come foto IEC, ON sopra / O sotto */
+.rocker {
+  width: clamp(62px, 7.8vw, 92px);
+  height: clamp(92px, 13vh, 124px);
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  background:
+    linear-gradient(165deg, #3a3a3a 0%, #171717 40%, #0a0a0a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.8),
+    0 12px 18px rgba(0, 0, 0, 0.7),
+    0 3px 0 #050505;
+}
+
+.rocker-bezel {
+  display: block;
+  height: calc(100% - 12px);
+  margin: 6px;
+  border-radius: 10px;
+  background: #0c0c0c;
+  box-shadow:
+    inset 0 8px 14px rgba(0, 0, 0, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
+  perspective: 220px;
 }
 
 .rocker-face {
   display: grid;
   grid-template-rows: 1fr 1fr;
   height: 100%;
+  border-radius: 8px;
   transform-origin: 50% 50%;
-  transition: transform 0.18s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease;
   background:
-    linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 48%, #101010 52%, #2a2a2a 100%);
+    linear-gradient(180deg,
+      #ff6b6b 0%,
+      #e82020 22%,
+      #c41010 48%,
+      #a00808 52%,
+      #d01818 78%,
+      #ff5a5a 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 0 0 1px rgba(0, 0, 0, 0.65);
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.35);
 }
 
 .rocker-half {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: Oswald, "Arial Narrow", sans-serif;
-  font-size: clamp(10px, 1.05vw, 13px);
-  letter-spacing: 0.18em;
-  color: #7a7568;
+  position: relative;
+}
+
+.rocker-half b {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  font-size: clamp(16px, 2vw, 22px);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  line-height: 1;
 }
 
 .rocker-half.on {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.65);
-  box-shadow: inset 0 -8px 12px rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.28);
 }
 
 .rocker-half.off {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 10px 14px rgba(0, 0, 0, 0.35);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.rocker-half i {
-  position: absolute;
-  left: 10%;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #1a1a1a;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+.rocker-half.on b {
+  font-size: clamp(18px, 2.3vw, 26px);
+  transform: scaleY(1.35);
 }
 
-.rocker-half.on i {
-  top: 18%;
-}
-
-.rocker-half.off i {
-  bottom: 18%;
-}
-
-/* OFF: bilanciere premuto in basso */
+/* OFF: O in basso premuto, non illuminato */
 .rocker .rocker-face {
-  transform: perspective(180px) rotateX(-14deg) translateY(3px);
+  transform: perspective(240px) rotateX(-18deg) translateY(4px);
+  filter: brightness(0.72) saturate(0.85);
 }
 
 .rocker .rocker-half.off {
-  color: #b0a890;
+  box-shadow: inset 0 14px 18px rgba(0, 0, 0, 0.35);
 }
 
-.rocker .rocker-half.off i {
-  background: #3a1515;
-  box-shadow: inset 0 0 4px #000;
+.rocker .rocker-half.on {
+  box-shadow: inset 0 -8px 10px rgba(255, 255, 255, 0.08);
 }
 
-/* ON: bilanciere premuto in alto + luce verde */
+/* ON: | in alto premuto, illuminato */
 .radio.is-on .rocker .rocker-face {
-  transform: perspective(180px) rotateX(14deg) translateY(-3px);
+  transform: perspective(240px) rotateX(18deg) translateY(-4px);
+  filter: brightness(1.15) saturate(1.15);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.55),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.3),
+    0 0 18px rgba(255, 60, 60, 0.45);
 }
 
 .radio.is-on .rocker .rocker-half.on {
-  color: #eaffea;
-  text-shadow: 0 0 8px rgba(80, 255, 100, 0.7);
-}
-
-.radio.is-on .rocker .rocker-half.on i {
-  background: radial-gradient(circle at 40% 35%, #f2ffe8, #5dff5a 45%, #0a8a18 100%);
-  box-shadow:
-    0 0 8px #3dff57,
-    0 0 16px rgba(40, 255, 80, 0.55);
+  box-shadow: inset 0 -12px 16px rgba(0, 0, 0, 0.28);
 }
 
 .radio.is-on .rocker .rocker-half.off {
-  color: #555248;
+  box-shadow: inset 0 8px 10px rgba(255, 255, 255, 0.1);
 }
 
 .radio.is-on .rocker {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 14px rgba(40, 255, 80, 0.18),
-    0 10px 16px rgba(0, 0, 0, 0.65);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 16px rgba(255, 40, 40, 0.28),
+    0 12px 18px rgba(0, 0, 0, 0.7),
+    0 3px 0 #050505;
 }
 
 .vol-wrap {

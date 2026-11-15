@@ -741,7 +741,6 @@ function setPower(on) {
   radio.classList.toggle('is-on', on);
   radio.classList.remove('is-stopped');
   btnPower.setAttribute('aria-pressed', String(on));
-  btnStop.setAttribute('aria-pressed', 'false');
   cancelAfc();
   if (was !== on) playSwitchClick();
   if (!on) {
@@ -753,6 +752,7 @@ function setPower(on) {
       try { cast.framework.CastContext.getInstance().endCurrentSession(true); } catch (e) { /* ignore */ }
     }
     paintDial();
+    paintTransport();
     persistFace();
     return;
   }
@@ -763,15 +763,26 @@ function setPower(on) {
   void glass.offsetWidth;
   glass.classList.add('flick');
   paintDial();
+  paintTransport();
   settleTune();
   persistFace();
+}
+
+function paintTransport() {
+  const lbl = document.getElementById('lblTransport');
+  const text = btnStop?.querySelector('.transport-text');
+  const stopped = state.power && state.stopped;
+  if (lbl) lbl.textContent = stopped ? 'PLAY' : 'STOP';
+  if (text) text.textContent = stopped ? 'PLAY' : 'STOP';
+  btnStop?.setAttribute('aria-label', stopped ? 'Play' : 'Stop');
+  btnStop?.setAttribute('aria-pressed', String(Boolean(state.stopped)));
 }
 
 function toggleStop() {
   if (!state.power) return;
   state.stopped = !state.stopped;
   radio.classList.toggle('is-stopped', state.stopped);
-  btnStop.setAttribute('aria-pressed', String(state.stopped));
+  paintTransport();
   cancelAfc();
   if (state.stopped) {
     state.locked = null;
@@ -786,7 +797,7 @@ function toggleStop() {
     paintStation();
     return;
   }
-  if (castUi.casting) syncCastMedia();
+  if (castUi.casting) syncCastMedia(true);
   else settleTune();
 }
 
@@ -1141,8 +1152,8 @@ volKnob.addEventListener('wheel', (event) => {
 }, { passive: false });
 
 btnPower.addEventListener('click', (event) => {
-  if (event.target.closest('.rocker-half.on')) setPower(true);
-  else if (event.target.closest('.rocker-half.off')) setPower(false);
+  if (event.target.closest('[data-side="on"]')) setPower(true);
+  else if (event.target.closest('[data-side="off"]')) setPower(false);
   else setPower(!state.power);
 });
 btnStop.addEventListener('click', () => toggleStop());
@@ -1256,6 +1267,7 @@ paintVolume();
 paintEq();
 paintModes();
 paintDial();
+paintTransport();
 radio.classList.toggle('is-on', state.power);
 paintCast();
 if (window.__castApiAvailable) initCast();

@@ -94,17 +94,21 @@ window.__onGCastApiAvailable = function (isAvailable) {
         <div class="ctrl power-ctrl">
           <div class="lbl">POWER</div>
           <button type="button" class="rocker" id="btnPower" aria-label="Interruttore alimentazione" aria-pressed="false">
-            <span class="rocker-well">
+            <span class="rocker-bezel">
               <span class="rocker-face">
-                <span class="rocker-half on"><i></i><b>ON</b></span>
-                <span class="rocker-half off"><i></i><b>OFF</b></span>
+                <span class="rocker-half on" data-side="on"><b>|</b></span>
+                <span class="rocker-half off" data-side="off"><b>O</b></span>
               </span>
             </span>
           </button>
         </div>
         <div class="ctrl">
-          <div class="lbl">STOP</div>
-          <button type="button" class="lamp stop" id="btnStop" aria-label="Stop" aria-pressed="false"><span></span></button>
+          <div class="lbl" id="lblTransport">STOP</div>
+          <button type="button" class="lamp transport" id="btnStop" aria-label="Stop" aria-pressed="false">
+            <span class="transport-face">
+              <b class="transport-text">STOP</b>
+            </span>
+          </button>
         </div>
       </div>
 
