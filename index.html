@@ -95,19 +95,14 @@ window.__onGCastApiAvailable = function (isAvailable) {
         <div class="group power-stack">
           <div class="ctrl power-ctrl">
             <div class="lbl">POWER</div>
-            <button type="button" class="rocker" id="btnPower" aria-label="Interruttore alimentazione" aria-pressed="false">
-              <span class="rocker-bezel">
-                <span class="rocker-face">
-                  <span class="rocker-half on" data-side="on"><b>|</b></span>
-                  <span class="rocker-half off" data-side="off"><b>O</b></span>
-                </span>
-              </span>
+            <button type="button" class="lamp power" id="btnPower" aria-label="Interruttore alimentazione" aria-pressed="false">
+              <span class="lamp-face"></span>
             </button>
           </div>
           <div class="ctrl">
             <div class="lbl" id="lblTransport">STOP</div>
             <button type="button" class="lamp transport" id="btnStop" aria-label="Stop" aria-pressed="false">
-              <span class="transport-face">
+              <span class="lamp-face transport-face">
                 <b class="transport-text">STOP</b>
               </span>
             </button>
@@ -147,10 +142,6 @@ window.__onGCastApiAvailable = function (isAvailable) {
               <div class="knob-sheen" aria-hidden="true"></div>
             </div>
           </div>
-          <div class="channel-row">
-            <button type="button" class="ch-btn" id="btnChDown" aria-label="Canale precedente">CH −</button>
-            <button type="button" class="ch-btn" id="btnChUp" aria-label="Canale successivo">CH +</button>
-          </div>
         </div>
 
         <div class="group modes">
@@ -161,6 +152,10 @@ window.__onGCastApiAvailable = function (isAvailable) {
           <div class="mode">
             <div class="lbl compact" id="lblStereo"><span data-v="mo">MONO</span>/<span class="is-active" data-v="st">STEREO</span></div>
             <div class="key-well"><button type="button" class="key" id="btnMono" aria-label="Mono o stereo"></button></div>
+          </div>
+          <div class="mode channel-mode">
+            <div class="lbl compact">CH +</div>
+            <div class="key-well"><button type="button" class="key ch" id="btnChUp" aria-label="Canale successivo"></button></div>
           </div>
           <div class="mode">
             <div class="lbl compact" id="lblAuto"><span data-v="auto">AUTO</span>/<span class="is-active" data-v="man">MANUAL</span></div>
@@ -173,7 +168,11 @@ window.__onGCastApiAvailable = function (isAvailable) {
               <button type="button" class="key" id="btnPreset" aria-label="Memorie. Tieni premuto per salvare."></button>
             </div>
           </div>
-          <div class="mode">
+          <div class="mode channel-mode">
+            <div class="lbl compact">CH −</div>
+            <div class="key-well"><button type="button" class="key ch" id="btnChDown" aria-label="Canale precedente"></button></div>
+          </div>
+          <div class="mode cast-mode">
             <div class="lbl compact" id="lblCast">CAST</div>
             <div class="key-well"><button type="button" class="key cast" id="btnCast" aria-label="Trasmetti a Google Home" aria-pressed="false"></button></div>
           </div>

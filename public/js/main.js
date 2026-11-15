@@ -1151,11 +1151,7 @@ volKnob.addEventListener('wheel', (event) => {
   persistFace();
 }, { passive: false });
 
-btnPower.addEventListener('click', (event) => {
-  if (event.target.closest('[data-side="on"]')) setPower(true);
-  else if (event.target.closest('[data-side="off"]')) setPower(false);
-  else setPower(!state.power);
-});
+btnPower.addEventListener('click', () => setPower(!state.power));
 btnStop.addEventListener('click', () => toggleStop());
 btnCast?.addEventListener('click', () => toggleCast());
 document.getElementById('btnChUp')?.addEventListener('click', () => {

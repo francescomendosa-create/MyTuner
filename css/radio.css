@@ -534,9 +534,10 @@ button { font: inherit; color: inherit; }
 .controls {
   min-height: 0;
   display: grid;
-  grid-template-columns: 0.62fr 1.05fr 1.2fr 1.15fr;
+  grid-template-columns: 0.55fr 1.05fr 1.25fr 1.05fr;
   align-items: center;
   justify-items: center;
+  gap: clamp(4px, 1vw, 16px);
 }
 
 .group {
@@ -549,7 +550,7 @@ button { font: inherit; color: inherit; }
   max-height: 100%;
 }
 
-.power-stack { gap: clamp(12px, 2.4vh, 28px); }
+.power-stack { gap: clamp(14px, 2.6vh, 30px); }
 
 .ctrl {
   display: flex;
@@ -582,28 +583,38 @@ button { font: inherit; color: inherit; }
   text-shadow: 0 0 8px rgba(243, 220, 160, 0.4);
 }
 
+/* POWER / STOP — stile prototipo: pozzetto nero, cornice luminosa */
 .lamp {
-  width: clamp(54px, 7.2vw, 84px);
+  width: clamp(56px, 7vw, 82px);
   aspect-ratio: 1;
-  padding: 7px;
+  padding: 8px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
+  position: relative;
   background:
-    linear-gradient(180deg, #5a5a5a 0%, #2a2a2a 18%, #101010 55%, #3a3a3a 100%);
+    linear-gradient(165deg, #6a6a6a 0%, #2e2e2e 16%, #121212 48%, #2a2a2a 78%, #4a4a4a 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
-    0 10px 16px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.65),
+    0 12px 18px rgba(0, 0, 0, 0.65),
     0 2px 0 #050505;
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
 }
 
-.lamp span {
-  display: block;
+.lamp .lamp-face {
+  display: grid;
+  place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 7px;
-  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 40% 28%, #2a2a2a 0%, #121212 42%, #050505 100%);
+  box-shadow:
+    inset 0 10px 16px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.7);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lamp:active {
@@ -613,163 +624,83 @@ button { font: inherit; color: inherit; }
     0 4px 8px rgba(0, 0, 0, 0.55);
 }
 
-/* STOP / PLAY */
-.lamp.transport .transport-face {
-  display: grid;
-  place-items: center;
-  background:
-    radial-gradient(circle at 38% 30%, #ff8a8a 0%, #e01818 42%, #6a0808 100%);
+.lamp:active .lamp-face {
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.35),
-    inset 0 -6px 12px rgba(0, 0, 0, 0.45),
-    0 0 12px rgba(255, 40, 40, 0.35);
+    inset 0 14px 18px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.8);
 }
 
+/* POWER: cornice verde acceso / rossa spento */
+.lamp.power {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 2px #7a1818,
+    0 0 14px rgba(255, 40, 40, 0.45),
+    0 12px 18px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505;
+}
+
+.radio.is-on .lamp.power {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 2px #3dff6a,
+    0 0 18px rgba(40, 255, 100, 0.55),
+    0 12px 18px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505;
+}
+
+.radio.is-on .lamp.power .lamp-face {
+  background:
+    radial-gradient(circle at 40% 28%, #323232 0%, #161616 45%, #070707 100%);
+  box-shadow:
+    inset 0 10px 16px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 0 10px rgba(60, 255, 120, 0.12);
+}
+
+/* STOP rosso / PLAY verde — testo sul face nero */
 .lamp.transport .transport-text {
   font-family: Oswald, "Arial Narrow", sans-serif;
-  font-size: clamp(11px, 1.15vw, 14px);
-  letter-spacing: 0.14em;
-  color: #fff5f5;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  font-size: clamp(11px, 1.1vw, 14px);
+  letter-spacing: 0.16em;
+  color: #f2e8d8;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
 }
 
-.radio:not(.is-on) .lamp.transport .transport-face {
-  background: radial-gradient(circle at 40% 32%, #3a1818, #1a0c0c 72%);
-  box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8);
-  filter: brightness(0.55);
-}
-
-.radio.is-on.is-stopped .lamp.transport .transport-face {
-  background:
-    radial-gradient(circle at 38% 30%, #eaffdf 0%, #5dff63 35%, #12a828 68%, #065a12 100%);
+.radio.is-on .lamp.transport {
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.45),
-    inset 0 -6px 12px rgba(0, 0, 0, 0.35),
-    0 0 16px rgba(40, 255, 80, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 2px #ff3a3a,
+    0 0 16px rgba(255, 40, 40, 0.5),
+    0 12px 18px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505;
+}
+
+.radio.is-on.is-stopped .lamp.transport {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 2px #3dff6a,
+    0 0 18px rgba(40, 255, 100, 0.55),
+    0 12px 18px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505;
 }
 
 .radio.is-on.is-stopped .lamp.transport .transport-text {
-  color: #041408;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+  color: #d8ffe0;
+  text-shadow: 0 0 8px rgba(80, 255, 120, 0.45);
 }
 
-/* Interruttore rosso a bilanciere — come foto IEC, ON sopra / O sotto */
-.rocker {
-  width: clamp(62px, 7.8vw, 92px);
-  height: clamp(92px, 13vh, 124px);
-  padding: 0;
-  border: 0;
-  border-radius: 14px;
-  cursor: pointer;
-  background:
-    linear-gradient(165deg, #3a3a3a 0%, #171717 40%, #0a0a0a 100%);
+.radio:not(.is-on) .lamp.transport {
+  filter: brightness(0.72);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.8),
-    0 12px 18px rgba(0, 0, 0, 0.7),
-    0 3px 0 #050505;
-}
-
-.rocker-bezel {
-  display: block;
-  height: calc(100% - 12px);
-  margin: 6px;
-  border-radius: 10px;
-  background: #0c0c0c;
-  box-shadow:
-    inset 0 8px 14px rgba(0, 0, 0, 0.9),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  perspective: 220px;
-}
-
-.rocker-face {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  height: 100%;
-  border-radius: 8px;
-  transform-origin: 50% 50%;
-  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease;
-  background:
-    linear-gradient(180deg,
-      #ff6b6b 0%,
-      #e82020 22%,
-      #c41010 48%,
-      #a00808 52%,
-      #d01818 78%,
-      #ff5a5a 100%);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.45),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.35);
-}
-
-.rocker-half {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.rocker-half b {
-  font-family: Arial, Helvetica, sans-serif;
-  font-weight: 700;
-  font-size: clamp(16px, 2vw, 22px);
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-  line-height: 1;
-}
-
-.rocker-half.on {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.28);
-}
-
-.rocker-half.off {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.rocker-half.on b {
-  font-size: clamp(18px, 2.3vw, 26px);
-  transform: scaleY(1.35);
-}
-
-/* OFF: O in basso premuto, non illuminato */
-.rocker .rocker-face {
-  transform: perspective(240px) rotateX(-18deg) translateY(4px);
-  filter: brightness(0.72) saturate(0.85);
-}
-
-.rocker .rocker-half.off {
-  box-shadow: inset 0 14px 18px rgba(0, 0, 0, 0.35);
-}
-
-.rocker .rocker-half.on {
-  box-shadow: inset 0 -8px 10px rgba(255, 255, 255, 0.08);
-}
-
-/* ON: | in alto premuto, illuminato */
-.radio.is-on .rocker .rocker-face {
-  transform: perspective(240px) rotateX(18deg) translateY(-4px);
-  filter: brightness(1.15) saturate(1.15);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.55),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.3),
-    0 0 18px rgba(255, 60, 60, 0.45);
-}
-
-.radio.is-on .rocker .rocker-half.on {
-  box-shadow: inset 0 -12px 16px rgba(0, 0, 0, 0.28);
-}
-
-.radio.is-on .rocker .rocker-half.off {
-  box-shadow: inset 0 8px 10px rgba(255, 255, 255, 0.1);
-}
-
-.radio.is-on .rocker {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 0 16px rgba(255, 40, 40, 0.28),
-    0 12px 18px rgba(0, 0, 0, 0.7),
-    0 3px 0 #050505;
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 2px #4a2020,
+    0 10px 14px rgba(0, 0, 0, 0.55),
+    0 2px 0 #050505;
 }
 
 .vol-wrap {
@@ -926,36 +857,6 @@ button { font: inherit; color: inherit; }
   padding: 5%;
 }
 
-.channel-row {
-  display: flex;
-  gap: clamp(8px, 1.2vw, 14px);
-  margin-top: 2px;
-}
-
-.ch-btn {
-  min-width: clamp(52px, 6vw, 72px);
-  padding: 0.45em 0.7em;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: Oswald, "Arial Narrow", sans-serif;
-  font-size: clamp(12px, 1.2vw, 15px);
-  letter-spacing: 0.12em;
-  color: var(--gold-hot);
-  background: linear-gradient(180deg, #4a4a4a, #1a1a1a 45%, #0c0c0c 70%, #2a2a2a 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.55),
-    0 7px 12px rgba(0, 0, 0, 0.55),
-    0 2px 0 #050505;
-}
-
-.ch-btn:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.65),
-    0 2px 4px rgba(0, 0, 0, 0.45);
-}
 
 .knob.tune .rim {
   inset: 9%;
@@ -1016,43 +917,51 @@ button { font: inherit; color: inherit; }
 
 .modes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(10px, 1.8vh, 20px) clamp(10px, 1.2vw, 18px);
+  grid-template-columns: repeat(3, auto);
+  gap: clamp(8px, 1.4vh, 16px) clamp(10px, 1.1vw, 16px);
   justify-items: center;
-}
-
-.mode:has(.key.cast) {
-  grid-column: 1 / -1;
+  align-items: start;
 }
 
 .mode {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+}
+
+.mode .lbl.compact {
+  font-size: clamp(8px, 0.82vw, 11px);
+  letter-spacing: 0.05em;
+  min-height: 1.15em;
+}
+
+.cast-mode {
+  grid-column: 1 / -1;
+  justify-self: center;
 }
 
 .key-well {
   position: relative;
-  width: clamp(52px, 6.4vw, 74px);
+  width: clamp(38px, 4.6vw, 52px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 40%, #2c2c2c 0%, #0e0e0e 55%, #000 100%);
+    radial-gradient(circle at 50% 38%, #2a2a2a 0%, #0c0c0c 55%, #000 100%);
   box-shadow:
-    inset 0 10px 14px rgba(0, 0, 0, 0.9),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    0 1px 0 rgba(255, 255, 255, 0.07);
+    inset 0 8px 12px rgba(0, 0, 0, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .preset-well .preset-led {
   position: absolute;
-  top: 5px;
+  top: 3px;
   left: 50%;
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   transform: translateX(-50%);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #6a6a6a, #1a1a1a 70%);
@@ -1067,52 +976,57 @@ button { font: inherit; color: inherit; }
 }
 
 .key {
-  width: clamp(34px, 4.4vw, 50px);
+  width: clamp(24px, 3vw, 34px);
   aspect-ratio: 1;
   border: 0;
   border-radius: 50%;
   cursor: pointer;
   background:
-    radial-gradient(circle at 32% 26%, #9a9a9a 0%, #4a4a4a 28%, #1a1a1a 62%, #050505 100%);
+    radial-gradient(circle at 32% 26%, #a0a0a0 0%, #4a4a4a 26%, #181818 60%, #050505 100%);
   box-shadow:
-    0 8px 12px rgba(0, 0, 0, 0.7),
-    0 2px 0 #030303,
-    inset 0 2px 3px rgba(255, 255, 255, 0.5),
-    inset 0 -10px 12px rgba(0, 0, 0, 0.6);
+    0 6px 9px rgba(0, 0, 0, 0.72),
+    0 1px 0 #030303,
+    inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -7px 9px rgba(0, 0, 0, 0.62);
+}
+
+.key.ch {
+  background:
+    radial-gradient(circle at 32% 26%, #b0a890 0%, #5a5040 28%, #1a1810 62%, #050505 100%);
 }
 
 .key.is-lit {
   box-shadow:
-    0 0 12px rgba(232, 200, 120, 0.55),
-    0 7px 8px rgba(0, 0, 0, 0.6),
+    0 0 10px rgba(232, 200, 120, 0.5),
+    0 5px 7px rgba(0, 0, 0, 0.6),
     inset 0 1px 1px rgba(255, 255, 255, 0.55),
-    inset 0 -8px 10px rgba(0, 0, 0, 0.5);
+    inset 0 -6px 8px rgba(0, 0, 0, 0.5);
 }
 
 .key:active {
-  transform: translateY(2px) scale(0.96);
+  transform: translateY(2px) scale(0.95);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.55),
-    inset 0 4px 8px rgba(0, 0, 0, 0.75),
-    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    0 1px 3px rgba(0, 0, 0, 0.55),
+    inset 0 4px 7px rgba(0, 0, 0, 0.78),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
 }
 
 .key.cast {
   background:
     radial-gradient(circle at 35% 30%, #6aa8e8, #1e4f86 42%, #0c0c0c 74%);
   box-shadow:
-    0 0 10px rgba(70, 160, 255, 0.35),
-    0 7px 8px rgba(0, 0, 0, 0.6),
+    0 0 8px rgba(70, 160, 255, 0.3),
+    0 5px 7px rgba(0, 0, 0, 0.6),
     inset 0 1px 1px rgba(255, 255, 255, 0.4),
-    inset 0 -6px 8px rgba(0, 0, 0, 0.55);
+    inset 0 -5px 7px rgba(0, 0, 0, 0.55);
 }
 
 .key.cast.is-lit {
   background:
     radial-gradient(circle at 35% 30%, #dff3ff, #4db0ff 38%, #1563b8 72%);
   box-shadow:
-    0 0 16px rgba(80, 180, 255, 0.85),
-    0 7px 8px rgba(0, 0, 0, 0.6),
+    0 0 14px rgba(80, 180, 255, 0.8),
+    0 5px 7px rgba(0, 0, 0, 0.6),
     inset 0 1px 1px rgba(255, 255, 255, 0.55);
 }
 
@@ -1178,18 +1092,18 @@ audio {
   .power-stack { grid-area: power; }
   .vol-group { grid-area: volume; }
   .tune-group { grid-area: tune; }
-  .modes { grid-area: modes; width: 100%; grid-template-columns: repeat(4, 1fr); }
+  .modes { grid-area: modes; width: 100%; grid-template-columns: repeat(3, 1fr); }
+  .cast-mode { grid-column: 1 / -1; }
   .knob-slot { width: min(22vh, 46vw, 220px); }
   .vol-wrap { width: min(18vh, 34vw, 180px); }
   .freq { font-size: clamp(34px, 9.5vw, 64px); }
   .readout { top: 60%; }
-  .mode:has(.key.cast) { grid-column: auto; }
 }
 
 @media (max-height: 720px) and (orientation: landscape) {
   .freq { font-size: clamp(34px, 5.6vw, 78px); }
   .readout { top: 58%; }
-  .lamp { width: clamp(46px, 6vw, 64px); }
+  .lamp { width: clamp(48px, 6vw, 68px); }
   .knob-slot { width: min(30vh, 26vw, 220px); }
   .vol-wrap { width: min(24vh, 20vw, 180px); }
   .dial-foot { min-height: 40px; }
