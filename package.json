@@ -6,6 +6,6 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node --use-system-ca server.js"
+    "start": "node server.js"
   }
 }

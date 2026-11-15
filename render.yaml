@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     buildCommand: "echo ready"
-    startCommand: "node --use-system-ca server.js"
+    startCommand: "node server.js"
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION

@@ -1,6 +1,9 @@
 'use strict';
 
-if (!process.execArgv.includes('--use-system-ca')) {
+// Su Windows in locale a volte servono i certificati di sistema.
+// Su Render/Linux non serve e il riavvio puo' far fallire il deploy.
+const onRender = Boolean(process.env.RENDER || process.env.RENDER_EXTERNAL_URL);
+if (process.platform === 'win32' && !onRender && !process.execArgv.includes('--use-system-ca')) {
   if (process.env.RADIO_CA_REEXEC === '1') {
     console.error('Impossibile usare i certificati di sistema.');
     process.exit(1);
@@ -429,8 +432,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 function listen(port) {
+  const fixedPort = Boolean(process.env.PORT);
   server.once('error', (err) => {
-    if (err.code === 'EADDRINUSE' && port < PORT0 + 8) {
+    if (!fixedPort && err.code === 'EADDRINUSE' && port < PORT0 + 8) {
       listen(port + 1);
       return;
     }
@@ -438,6 +442,11 @@ function listen(port) {
     process.exit(1);
   });
   server.listen(port, '0.0.0.0', () => {
+    const publicUrl = process.env.RENDER_EXTERNAL_URL;
+    if (publicUrl) {
+      console.log(`MyTuner online: ${publicUrl}`);
+      return;
+    }
     console.log(`MyTuner acceso su http://localhost:${port}`);
     for (const ip of lanAddresses()) {
       console.log(`Dal telefono o dal tablet: http://${ip}:${port}`);
