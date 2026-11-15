@@ -66,7 +66,8 @@ const audio = document.getElementById('player');
 
 const castUi = {
   ready: false,
-  casting: false
+  casting: false,
+  contentUrl: ''
 };
 
 const saved = readJSON('radio-face-v1', null);
@@ -259,7 +260,7 @@ function createEngine(media) {
       eng.blocked = false;
       if (castUi.casting) {
         muteTabletAudio(true);
-        syncCastMedia();
+        syncCastMedia(true);
         return;
       }
       media.src = `/stream?u=${encodeURIComponent(url)}`;
@@ -508,7 +509,6 @@ function streamAbsolute(url) {
 function muteTabletAudio(on) {
   if (on) {
     try { audio.pause(); } catch (e) { /* ignore */ }
-    try { audio.removeAttribute('src'); audio.load(); } catch (e) { /* ignore */ }
     audio.muted = true;
     audio.volume = 0;
     engine.silence();
@@ -518,6 +518,13 @@ function muteTabletAudio(on) {
     audio.volume = 1;
     if (engine.ready) engine.setVolume(state.volume / 10);
   }
+}
+
+function setCastVolume(unit) {
+  if (!castUi.casting) return;
+  try {
+    cast.framework.CastContext.getInstance().getCurrentSession()?.setVolume(clamp(unit, 0, 1));
+  } catch (e) { /* ignore */ }
 }
 
 function paintCast() {
@@ -544,8 +551,9 @@ function initCast() {
       paintCast();
       if (castUi.casting) {
         muteTabletAudio(true);
-        syncCastMedia();
+        syncCastMedia(true);
       } else {
+        castUi.contentUrl = '';
         muteTabletAudio(false);
         if (state.power && !state.stopped) settleTune();
       }
@@ -559,7 +567,7 @@ function initCast() {
   }
 }
 
-async function syncCastMedia() {
+async function syncCastMedia(force = false) {
   const session = window.cast?.framework?.CastContext?.getInstance()?.getCurrentSession?.();
   if (!session || !state.power || state.stopped) return;
   const station = state.locked || nearest().station;
@@ -567,8 +575,15 @@ async function syncCastMedia() {
     flash('NO SIGNAL', true);
     return;
   }
+  const contentUrl = streamAbsolute(station.url);
+  // Evita di ricaricare lo stesso flusso: un tocco sul tablet non deve interrompere il Cast
+  if (!force && castUi.contentUrl === contentUrl && session.getMediaSession()) {
+    muteTabletAudio(true);
+    setCastVolume(state.volume / 10);
+    return;
+  }
   try {
-    const mediaInfo = new chrome.cast.media.MediaInfo(streamAbsolute(station.url), 'audio/mpeg');
+    const mediaInfo = new chrome.cast.media.MediaInfo(contentUrl, 'audio/mpeg');
     mediaInfo.streamType = chrome.cast.media.StreamType.LIVE;
     mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
     mediaInfo.metadata.title = station.name;
@@ -576,9 +591,9 @@ async function syncCastMedia() {
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     muteTabletAudio(true);
     await session.loadMedia(request);
+    castUi.contentUrl = contentUrl;
     muteTabletAudio(true);
-    const vol = clamp(state.volume / 10, 0.05, 1);
-    try { session.setVolume(vol); } catch (e) { /* volume cast opzionale */ }
+    setCastVolume(state.volume / 10);
     flash(`CAST  ${station.name}`, true);
   } catch (e) {
     flash('CAST FAIL', true);
@@ -592,6 +607,7 @@ async function toggleCast() {
   }
   const context = cast.framework.CastContext.getInstance();
   if (castUi.casting) {
+    castUi.contentUrl = '';
     context.endCurrentSession(true);
     flash('CAST OFF', true);
     return;
@@ -610,6 +626,16 @@ async function toggleCast() {
 
 function settleTune() {
   if (!state.power || state.stopped) return;
+  if (castUi.casting) {
+    muteTabletAudio(true);
+    const { station, dist } = nearest();
+    const lock = station ? lockOf(dist) : 0;
+    state.locked = station && lock > 0.48 ? station : state.locked;
+    paintStation();
+    syncCastMedia(false);
+    persistFace();
+    return;
+  }
   const { station, dist } = nearest();
   const lock = station ? lockOf(dist) : 0;
   if (station && lock > 0.48) {
@@ -933,6 +959,11 @@ function placeVolumeNumbers() {
 
 function ensurePlaying() {
   if (!state.power || state.stopped) return;
+  // Durante Cast non riagganciare/ricaricare a ogni tocco: interrompeva Google Home
+  if (castUi.casting) {
+    muteTabletAudio(true);
+    return;
+  }
   if (engine.currentUrl && !audio.paused) return;
   settleTune();
 }
@@ -963,15 +994,25 @@ async function loadStations() {
 document.addEventListener('pointerdown', (event) => {
   const turningOff = event.target.closest('#btnPower') && state.power;
   const stopping = event.target.closest('#btnStop') && state.power && !state.stopped;
+  if (castUi.casting) {
+    muteTabletAudio(true);
+    if (turningOff || stopping) return;
+    if (event.target.closest('#btnCast, #btnPower, #btnStop, #btnChUp, #btnChDown, #volKnob, #tuneKnob, .band-body')) return;
+    return;
+  }
   engine.start();
   engine.setVolume(state.volume / 10);
   engine.setTone(state.bass, state.treble);
   if (turningOff || stopping) return;
-  if (event.target.closest('#tuneKnob, .band-body, #btnBand, #btnAuto, #btnPreset, #btnMono')) return;
+  if (event.target.closest('#tuneKnob, .band-body, #btnBand, #btnAuto, #btnPreset, #btnMono, #btnCast, #btnChUp, #btnChDown')) return;
   ensurePlaying();
 }, true);
 
 document.addEventListener('contextmenu', (event) => event.preventDefault());
+
+document.addEventListener('visibilitychange', () => {
+  if (castUi.casting) muteTabletAudio(true);
+});
 
 bindKnob(tuneKnob, (delta) => {
   if (state.auto) {
@@ -998,9 +1039,7 @@ bindKnob(volKnob, (delta) => {
   paintVolume();
   if (castUi.casting) {
     muteTabletAudio(true);
-    try {
-      cast.framework.CastContext.getInstance().getCurrentSession()?.setVolume(clamp(state.volume / 10, 0, 1));
-    } catch (e) { /* ignore */ }
+    setCastVolume(state.volume / 10);
   } else {
     engine.setVolume(state.volume / 10);
   }
@@ -1055,14 +1094,27 @@ volKnob.addEventListener('wheel', (event) => {
   const dir = Math.sign(event.deltaY);
   state.volume = clamp(state.volume - dir * 0.25, 0, 10);
   paintVolume();
-  engine.start();
-  engine.setVolume(state.volume / 10);
+  if (castUi.casting) {
+    muteTabletAudio(true);
+    setCastVolume(state.volume / 10);
+  } else {
+    engine.start();
+    engine.setVolume(state.volume / 10);
+  }
   persistFace();
 }, { passive: false });
 
 btnPower.addEventListener('click', () => setPower(!state.power));
 btnStop.addEventListener('click', () => toggleStop());
 btnCast?.addEventListener('click', () => toggleCast());
+document.getElementById('btnChUp')?.addEventListener('click', () => {
+  engine.start();
+  stepStation(1);
+});
+document.getElementById('btnChDown')?.addEventListener('click', () => {
+  engine.start();
+  stepStation(-1);
+});
 btnBand.addEventListener('click', () => setBand(state.band === 'fm' ? 'am' : 'fm'));
 btnMono.addEventListener('click', () => {
   engine.start();

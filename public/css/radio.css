@@ -605,6 +605,32 @@ button { font: inherit; color: inherit; }
   aspect-ratio: 1;
 }
 
+.channel-row {
+  display: flex;
+  gap: clamp(8px, 1.2vw, 14px);
+  margin-top: 2px;
+}
+
+.ch-btn {
+  min-width: clamp(52px, 6vw, 72px);
+  padding: 0.45em 0.7em;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: Oswald, "Arial Narrow", sans-serif;
+  font-size: clamp(12px, 1.2vw, 15px);
+  letter-spacing: 0.12em;
+  color: var(--gold-hot);
+  background: linear-gradient(180deg, #3a3a3a, #121212 55%, #2c2c2c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 10px rgba(0, 0, 0, 0.5);
+}
+
+.ch-btn:active {
+  transform: translateY(1px) scale(0.97);
+}
+
 .knob.tune {
   position: absolute;
   inset: 0;
