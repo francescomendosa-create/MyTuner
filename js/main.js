@@ -258,8 +258,7 @@ function createEngine(media) {
       eng.currentUrl = url;
       eng.blocked = false;
       if (castUi.casting) {
-        media.pause();
-        setMix(0, 0);
+        muteTabletAudio(true);
         syncCastMedia();
         return;
       }
@@ -459,6 +458,14 @@ function followTune(dragging) {
     paintStation();
     return;
   }
+  if (castUi.casting) {
+    muteTabletAudio(true);
+    const { station, dist } = nearest();
+    const lock = station ? lockOf(dist) : 0;
+    state.locked = lock > 0.78 ? station : null;
+    paintStation();
+    return;
+  }
   const { station, dist } = nearest();
   const lock = station ? lockOf(dist) : 0;
   state.locked = lock > 0.78 ? station : null;
@@ -498,13 +505,29 @@ function streamAbsolute(url) {
   return `${window.location.origin}/stream?u=${encodeURIComponent(url)}`;
 }
 
+function muteTabletAudio(on) {
+  if (on) {
+    try { audio.pause(); } catch (e) { /* ignore */ }
+    try { audio.removeAttribute('src'); audio.load(); } catch (e) { /* ignore */ }
+    audio.muted = true;
+    audio.volume = 0;
+    engine.silence();
+    if (engine.ready) engine.setVolume(0);
+  } else {
+    audio.muted = false;
+    audio.volume = 1;
+    if (engine.ready) engine.setVolume(state.volume / 10);
+  }
+}
+
 function paintCast() {
   if (!btnCast) return;
   btnCast.classList.toggle('is-ready', castUi.ready);
   btnCast.classList.toggle('is-lit', castUi.casting);
   btnCast.setAttribute('aria-pressed', String(castUi.casting));
   if (lblCast) {
-    lblCast.textContent = castUi.casting ? 'Connesso · disconnetti' : 'CAST · Google Home';
+    lblCast.textContent = castUi.casting ? 'CAST ON' : 'CAST';
+    lblCast.classList.toggle('is-active', castUi.casting);
   }
 }
 
@@ -520,10 +543,11 @@ function initCast() {
       castUi.casting = event.castState === cast.framework.CastState.CONNECTED;
       paintCast();
       if (castUi.casting) {
+        muteTabletAudio(true);
         syncCastMedia();
-      } else if (state.power && !state.stopped) {
-        audio.volume = 1;
-        settleTune();
+      } else {
+        muteTabletAudio(false);
+        if (state.power && !state.stopped) settleTune();
       }
     });
     castUi.ready = true;
@@ -550,9 +574,9 @@ async function syncCastMedia() {
     mediaInfo.metadata.title = station.name;
     mediaInfo.metadata.artist = 'MyTuner';
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
-    audio.pause();
-    engine.silence();
+    muteTabletAudio(true);
     await session.loadMedia(request);
+    muteTabletAudio(true);
     const vol = clamp(state.volume / 10, 0.05, 1);
     try { session.setVolume(vol); } catch (e) { /* volume cast opzionale */ }
     flash(`CAST  ${station.name}`, true);
@@ -880,8 +904,8 @@ function bandEnergy(bins, hz, sampleRate) {
 
 function frame(now) {
   requestAnimationFrame(frame);
-  engine.flutter(now);
-  const powered = state.power && !state.stopped;
+  if (!castUi.casting) engine.flutter(now);
+  const powered = state.power && !state.stopped && !castUi.casting;
   if (engine.ready && powered) engine.analyser.getByteFrequencyData(engine.bins);
   for (let i = 0; i < SPEC.length; i += 1) {
     let level = powered ? 0.045 : 0;
@@ -972,11 +996,13 @@ bindKnob(volKnob, (delta) => {
   const full = (300 * Math.PI) / 180;
   state.volume = clamp(state.volume + (delta / full) * 10, 0, 10);
   paintVolume();
-  engine.setVolume(state.volume / 10);
   if (castUi.casting) {
+    muteTabletAudio(true);
     try {
       cast.framework.CastContext.getInstance().getCurrentSession()?.setVolume(clamp(state.volume / 10, 0, 1));
     } catch (e) { /* ignore */ }
+  } else {
+    engine.setVolume(state.volume / 10);
   }
 }, () => persistFace());
 

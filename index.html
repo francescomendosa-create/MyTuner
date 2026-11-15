@@ -140,17 +140,12 @@ window.__onGCastApiAvailable = function (isAvailable) {
           <div class="lbl compact">PRESET</div>
           <button type="button" class="key" id="btnPreset" aria-label="Memorie. Tieni premuto per salvare."></button>
         </div>
+        <div class="mode">
+          <div class="lbl compact" id="lblCast">CAST</div>
+          <button type="button" class="key cast" id="btnCast" aria-label="Trasmetti a Google Home" aria-pressed="false"></button>
+        </div>
       </div>
     </section>
-
-    <div class="cast-bar">
-      <button type="button" class="cast-btn" id="btnCast" aria-label="Trasmetti a Google Home" aria-pressed="false">
-        <svg class="cast-ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M1 18v3h3a3 3 0 0 0-3-3zm0-4v2a5 5 0 0 1 5 5h2a7 7 0 0 0-7-7zm0-4v2a9 9 0 0 1 9 9h2c0-6.08-4.92-11-11-11zM21 3H3v2h18v12h-7v2h9V3z"/>
-        </svg>
-        <span class="cast-txt" id="lblCast">CAST · Google Home</span>
-      </button>
-    </div>
   </div>
   <div class="vignette" aria-hidden="true"></div>
 </div>
