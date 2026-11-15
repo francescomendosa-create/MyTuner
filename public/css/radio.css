@@ -6,7 +6,7 @@
   --gold-deep: #8a6f38;
   --ink: #101010;
   --label: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --vfd: Rajdhani, "Segoe UI", sans-serif;
+  --vfd: "Share Tech Mono", ui-monospace, monospace;
   color-scheme: dark;
 }
 
@@ -234,11 +234,11 @@ button { font: inherit; color: inherit; }
 .band-tag {
   align-self: center;
   font-family: var(--vfd);
-  font-weight: 600;
-  font-size: clamp(13px, 1.35vw, 18px);
-  letter-spacing: 0.06em;
-  color: #7ef6ee;
-  text-shadow: 0 0 8px rgba(40, 230, 210, 0.75);
+  font-weight: 400;
+  font-size: clamp(12px, 1.2vw, 16px);
+  letter-spacing: 0.08em;
+  color: #6ee8e0;
+  text-shadow: 0 0 6px rgba(40, 230, 210, 0.55);
 }
 
 .band-body {
@@ -262,7 +262,6 @@ button { font: inherit; color: inherit; }
 
 .needle {
   position: absolute;
-  top: 34%;
   left: 50%;
   width: 0;
   height: 0;
@@ -279,42 +278,54 @@ button { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
+#bandFm .needle { top: 58%; }
+#bandAm .needle { top: 22%; }
+
 .needle::after { content: none; }
 
 .readout {
   position: absolute;
   left: 50%;
-  top: 46%;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.16em;
+  gap: 0.14em;
   z-index: 3;
   pointer-events: none;
 }
 
+/* Foto: FM grande sopra la riga, AM grande sotto la riga */
+#bandFm .readout {
+  top: 6%;
+  transform: translateX(-50%);
+}
+
+#bandAm .readout {
+  top: 58%;
+  transform: translateX(-50%);
+}
+
 .freq {
   font-family: var(--vfd);
-  font-weight: 600;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(28px, 26cqh, 54px);
-  line-height: 0.8;
-  letter-spacing: 0.01em;
-  color: #3ee0d4;
+  font-size: clamp(26px, 24cqh, 48px);
+  line-height: 0.82;
+  letter-spacing: 0.06em;
+  color: #5fe8de;
   text-shadow:
-    0 0 6px rgba(40, 255, 230, 0.95),
-    0 0 14px rgba(0, 190, 170, 0.55);
+    0 0 4px rgba(60, 255, 235, 0.7),
+    0 0 10px rgba(0, 180, 165, 0.4);
 }
 
 .unit {
   font-family: var(--vfd);
-  font-weight: 600;
-  font-size: 0.34em;
-  letter-spacing: 0.04em;
-  color: #6ef3ea;
-  text-shadow: 0 0 6px rgba(40, 230, 210, 0.7);
-  transform: translateY(-0.02em);
+  font-weight: 400;
+  font-size: 0.32em;
+  letter-spacing: 0.08em;
+  color: #6ee8e0;
+  text-shadow: 0 0 5px rgba(40, 230, 210, 0.55);
+  transform: translateY(-0.05em);
 }
 
 /* Come nel prototipo: entrambe le bande illuminate; ago solo sulla attiva */
@@ -1103,7 +1114,7 @@ audio {
   .tune-bridge::after { width: 28vw; }
   .knob-slot { width: min(22vh, 46vw, 220px); }
   .vol-wrap { width: min(18vh, 34vw, 180px); }
-  .freq { font-size: clamp(24px, 7vw, 44px); }
+  .freq { font-size: clamp(22px, 6.2vw, 40px); font-weight: 400; }
 }
 
 @media (max-height: 720px) and (orientation: landscape) {
@@ -1112,6 +1123,94 @@ audio {
   .lamp { width: clamp(46px, 5.8vw, 64px); padding: 10px; }
   .knob-slot { width: min(28vh, 24vw, 220px); }
   .vol-wrap { width: min(22vh, 18vw, 170px); }
+}
+
+/* iPhone / iOS: stereo intero a schermo, safe area, layout compatto */
+.is-ios .radio {
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(6px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom))
+    max(6px, env(safe-area-inset-left));
+}
+
+.is-ios .chassis {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 4px;
+}
+
+.is-ios .panel {
+  grid-template-rows: minmax(0, 0.62fr) minmax(0, 1fr);
+  gap: 2.2%;
+  padding: 3.2% 3.6% 2.8%;
+}
+
+.is-ios .freq {
+  font-size: clamp(18px, 5.2vw, 36px);
+  font-weight: 400;
+}
+
+.is-ios .lamp {
+  width: clamp(40px, 11vw, 58px);
+  padding: 6px;
+}
+
+.is-ios .knob-slot {
+  width: min(28vh, 34vw, 180px);
+}
+
+.is-ios .vol-wrap {
+  width: min(22vh, 28vw, 140px);
+}
+
+.is-ios .key-well {
+  width: clamp(30px, 8vw, 40px);
+}
+
+.is-ios .key {
+  width: clamp(18px, 5vw, 26px);
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .is-ios .panel {
+    grid-template-rows: minmax(0, 0.78fr) minmax(0, 1.05fr);
+    gap: 1.5%;
+    padding: 2% 2.4% 1.8%;
+  }
+  .is-ios .controls {
+    grid-template-columns: 0.38fr 0.85fr 1fr 0.85fr;
+    gap: 4px;
+  }
+  .is-ios .freq { font-size: clamp(16px, 3.6vw, 28px); }
+  .is-ios .mode-extra { gap: 8px; }
+  .is-ios .lbl { font-size: clamp(9px, 1.6vw, 12px); letter-spacing: 0.16em; }
+  .is-ios .lbl.compact { font-size: clamp(7px, 1.3vw, 9px); }
+}
+
+@media (max-width: 500px) and (orientation: portrait) {
+  .is-ios .panel {
+    grid-template-rows: 28% minmax(0, 1fr);
+    gap: 8px;
+  }
+  .is-ios .glass {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1.1fr 0.9fr;
+  }
+  .is-ios .controls {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "power volume"
+      "tune tune"
+      "modes modes";
+  }
+  .is-ios .power-stack { grid-area: power; }
+  .is-ios .vol-group { grid-area: volume; }
+  .is-ios .tune-group { grid-area: tune; }
+  .is-ios .modes { grid-area: modes; width: 100%; }
+  .is-ios .tune-bridge { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

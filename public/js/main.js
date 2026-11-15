@@ -55,6 +55,10 @@ const lblStereo = document.getElementById('lblStereo');
 const lblAuto = document.getElementById('lblAuto');
 const lblCast = document.getElementById('lblCast');
 const audio = document.getElementById('player');
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (isIOS) document.documentElement.classList.add('is-ios');
+try { audio.crossOrigin = 'anonymous'; } catch (e) { /* ignore */ }
 
 const castUi = {
   ready: false,
@@ -117,8 +121,10 @@ function createEngine(media) {
       if (eng.ctx.state === 'suspended') eng.ctx.resume();
       return;
     }
-    const ctx = new AudioContext();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
     eng.ctx = ctx;
+    try { media.crossOrigin = 'anonymous'; } catch (e) { /* ignore */ }
     const source = ctx.createMediaElementSource(media);
     const signal = ctx.createGain();
     const noiseGain = ctx.createGain();
@@ -900,10 +906,12 @@ function bindScale(el) {
   el.addEventListener('pointercancel', end);
 }
 
-function drawScale(svg, { min, max, step, labels, unit }) {
+function drawScale(svg, { min, max, step, labels, unit, align = 'bottom' }) {
   const ns = 'http://www.w3.org/2000/svg';
   const width = 1000;
-  const height = 80;
+  const height = 100;
+  const baseY = align === 'top' ? 28 : 72;
+  const labelY = align === 'top' ? 16 : 58;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.replaceChildren();
   const xOf = (freq) => ((freq - min) / (max - min)) * width;
@@ -911,9 +919,9 @@ function drawScale(svg, { min, max, step, labels, unit }) {
   const baseline = document.createElementNS(ns, 'line');
   baseline.setAttribute('x1', '0');
   baseline.setAttribute('x2', String(width));
-  baseline.setAttribute('y1', '34');
-  baseline.setAttribute('y2', '34');
-  baseline.setAttribute('stroke', 'rgba(90, 230, 220, 0.45)');
+  baseline.setAttribute('y1', String(baseY));
+  baseline.setAttribute('y2', String(baseY));
+  baseline.setAttribute('stroke', 'rgba(90, 230, 220, 0.4)');
   baseline.setAttribute('stroke-width', '1');
   svg.appendChild(baseline);
 
@@ -924,35 +932,35 @@ function drawScale(svg, { min, max, step, labels, unit }) {
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
-    line.setAttribute('y1', major ? '22' : '27');
-    line.setAttribute('y2', '34');
-    line.setAttribute('stroke', major ? '#8ef6ee' : '#4ecfc6');
-    line.setAttribute('stroke-width', major ? '1.4' : '0.8');
-    line.setAttribute('opacity', major ? '0.9' : '0.4');
+    line.setAttribute('y1', String(major ? baseY - 12 : baseY - 6));
+    line.setAttribute('y2', String(baseY));
+    line.setAttribute('stroke', major ? '#7ee8e0' : '#4abbb3');
+    line.setAttribute('stroke-width', major ? '1.2' : '0.7');
+    line.setAttribute('opacity', major ? '0.85' : '0.35');
     svg.appendChild(line);
     if (!major) continue;
     const nx = x / width;
     if (nx > 0.32 && nx < 0.68) continue;
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', x);
-    text.setAttribute('y', '16');
+    text.setAttribute('y', String(labelY));
     text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('fill', '#7eefe6');
-    text.setAttribute('font-size', '15');
-    text.setAttribute('font-family', 'Rajdhani, Segoe UI, sans-serif');
-    text.setAttribute('font-weight', '600');
+    text.setAttribute('fill', '#6edfd6');
+    text.setAttribute('font-size', '14');
+    text.setAttribute('font-family', 'Share Tech Mono, monospace');
+    text.setAttribute('font-weight', '400');
     text.textContent = String(Math.round(rounded));
     svg.appendChild(text);
   }
   if (unit) {
     const end = document.createElementNS(ns, 'text');
     end.setAttribute('x', String(width - 2));
-    end.setAttribute('y', '16');
+    end.setAttribute('y', String(labelY));
     end.setAttribute('text-anchor', 'end');
-    end.setAttribute('fill', '#7eefe6');
-    end.setAttribute('font-size', '15');
-    end.setAttribute('font-family', 'Rajdhani, Segoe UI, sans-serif');
-    end.setAttribute('font-weight', '600');
+    end.setAttribute('fill', '#6edfd6');
+    end.setAttribute('font-size', '14');
+    end.setAttribute('font-family', 'Share Tech Mono, monospace');
+    end.setAttribute('font-weight', '400');
     end.textContent = unit;
     svg.appendChild(end);
   }
@@ -999,21 +1007,36 @@ function frame(now) {
   requestAnimationFrame(frame);
   if (!castUi.casting) engine.flutter(now);
   const powered = state.power && !state.stopped && !castUi.casting;
-  if (engine.ready && powered) engine.analyser.getByteFrequencyData(engine.bins);
+  if (engine.ready && powered) {
+    if (engine.ctx.state === 'suspended') engine.ctx.resume().catch(() => {});
+    engine.analyser.getByteFrequencyData(engine.bins);
+  }
   const raw = new Array(SPEC.length).fill(0);
   let frameMax = 0.08;
+  let heardSum = 0;
   if (powered && engine.ready && engine.bins) {
     for (let i = 0; i < SPEC.length; i += 1) {
       raw[i] = bandEnergy(engine.bins, SPEC[i].hz, engine.ctx.sampleRate);
+      heardSum += raw[i];
       if (raw[i] > frameMax) frameMax = raw[i];
     }
   }
+  /* iOS: se l'analyser resta muto ma stiamo riproducendo, anima uno spettro sintetico */
+  const playing = powered && (!audio.paused || Boolean(engine.currentUrl));
+  const needFake = powered && heardSum < 0.04 && playing;
+  const t = now * 0.001;
   for (let i = 0; i < SPEC.length; i += 1) {
     let level = 0;
-    if (powered && engine.ready && engine.bins) {
-      const relative = raw[i] / frameMax;
-      const shaped = Math.pow(Math.max(0, relative), 1.35);
-      level = Math.max(0.03, Math.min(0.92, shaped * 0.9 + raw[i] * 0.35));
+    if (powered) {
+      if (needFake) {
+        const wave = 0.22 + 0.35 * Math.abs(Math.sin(t * (1.3 + i * 0.37) + i))
+          + 0.18 * Math.abs(Math.sin(t * 2.1 + i * 0.9));
+        level = Math.min(0.88, wave * (0.55 + state.volume / 16));
+      } else if (engine.ready && engine.bins) {
+        const relative = raw[i] / frameMax;
+        const shaped = Math.pow(Math.max(0, relative), 1.35);
+        level = Math.max(0.03, Math.min(0.92, shaped * 0.9 + raw[i] * 0.35));
+      }
     }
     peaks[i] = Math.max(level, peaks[i] * 0.965);
     fills[i].style.transform = `scaleY(${level})`;
@@ -1266,14 +1289,16 @@ drawScale(document.getElementById('scaleFm'), {
   max: FM.max,
   step: 0.5,
   labels: [88, 92, 96, 100, 104, 108],
-  unit: 'MHz'
+  unit: 'MHz',
+  align: 'bottom'
 });
 drawScale(document.getElementById('scaleAm'), {
   min: AM.min,
   max: AM.max,
   step: 10,
   labels: [530, 600, 700, 800, 900, 1000, 1200, 1400, 1600],
-  unit: 'kHz'
+  unit: 'kHz',
+  align: 'top'
 });
 
 placeVolumeNumbers();
