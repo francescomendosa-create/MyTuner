@@ -14,7 +14,7 @@
 <meta name="application-name" content="MyTuner">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500&family=Orbitron:wght@500;600&family=Share+Tech+Mono&display=swap">
 <link rel="stylesheet" href="css/radio.css">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
@@ -100,7 +100,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
         </div>
 
         <div class="group vol-group">
-          <div class="lbl">VOLUME</div>
+          <div class="lbl-row"><div class="lbl">VOLUME</div></div>
           <div class="vol-wrap" id="volWrap">
             <div class="vol-ticks" id="volTicks" aria-hidden="true"></div>
             <div class="vol-nums" id="volNums"></div>
@@ -119,16 +119,18 @@ window.__onGCastApiAvailable = function (isAvailable) {
         </div>
 
         <div class="group tune-group">
-          <div class="tune-heading">
+          <div class="lbl-row">
             <div class="lbl">TUNING</div>
             <i class="tune-led" aria-hidden="true"></i>
+            <span class="tune-rule" aria-hidden="true"></span>
           </div>
           <div class="knob-slot">
             <div class="tune-ring" aria-hidden="true"></div>
             <div class="knob-well tune-well">
               <div class="knob tune" id="tuneKnob" role="slider" aria-label="Sintonia" tabindex="0">
                 <div class="knurl"></div>
-                <div class="rim"></div>
+                <div class="gold-outer"></div>
+                <div class="black-ring"></div>
                 <div class="cap">
                   <i class="cap-rings" aria-hidden="true"></i>
                 </div>
@@ -139,6 +141,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
         </div>
 
         <div class="group modes">
+          <div class="modes-frame" aria-hidden="true"></div>
           <div class="mode">
             <div class="lbl compact" id="lblBand"><span class="is-active" data-v="fm">FM</span>/<span data-v="am">AM</span></div>
             <div class="key-well"><button type="button" class="key" id="btnBand" aria-label="FM o AM"></button></div>

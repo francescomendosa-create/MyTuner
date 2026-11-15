@@ -3,14 +3,14 @@ const AM = { min: 520, max: 1620, win: 18, turn: 170 };
 
 const SPEC = [
   { hz: 63, label: '63Hz' },
-  { hz: 125, label: '125Hz' },
+  { hz: 100, label: '100Hz' },
+  { hz: 160, label: '160Hz' },
   { hz: 250, label: '250Hz' },
   { hz: 500, label: '500Hz' },
   { hz: 1000, label: '1kHz' },
   { hz: 2000, label: '2kHz' },
   { hz: 4000, label: '4kHz' },
   { hz: 8000, label: '8kHz' },
-  { hz: 12000, label: '12kHz' },
   { hz: 16000, label: '16kHz' }
 ];
 
@@ -937,7 +937,7 @@ function drawScale(svg, { min, max, step, labels }) {
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('fill', '#d9fff8');
     text.setAttribute('font-size', '17');
-    text.setAttribute('font-family', 'Oswald, Arial Narrow, sans-serif');
+    text.setAttribute('font-family', 'Orbitron, Share Tech Mono, monospace');
     text.setAttribute('letter-spacing', '0.04em');
     text.textContent = String(Math.round(rounded));
     svg.appendChild(text);
