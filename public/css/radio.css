@@ -184,16 +184,16 @@ button { font: inherit; color: inherit; }
   position: absolute;
   left: 0;
   right: 0;
-  top: 6%;
+  top: 4%;
   width: 100%;
-  height: 58%;
+  height: 44%;
   overflow: visible;
   filter: drop-shadow(0 0 3px rgba(110, 255, 235, 0.35));
 }
 
 .needle {
   position: absolute;
-  top: 2%;
+  top: 1%;
   left: 50%;
   width: 0;
   height: 0;
@@ -208,37 +208,46 @@ button { font: inherit; color: inherit; }
 .readout {
   position: absolute;
   left: 50%;
-  top: 46%;
-  transform: translate(-50%, -42%);
+  top: 58%;
+  transform: translate(-50%, -20%);
   display: flex;
   align-items: baseline;
-  gap: 0.28em;
+  justify-content: center;
+  gap: 0.22em;
   z-index: 2;
   pointer-events: none;
-  padding: 0 0.35em;
-  background: radial-gradient(closest-side, rgba(4, 10, 12, 0.94), rgba(4, 10, 12, 0.55) 72%, transparent);
+  padding: 0.12em 0.55em 0.18em;
+  border-radius: 6px;
+  border: 1px solid rgba(90, 220, 210, 0.22);
+  background:
+    linear-gradient(180deg, rgba(2, 18, 16, 0.96), rgba(0, 8, 10, 0.98));
+  box-shadow:
+    inset 0 0 18px rgba(40, 255, 230, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
 .freq {
-  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-family: "Share Tech Mono", "Courier New", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(28px, 4.7vw, 70px);
-  line-height: 0.85;
-  letter-spacing: 0.03em;
-  color: var(--cyan);
+  font-size: clamp(38px, 6.4vw, 96px);
+  line-height: 0.9;
+  letter-spacing: 0.1em;
+  color: #e8fffb;
   text-shadow:
-    0 0 4px #ffffff,
-    0 0 10px #7dfff2,
-    0 0 22px rgba(70, 255, 230, 0.8),
-    0 0 46px rgba(30, 170, 160, 0.35);
+    0 0 2px #ffffff,
+    0 0 8px #9efff4,
+    0 0 18px rgba(60, 255, 230, 0.95),
+    0 0 36px rgba(20, 180, 160, 0.45);
 }
 
 .unit {
-  font-family: Oswald, "Arial Narrow", sans-serif;
-  font-size: 0.32em;
-  letter-spacing: 0.16em;
-  color: #d5fff8;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.28em;
+  letter-spacing: 0.18em;
+  color: #b8fff6;
   text-shadow: 0 0 8px rgba(120, 255, 240, 0.65);
+  transform: translateY(-0.15em);
 }
 
 .band:not(.is-active) .freq,
@@ -791,11 +800,13 @@ audio {
   .modes { grid-area: modes; width: 100%; grid-template-columns: repeat(4, 1fr); }
   .knob-slot { width: min(22vh, 46vw, 220px); }
   .vol-wrap { width: min(18vh, 34vw, 180px); }
-  .freq { font-size: clamp(26px, 8vw, 52px); }
+  .freq { font-size: clamp(34px, 9.5vw, 64px); }
+  .readout { top: 60%; }
 }
 
 @media (max-height: 720px) and (orientation: landscape) {
-  .freq { font-size: clamp(24px, 4vw, 48px); }
+  .freq { font-size: clamp(34px, 5.6vw, 78px); }
+  .readout { top: 58%; }
   .lamp { width: clamp(46px, 6vw, 64px); }
   .knob-slot { width: min(30vh, 26vw, 220px); }
   .vol-wrap { width: min(24vh, 20vw, 180px); }

@@ -72,7 +72,8 @@ const castUi = {
 
 const saved = readJSON('radio-face-v1', null);
 const state = {
-  power: true,
+  // All'apertura parte sempre spenta: si accende solo con POWER
+  power: false,
   stopped: false,
   band: saved?.band === 'am' ? 'am' : 'fm',
   fm: clamp(Number(saved?.fm) || 98.1, FM.min, FM.max),
@@ -718,17 +719,23 @@ function setPower(on) {
     state.locked = null;
     engine.silence();
     engine.pause();
+    try { audio.pause(); } catch (e) { /* ignore */ }
     if (castUi.casting) {
       try { cast.framework.CastContext.getInstance().endCurrentSession(true); } catch (e) { /* ignore */ }
     }
     paintDial();
+    persistFace();
     return;
   }
+  engine.start();
+  engine.setVolume(state.volume / 10);
+  engine.setTone(state.bass, state.treble);
   glass.classList.remove('flick');
   void glass.offsetWidth;
   glass.classList.add('flick');
   paintDial();
-  if (engine.ready) settleTune();
+  settleTune();
+  persistFace();
 }
 
 function toggleStop() {
