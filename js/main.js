@@ -931,6 +931,8 @@ function drawScale(svg, { min, max, step, labels }) {
     line.setAttribute('opacity', major ? '0.95' : '0.45');
     svg.appendChild(line);
     if (!major) continue;
+    const nx = x / width;
+    if (nx > 0.34 && nx < 0.66) continue;
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', x);
     text.setAttribute('y', '16');
