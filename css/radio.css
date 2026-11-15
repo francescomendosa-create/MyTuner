@@ -488,10 +488,13 @@ button { font: inherit; color: inherit; }
   border: 0;
   border-radius: 12px;
   cursor: pointer;
-  background: linear-gradient(180deg, #4a4a4a, #161616 55%, #3a3a3a);
+  background:
+    linear-gradient(180deg, #5a5a5a 0%, #2a2a2a 18%, #101010 55%, #3a3a3a 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 8px 12px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.55),
+    0 10px 16px rgba(0, 0, 0, 0.6),
+    0 2px 0 #050505;
 }
 
 .lamp span {
@@ -499,25 +502,14 @@ button { font: inherit; color: inherit; }
   width: 100%;
   height: 100%;
   border-radius: 7px;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.lamp.power span {
-  background: radial-gradient(circle at 40% 32%, #1c3320, #0c1a10 72%);
-  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.75);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
 
 .lamp.stop span {
   background: radial-gradient(circle at 40% 32%, #3a1818, #1a0c0c 72%);
-  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.75);
-}
-
-.radio.is-on .lamp.power span {
-  background: radial-gradient(circle at 40% 32%, #eaffdf 0%, #7dff63 28%, #1ed63a 58%, #06781c 100%);
   box-shadow:
-    0 0 14px #3dff57,
-    0 0 28px rgba(40, 255, 80, 0.45),
-    inset 0 0 10px rgba(255, 255, 255, 0.45);
+    inset 0 4px 10px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .radio.is-on .lamp.stop span {
@@ -535,7 +527,136 @@ button { font: inherit; color: inherit; }
     inset 0 4px 8px rgba(0, 0, 0, 0.25);
 }
 
+.lamp:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 8px rgba(0, 0, 0, 0.55);
+}
+
 .lamp:active span { transform: scale(0.97); }
+
+/* Interruttore a bilanciere POWER — stile anni 80 */
+.rocker {
+  width: clamp(58px, 7.4vw, 86px);
+  height: clamp(86px, 12vh, 118px);
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, #4e4e4e 0%, #1c1c1c 40%, #0a0a0a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 10px 16px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505;
+}
+
+.rocker-well {
+  display: block;
+  height: 100%;
+  margin: 6px;
+  border-radius: 7px;
+  background: #050505;
+  box-shadow:
+    inset 0 6px 12px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.rocker-face {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  height: 100%;
+  transform-origin: 50% 50%;
+  transition: transform 0.18s ease;
+  background:
+    linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 48%, #101010 52%, #2a2a2a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.65);
+}
+
+.rocker-half {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Oswald, "Arial Narrow", sans-serif;
+  font-size: clamp(10px, 1.05vw, 13px);
+  letter-spacing: 0.18em;
+  color: #7a7568;
+}
+
+.rocker-half.on {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.65);
+  box-shadow: inset 0 -8px 12px rgba(0, 0, 0, 0.25);
+}
+
+.rocker-half.off {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 10px 14px rgba(0, 0, 0, 0.35);
+}
+
+.rocker-half i {
+  position: absolute;
+  left: 10%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.rocker-half.on i {
+  top: 18%;
+}
+
+.rocker-half.off i {
+  bottom: 18%;
+}
+
+/* OFF: bilanciere premuto in basso */
+.rocker .rocker-face {
+  transform: perspective(180px) rotateX(-14deg) translateY(3px);
+}
+
+.rocker .rocker-half.off {
+  color: #b0a890;
+}
+
+.rocker .rocker-half.off i {
+  background: #3a1515;
+  box-shadow: inset 0 0 4px #000;
+}
+
+/* ON: bilanciere premuto in alto + luce verde */
+.radio.is-on .rocker .rocker-face {
+  transform: perspective(180px) rotateX(14deg) translateY(-3px);
+}
+
+.radio.is-on .rocker .rocker-half.on {
+  color: #eaffea;
+  text-shadow: 0 0 8px rgba(80, 255, 100, 0.7);
+}
+
+.radio.is-on .rocker .rocker-half.on i {
+  background: radial-gradient(circle at 40% 35%, #f2ffe8, #5dff5a 45%, #0a8a18 100%);
+  box-shadow:
+    0 0 8px #3dff57,
+    0 0 16px rgba(40, 255, 80, 0.55);
+}
+
+.radio.is-on .rocker .rocker-half.off {
+  color: #555248;
+}
+
+.radio.is-on .rocker {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 14px rgba(40, 255, 80, 0.18),
+    0 10px 16px rgba(0, 0, 0, 0.65);
+}
 
 .vol-wrap {
   position: relative;
@@ -630,14 +751,19 @@ button { font: inherit; color: inherit; }
   font-size: clamp(12px, 1.2vw, 15px);
   letter-spacing: 0.12em;
   color: var(--gold-hot);
-  background: linear-gradient(180deg, #3a3a3a, #121212 55%, #2c2c2c);
+  background: linear-gradient(180deg, #4a4a4a, #1a1a1a 45%, #0c0c0c 70%, #2a2a2a 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 6px 10px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.55),
+    0 7px 12px rgba(0, 0, 0, 0.55),
+    0 2px 0 #050505;
 }
 
 .ch-btn:active {
-  transform: translateY(1px) scale(0.97);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.65),
+    0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
 .knob.tune {
@@ -733,11 +859,12 @@ button { font: inherit; color: inherit; }
   border-radius: 50%;
   cursor: pointer;
   background:
-    radial-gradient(circle at 35% 30%, #6d6d6d, #2a2a2a 40%, #0c0c0c 74%);
+    radial-gradient(circle at 32% 28%, #8a8a8a, #3a3a3a 34%, #151515 68%, #050505 100%);
   box-shadow:
-    0 7px 8px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px rgba(255, 255, 255, 0.4),
-    inset 0 -6px 8px rgba(0, 0, 0, 0.55);
+    0 8px 12px rgba(0, 0, 0, 0.65),
+    0 2px 0 #050505,
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -8px 10px rgba(0, 0, 0, 0.55);
 }
 
 .key.is-lit {
@@ -749,21 +876,30 @@ button { font: inherit; color: inherit; }
 
 .key:active { transform: translateY(1px) scale(0.97); }
 
-.radio:not(.is-on) .freq,
-.radio:not(.is-on) .unit,
-.radio:not(.is-on) .band-tag,
-.radio:not(.is-on) .station,
-.radio:not(.is-on) .scale,
-.radio:not(.is-on) .needle,
+.radio:not(.is-on) .dial,
 .radio:not(.is-on) .spec,
-.radio:not(.is-on) .eq-label {
+.radio:not(.is-on) .eq,
+.radio:not(.is-on) .readout,
+.radio:not(.is-on) .station,
+.radio:not(.is-on) .glass-reflect {
   opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
-.radio:not(.is-on) .mini { filter: brightness(0.45); }
 .radio:not(.is-on) .glass {
-  background: #050607;
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+  background: #020303;
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.radio:not(.is-on) .glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.03), transparent 55%);
+  pointer-events: none;
 }
 
 :focus-visible {

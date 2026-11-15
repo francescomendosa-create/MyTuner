@@ -707,7 +707,35 @@ function setBand(band) {
   settleTune();
 }
 
+let switchClickCtx = null;
+function playSwitchClick() {
+  try {
+    switchClickCtx = switchClickCtx || new AudioContext();
+    const ac = switchClickCtx;
+    if (ac.state === 'suspended') ac.resume();
+    const t0 = ac.currentTime;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    const filter = ac.createBiquadFilter();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(190, t0);
+    osc.frequency.exponentialRampToValueAtTime(65, t0 + 0.045);
+    filter.type = 'bandpass';
+    filter.frequency.value = 850;
+    filter.Q.value = 0.8;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.14, t0 + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.055);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.07);
+  } catch (e) { /* click non essenziale */ }
+}
+
 function setPower(on) {
+  const was = state.power;
   state.power = on;
   state.stopped = false;
   radio.classList.toggle('is-on', on);
@@ -715,6 +743,7 @@ function setPower(on) {
   btnPower.setAttribute('aria-pressed', String(on));
   btnStop.setAttribute('aria-pressed', 'false');
   cancelAfc();
+  if (was !== on) playSwitchClick();
   if (!on) {
     state.locked = null;
     engine.silence();
@@ -1111,7 +1140,11 @@ volKnob.addEventListener('wheel', (event) => {
   persistFace();
 }, { passive: false });
 
-btnPower.addEventListener('click', () => setPower(!state.power));
+btnPower.addEventListener('click', (event) => {
+  if (event.target.closest('.rocker-half.on')) setPower(true);
+  else if (event.target.closest('.rocker-half.off')) setPower(false);
+  else setPower(!state.power);
+});
 btnStop.addEventListener('click', () => toggleStop());
 btnCast?.addEventListener('click', () => toggleCast());
 document.getElementById('btnChUp')?.addEventListener('click', () => {
