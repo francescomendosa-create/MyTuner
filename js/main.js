@@ -5,18 +5,12 @@ const SPEC = [
   { hz: 63, label: '63Hz' },
   { hz: 125, label: '125Hz' },
   { hz: 250, label: '250Hz' },
-  { hz: 400, label: '' },
   { hz: 500, label: '500Hz' },
-  { hz: 800, label: '' },
   { hz: 1000, label: '1kHz' },
-  { hz: 1600, label: '' },
   { hz: 2000, label: '2kHz' },
-  { hz: 3000, label: '' },
   { hz: 4000, label: '4kHz' },
-  { hz: 6000, label: '' },
   { hz: 8000, label: '8kHz' },
-  { hz: 10000, label: '' },
-  { hz: 12000, label: '' },
+  { hz: 12000, label: '12kHz' },
   { hz: 16000, label: '16kHz' }
 ];
 
@@ -46,8 +40,6 @@ const bandFm = document.getElementById('bandFm');
 const bandAm = document.getElementById('bandAm');
 const tuneKnob = document.getElementById('tuneKnob');
 const volKnob = document.getElementById('volKnob');
-const bassKnob = document.getElementById('bassKnob');
-const trebleKnob = document.getElementById('trebleKnob');
 const volNums = document.getElementById('volNums');
 const barsHost = document.getElementById('bars');
 const specLabels = document.getElementById('specLabels');
@@ -152,7 +144,7 @@ function createEngine(media) {
     comp.attack.value = 0.012;
     comp.release.value = 0.22;
     analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.78;
+    analyser.smoothingTimeConstant = 0.52;
 
     const noise = ctx.createBufferSource();
     noise.buffer = noiseBuffer(ctx);
@@ -411,10 +403,7 @@ function paintVolume() {
 }
 
 function paintEq() {
-  bassKnob.style.transform = `rotate(${(state.bass / 12) * 135}deg)`;
-  trebleKnob.style.transform = `rotate(${(state.treble / 12) * 135}deg)`;
-  bassKnob.setAttribute('aria-valuenow', state.bass.toFixed(1));
-  trebleKnob.setAttribute('aria-valuenow', state.treble.toFixed(1));
+  /* Bass/Treble UI rimossa: resta solo il tono nel motore audio */
 }
 
 function markActive(root, value) {
@@ -966,13 +955,19 @@ function buildSpectrum() {
 
 function bandEnergy(bins, hz, sampleRate) {
   const nyquist = sampleRate / 2;
-  const half = hz * 0.35;
+  const half = Math.max(hz * 0.28, 40);
   const i0 = clamp(Math.floor(((hz - half) / nyquist) * bins.length), 0, bins.length - 1);
   const i1 = clamp(Math.ceil(((hz + half) / nyquist) * bins.length), i0, bins.length - 1);
   let sum = 0;
-  for (let i = i0; i <= i1; i += 1) sum += bins[i];
+  let peak = 0;
+  for (let i = i0; i <= i1; i += 1) {
+    const v = bins[i];
+    sum += v;
+    if (v > peak) peak = v;
+  }
   const avg = sum / ((i1 - i0 + 1) * 255);
-  return Math.pow(avg, 0.7);
+  const pk = peak / 255;
+  return avg * 0.55 + pk * 0.45;
 }
 
 function frame(now) {
@@ -980,13 +975,22 @@ function frame(now) {
   if (!castUi.casting) engine.flutter(now);
   const powered = state.power && !state.stopped && !castUi.casting;
   if (engine.ready && powered) engine.analyser.getByteFrequencyData(engine.bins);
-  for (let i = 0; i < SPEC.length; i += 1) {
-    let level = powered ? 0.045 : 0;
-    if (powered && engine.ready && engine.bins) {
-      const heard = bandEnergy(engine.bins, SPEC[i].hz, engine.ctx.sampleRate);
-      level = Math.max(0.045, Math.min(1, heard * 1.55));
+  const raw = new Array(SPEC.length).fill(0);
+  let frameMax = 0.08;
+  if (powered && engine.ready && engine.bins) {
+    for (let i = 0; i < SPEC.length; i += 1) {
+      raw[i] = bandEnergy(engine.bins, SPEC[i].hz, engine.ctx.sampleRate);
+      if (raw[i] > frameMax) frameMax = raw[i];
     }
-    peaks[i] = Math.max(level, peaks[i] * 0.97);
+  }
+  for (let i = 0; i < SPEC.length; i += 1) {
+    let level = 0;
+    if (powered && engine.ready && engine.bins) {
+      const relative = raw[i] / frameMax;
+      const shaped = Math.pow(Math.max(0, relative), 1.35);
+      level = Math.max(0.03, Math.min(0.92, shaped * 0.9 + raw[i] * 0.35));
+    }
+    peaks[i] = Math.max(level, peaks[i] * 0.965);
     fills[i].style.transform = `scaleY(${level})`;
     caps[i].style.bottom = `calc(${peaks[i] * 100}% - 2px)`;
   }
@@ -1091,34 +1095,6 @@ bindKnob(volKnob, (delta) => {
     engine.setVolume(state.volume / 10);
   }
 }, () => persistFace());
-
-bindKnob(bassKnob, (delta) => {
-  const full = (270 * Math.PI) / 180;
-  state.bass = clamp(state.bass + (delta / full) * 24, -12, 12);
-  paintEq();
-  engine.setTone(state.bass, state.treble);
-}, (moved) => {
-  if (moved && Math.abs(state.bass) < 0.6) {
-    state.bass = 0;
-    paintEq();
-    engine.setTone(state.bass, state.treble);
-  }
-  persistFace();
-});
-
-bindKnob(trebleKnob, (delta) => {
-  const full = (270 * Math.PI) / 180;
-  state.treble = clamp(state.treble + (delta / full) * 24, -12, 12);
-  paintEq();
-  engine.setTone(state.bass, state.treble);
-}, (moved) => {
-  if (moved && Math.abs(state.treble) < 0.6) {
-    state.treble = 0;
-    paintEq();
-    engine.setTone(state.bass, state.treble);
-  }
-  persistFace();
-});
 
 for (const scale of document.querySelectorAll('.band-body')) bindScale(scale);
 
