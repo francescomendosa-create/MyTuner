@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mytuner
+    runtime: node
+    plan: free
+    buildCommand: "npm install --omit=dev || true"
+    startCommand: "node --use-system-ca server.js"
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

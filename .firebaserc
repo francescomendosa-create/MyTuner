@@ -1,0 +1,16 @@
+{
+  "projects": {
+    "default": "servicehub-18309",
+    "mytuner": "mytuner-fr-2026"
+  },
+  "targets": {
+    "servicehub-18309": {
+      "hosting": {
+        "mytuner": [
+          "mytuner"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

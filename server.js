@@ -23,7 +23,7 @@ const { URL } = require('url');
 
 const ROOT = __dirname;
 const UA = 'MyTuner/1.0 (local web radio)';
-const PORT0 = 4789;
+const PORT0 = Number(process.env.PORT) || 4789;
 const API = 'https://de1.api.radio-browser.info/json/stations/search';
 
 const FALLBACK = {

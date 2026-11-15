@@ -1,4 +1,5 @@
 node_modules/
+functions/node_modules/
 .DS_Store
 Thumbs.db
 *.log
@@ -7,3 +8,7 @@ _preview/
 .env.*
 .vscode/
 .idea/
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
