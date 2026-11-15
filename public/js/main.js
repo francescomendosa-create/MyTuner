@@ -57,10 +57,17 @@ const btnBand = document.getElementById('btnBand');
 const btnMono = document.getElementById('btnMono');
 const btnAuto = document.getElementById('btnAuto');
 const btnPreset = document.getElementById('btnPreset');
+const btnCast = document.getElementById('btnCast');
 const lblBand = document.getElementById('lblBand');
 const lblStereo = document.getElementById('lblStereo');
 const lblAuto = document.getElementById('lblAuto');
+const lblCast = document.getElementById('lblCast');
 const audio = document.getElementById('player');
+
+const castUi = {
+  ready: false,
+  casting: false
+};
 
 const saved = readJSON('radio-face-v1', null);
 const state = {
@@ -250,6 +257,12 @@ function createEngine(media) {
       if (eng.currentUrl === url && !media.paused && media.readyState >= 2) return;
       eng.currentUrl = url;
       eng.blocked = false;
+      if (castUi.casting) {
+        media.pause();
+        setMix(0, 0);
+        syncCastMedia();
+        return;
+      }
       media.src = `/stream?u=${encodeURIComponent(url)}`;
       const pending = media.play();
       if (pending) {
@@ -468,6 +481,10 @@ function followTune(dragging) {
 }
 
 function catchStation(station) {
+  if (castUi.casting) {
+    engine.play(station.url);
+    return;
+  }
   engine.play(station.url);
   engine.setMix(0.15, 0.85);
   window.setTimeout(() => {
@@ -475,6 +492,97 @@ function catchStation(station) {
     if (audio.paused) engine.setMix(0, 1);
     else engine.setMix(1, 0);
   }, 170);
+}
+
+function streamAbsolute(url) {
+  return `${window.location.origin}/stream?u=${encodeURIComponent(url)}`;
+}
+
+function paintCast() {
+  if (!btnCast) return;
+  btnCast.classList.toggle('is-ready', castUi.ready);
+  btnCast.classList.toggle('is-lit', castUi.casting);
+  btnCast.setAttribute('aria-pressed', String(castUi.casting));
+  if (lblCast) {
+    lblCast.textContent = castUi.casting ? 'CAST ON' : 'CAST';
+    lblCast.classList.toggle('is-active', castUi.casting);
+  }
+}
+
+function initCast() {
+  if (!window.cast?.framework || !window.chrome?.cast) return;
+  try {
+    const context = cast.framework.CastContext.getInstance();
+    context.setOptions({
+      receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+      autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+    });
+    context.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, (event) => {
+      castUi.casting = event.castState === cast.framework.CastState.CONNECTED;
+      paintCast();
+      if (castUi.casting) {
+        syncCastMedia();
+      } else if (state.power && !state.stopped) {
+        audio.volume = 1;
+        settleTune();
+      }
+    });
+    castUi.ready = true;
+    castUi.casting = context.getCurrentSession() != null;
+    paintCast();
+  } catch (e) {
+    castUi.ready = false;
+    paintCast();
+  }
+}
+
+async function syncCastMedia() {
+  const session = window.cast?.framework?.CastContext?.getInstance()?.getCurrentSession?.();
+  if (!session || !state.power || state.stopped) return;
+  const station = state.locked || nearest().station;
+  if (!station) {
+    flash('NO SIGNAL', true);
+    return;
+  }
+  try {
+    const mediaInfo = new chrome.cast.media.MediaInfo(streamAbsolute(station.url), 'audio/mpeg');
+    mediaInfo.streamType = chrome.cast.media.StreamType.LIVE;
+    mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
+    mediaInfo.metadata.title = station.name;
+    mediaInfo.metadata.artist = 'MyTuner';
+    const request = new chrome.cast.media.LoadRequest(mediaInfo);
+    audio.pause();
+    engine.silence();
+    await session.loadMedia(request);
+    const vol = clamp(state.volume / 10, 0.05, 1);
+    try { session.setVolume(vol); } catch (e) { /* volume cast opzionale */ }
+    flash(`CAST  ${station.name}`, true);
+  } catch (e) {
+    flash('CAST FAIL', true);
+  }
+}
+
+async function toggleCast() {
+  if (!castUi.ready) {
+    flash('APRI IN CHROME', true);
+    return;
+  }
+  const context = cast.framework.CastContext.getInstance();
+  if (castUi.casting) {
+    context.endCurrentSession(true);
+    flash('CAST OFF', true);
+    return;
+  }
+  if (!state.power || state.stopped) {
+    flash('ACCENDI RADIO', true);
+    return;
+  }
+  try {
+    await context.requestSession();
+    await syncCastMedia();
+  } catch (e) {
+    flash('NO DEVICE', true);
+  }
 }
 
 function settleTune() {
@@ -561,6 +669,9 @@ function setPower(on) {
     state.locked = null;
     engine.silence();
     engine.pause();
+    if (castUi.casting) {
+      try { cast.framework.CastContext.getInstance().endCurrentSession(true); } catch (e) { /* ignore */ }
+    }
     paintDial();
     return;
   }
@@ -581,10 +692,17 @@ function toggleStop() {
     state.locked = null;
     engine.silence();
     engine.pause();
+    if (castUi.casting) {
+      try {
+        const media = cast.framework.CastContext.getInstance().getCurrentSession()?.getMediaSession();
+        media?.stop();
+      } catch (e) { /* ignore */ }
+    }
     paintStation();
     return;
   }
-  settleTune();
+  if (castUi.casting) syncCastMedia();
+  else settleTune();
 }
 
 function savePreset() {
@@ -856,6 +974,11 @@ bindKnob(volKnob, (delta) => {
   state.volume = clamp(state.volume + (delta / full) * 10, 0, 10);
   paintVolume();
   engine.setVolume(state.volume / 10);
+  if (castUi.casting) {
+    try {
+      cast.framework.CastContext.getInstance().getCurrentSession()?.setVolume(clamp(state.volume / 10, 0, 1));
+    } catch (e) { /* ignore */ }
+  }
 }, () => persistFace());
 
 bindKnob(bassKnob, (delta) => {
@@ -914,6 +1037,7 @@ volKnob.addEventListener('wheel', (event) => {
 
 btnPower.addEventListener('click', () => setPower(!state.power));
 btnStop.addEventListener('click', () => toggleStop());
+btnCast?.addEventListener('click', () => toggleCast());
 btnBand.addEventListener('click', () => setBand(state.band === 'fm' ? 'am' : 'fm'));
 btnMono.addEventListener('click', () => {
   engine.start();
@@ -1016,5 +1140,10 @@ paintEq();
 paintModes();
 paintDial();
 radio.classList.toggle('is-on', state.power);
+paintCast();
+if (window.__castApiAvailable) initCast();
+window.addEventListener('cast-api', () => {
+  if (window.__castApiAvailable) initCast();
+});
 requestAnimationFrame(frame);
 loadStations();

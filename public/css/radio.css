@@ -657,6 +657,23 @@ button { font: inherit; color: inherit; }
   justify-items: center;
 }
 
+.cast-mode {
+  grid-column: 1 / -1;
+}
+
+.key.cast.is-lit {
+  box-shadow:
+    0 0 14px rgba(80, 180, 255, 0.7),
+    0 7px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55);
+  background:
+    radial-gradient(circle at 35% 30%, #8ec8ff, #2a5a8a 40%, #0c0c0c 74%);
+}
+
+.key.cast:not(.is-ready) {
+  opacity: 0.55;
+}
+
 .mode {
   display: flex;
   flex-direction: column;

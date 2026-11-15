@@ -1,10 +1,35 @@
 {
+  "id": "/",
   "name": "MyTuner",
   "short_name": "MyTuner",
+  "description": "Radio web a schermo intero con stazioni internet e Cast",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#0c0c0c",
   "theme_color": "#0c0c0c",
   "orientation": "any",
-  "lang": "it"
+  "lang": "it",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

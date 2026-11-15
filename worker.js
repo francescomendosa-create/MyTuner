@@ -270,6 +270,9 @@ async function proxyStream(target, hops = 0) {
   headers.set('Content-Type', ct || 'audio/mpeg');
   headers.set('Cache-Control', 'no-store');
   headers.set('Access-Control-Allow-Origin', '*');
+  headers.set('Access-Control-Allow-Headers', 'Range, Icy-MetaData');
+  headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+  if (up.headers.get('accept-ranges')) headers.set('Accept-Ranges', up.headers.get('accept-ranges'));
   return new Response(up.body, { status: 200, headers });
 }
 
