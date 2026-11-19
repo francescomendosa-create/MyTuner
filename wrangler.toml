@@ -8,3 +8,15 @@ directory = "./public"
 binding = "ASSETS"
 html_handling = "auto-trailing-slash"
 not_found_handling = "404-page"
+
+[vars]
+VAPID_PUBLIC_KEY = "BJEOtvPbeuBoDjKz4jRO0hXXQqppwoFPag1j-WWc0CYZioibSZldFLjdBR_pLnmJqGxkFqwreW2eiYOuEeNONKE"
+VAPID_SUBJECT = "mailto:mytuner@workers.dev"
+
+[[durable_objects.bindings]]
+name = "REMOTE_HUB"
+class_name = "RemoteHub"
+
+[[migrations]]
+tag = "remote-hub-v1"
+new_sqlite_classes = ["RemoteHub"]

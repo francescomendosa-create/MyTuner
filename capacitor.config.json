@@ -1,0 +1,23 @@
+{
+  "appId": "app.mytuner.radio",
+  "appName": "MyTuner",
+  "webDir": "public",
+  "server": {
+    "url": "https://mytuner.mytunerfr.workers.dev",
+    "cleartext": false,
+    "allowNavigation": [
+      "mytuner.mytunerfr.workers.dev",
+      "*.workers.dev"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0c0c0c",
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

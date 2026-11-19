@@ -1,3 +1,13 @@
+@font-face {
+  font-family: "DSEG7 Classic";
+  src:
+    url("/fonts/DSEG7Classic-Bold.woff2") format("woff2"),
+    url("/fonts/DSEG7Classic-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --cyan: #e7fffb;
   --cyan-dim: #7ee8df;
@@ -7,6 +17,8 @@
   --ink: #101010;
   --label: "Barlow Condensed", "Arial Narrow", sans-serif;
   --vfd: "Share Tech Mono", ui-monospace, monospace;
+  --casio: "DSEG7 Classic", "Share Tech Mono", ui-monospace, monospace;
+  --script: "Great Vibes", "Segoe Script", "Apple Chancery", cursive;
   color-scheme: dark;
 }
 
@@ -24,7 +36,12 @@ html, body {
   overscroll-behavior: none;
 }
 
-button { font: inherit; color: inherit; }
+button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
 
 .filters { position: absolute; width: 0; height: 0; }
 
@@ -47,17 +64,349 @@ button { font: inherit; color: inherit; }
   max-width: 1280px;
   max-height: 680px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #121212;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.9),
-    inset 2px 0 0 rgba(255, 255, 255, 0.08),
-    inset -2px 0 0 rgba(0, 0, 0, 0.55),
-    0 0 0 1px #050505,
-    0 0 0 3px #2a2a2a,
-    0 0 0 4px #0a0a0a,
-    0 22px 48px rgba(0, 0, 0, 0.75);
+    inset 0 2px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.55),
+    inset 4px 0 8px rgba(255, 255, 255, 0.08),
+    inset -6px 0 10px rgba(0, 0, 0, 0.5),
+    0 1px 0 #4a4a4a,
+    0 0 0 1px #070707,
+    0 0 0 7px #1a1a1a,
+    0 0 0 8px #050505,
+    0 16px 24px rgba(0, 0, 0, 0.55),
+    0 36px 54px rgba(0, 0, 0, 0.45);
+}
+
+/* Zoom: stesso nodo + scale uniforme. L’altro lato del vetro resta visibile. */
+.panel-zoom-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.radio.is-panel-zooming .panel-zoom-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dial.is-panel-zoom,
+.spec.is-panel-zoom,
+.video-well.is-panel-zoom {
+  position: fixed !important;
+  z-index: 50;
+  margin: 0 !important;
+  box-sizing: border-box;
+  transform-origin: top left;
+  transition: transform 0.42s cubic-bezier(0.33, 0.08, 0.18, 1);
+  pointer-events: auto;
+  cursor: default;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: visible;
+  /* Opaco: niente trasparenza sul quadro zoomato */
+  opacity: 1 !important;
+  /* Niente filter:!important — altrimenti il brillamento in zoom non parte */
+  background-color: #05090b !important;
+  background-image:
+    radial-gradient(80% 65% at 18% 0%, rgba(70, 190, 195, 0.16), transparent 52%),
+    linear-gradient(180deg, #0b1417 0%, #05090b 48%, #020304 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(190, 230, 230, 0.1),
+    0 16px 32px rgba(0, 0, 0, 0.55);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* Solo il pozzo TV (cornice grigia), senza scritta “TV” */
+.video-well.is-panel-zoom {
+  overflow: hidden !important;
+  background: #050606 !important;
+  background-image: none !important;
+  border-radius: 4px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.6);
+}
+
+.video-well.is-panel-zoom .crt {
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  aspect-ratio: var(--crt-ar, 16 / 9);
+}
+
+/* Mentoniera CRT: pannello basso a tutta larghezza TV, tasti a destra */
+.tv-zoom-dock {
+  position: fixed;
+  z-index: 56;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 8px 14px 10px;
+  pointer-events: auto;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 0 0 12px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, transparent 40%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.03) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(165deg,
+      #6a6d70 0%,
+      #4e5256 16%,
+      #35383c 40%,
+      #2a2d30 58%,
+      #3e4246 82%,
+      #585c60 100%);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(10, 10, 12, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.tv-zoom-dock.is-on {
+  opacity: 1;
+  transform: none;
+}
+
+.tv-zoom-dock[hidden] {
+  display: none !important;
+}
+
+.tv-zoom-keys {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Sedile + tasto plastica TV 3D (più grandi) */
+.tv-zoom-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  width: var(--tv-zoom-btn, 44px);
+  height: var(--tv-zoom-btn, 44px);
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle at 50% 40%, #2a2d30 0%, #16181a 70%, #0c0d0e 100%);
+  box-shadow:
+    inset 0 3px 4px rgba(0, 0, 0, 0.78),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.65);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tv-zoom-cap {
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  color: #d8d2c4;
+  background:
+    radial-gradient(120% 90% at 32% 22%, rgba(255, 255, 255, 0.4), transparent 42%),
+    radial-gradient(90% 80% at 70% 78%, rgba(0, 0, 0, 0.35), transparent 55%),
+    linear-gradient(165deg, #7a7e82 0%, #55595d 38%, #3c4044 72%, #4a4e52 100%);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.42),
+    inset 0 0 0 1px rgba(20, 22, 24, 0.55);
+  transform: translateY(-0.5px);
+  transition: transform 60ms ease, box-shadow 60ms ease, filter 60ms ease;
+}
+
+.tv-zoom-cap::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.16), transparent 60%);
+  mix-blend-mode: soft-light;
+}
+
+.tv-zoom-btn:active .tv-zoom-cap,
+.tv-zoom-btn.is-held .tv-zoom-cap {
+  transform: translateY(1.5px) scale(0.96);
+  filter: brightness(0.92);
+  box-shadow:
+    0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 3px 5px rgba(0, 0, 0, 0.58),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+/* Feedback telecomando: flash dorato sulla mentoniera zoom */
+.tv-zoom-btn.is-remote-press .tv-zoom-cap {
+  filter: brightness(1.15);
+  background:
+    radial-gradient(120% 90% at 32% 22%, rgba(255, 255, 255, 0.45), transparent 42%),
+    linear-gradient(165deg, #f0d78a 0%, #c9a84e 42%, #8a6a2e 78%, #6e5524 100%);
+  color: #1a1408;
+  box-shadow:
+    0 0 10px rgba(220, 180, 80, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 3px rgba(40, 20, 0, 0.45);
+}
+
+.tv-zoom-pause {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 22%;
+  width: 42%;
+  height: 48%;
+  position: relative;
+  z-index: 1;
+}
+
+.tv-zoom-pause::before,
+.tv-zoom-pause::after {
+  content: "";
+  flex: 1 1 auto;
+  max-width: 38%;
+  border-radius: 1.5px;
+  background: #ebe6da;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    0 -0.5px 0 rgba(0, 0, 0, 0.55);
+}
+
+.tv-zoom-btn.is-power .tv-zoom-cap {
+  background:
+    radial-gradient(120% 90% at 32% 22%, rgba(255, 180, 160, 0.35), transparent 42%),
+    radial-gradient(90% 80% at 70% 78%, rgba(80, 0, 0, 0.35), transparent 55%),
+    linear-gradient(165deg, #a85858 0%, #7a3030 40%, #5a1e1e 72%, #6e2828 100%);
+  color: #ffe8e0;
+}
+
+.tv-zoom-btn.is-power .tv-zoom-cap::before {
+  content: "";
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.tv-zoom-btn.is-power .tv-zoom-cap::after {
+  inset: auto;
+  top: 14%;
+  left: 50%;
+  width: 2.5px;
+  height: 28%;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translateX(-50%);
+  mix-blend-mode: normal;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.tv-zoom-glyph {
+  position: relative;
+  z-index: 1;
+  font-family: "DIN Alternate", "Helvetica Neue", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 0.95em;
+  line-height: 1;
+  letter-spacing: 0;
+  color: #ebe6da;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25),
+    0 -1px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.tv-zoom-glyph.is-plus,
+.tv-zoom-glyph.is-minus {
+  font-size: 1.15em;
+}
+
+.tv-zoom-tri {
+  width: 0;
+  height: 0;
+  display: block;
+  border-style: solid;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
+    drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.55));
+}
+
+.tv-zoom-tri.next {
+  border-width: 7px 0 7px 11px;
+  border-color: transparent transparent transparent #ebe6da;
+  margin-left: 2px;
+}
+
+.tv-zoom-tri.prev {
+  border-width: 7px 11px 7px 0;
+  border-color: transparent #ebe6da transparent transparent;
+  margin-right: 2px;
+}
+
+.zoom-slot {
+  flex: none;
+  pointer-events: none;
+  /* Tiene lo spazio ma non “buca” il vetro in modo strano */
+  visibility: hidden;
+}
+
+.dial {
+  cursor: zoom-in;
+}
+
+.spec {
+  cursor: zoom-in;
+}
+
+.glass.is-video .crt,
+.glass.is-video .video-well {
+  cursor: zoom-in;
+}
+
+.band-body {
+  cursor: zoom-in;
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dial.is-panel-zoom,
+  .spec.is-panel-zoom,
+  .video-well.is-panel-zoom,
+  .panel-zoom-backdrop {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .metal {
@@ -111,9 +460,10 @@ button { font: inherit; color: inherit; }
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(0, 0.7fr) minmax(0, 1fr);
-  gap: 3.2%;
-  padding: 4.2% 4.6% 3.4%;
+  /* Display alto: TV intera (bordo basso incluso) */
+  grid-template-rows: minmax(0, 1.48fr) minmax(0, 1fr);
+  gap: 1.8%;
+  padding: 2.6% 4% 3.6%;
 }
 
 .vignette {
@@ -126,11 +476,45 @@ button { font: inherit; color: inherit; }
     linear-gradient(90deg, rgba(0, 0, 0, 0.18), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.18));
 }
 
+/* Firma rimossa su richiesta */
+.maker-mark {
+  display: none !important;
+}
+
+.maker-mark::before {
+  content: attr(data-mark);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(0, 0, 0, 0.5);
+  text-shadow: none;
+  transform: translate(0.55px, 0.8px);
+  filter: blur(0.3px);
+  opacity: 0.85;
+  z-index: -1;
+}
+
+.maker-mark::after {
+  content: attr(data-mark);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: transparent;
+  text-shadow:
+    1px 1px 0 rgba(200, 200, 200, 0.16),
+    0.4px 0.4px 0 rgba(160, 160, 160, 0.1);
+  transform: translate(-0.1px, -0.1px);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
 .bezel {
   position: relative;
   min-height: 0;
   border-radius: 10px;
   padding: clamp(5px, 0.55vw, 9px);
+  /* Spazio a destra per il pulsante SPECTRUM/VIDEO sulla carcassa */
+  padding-right: clamp(22px, 2.6vw, 34px);
   background:
     linear-gradient(180deg,
       #a8a8a8 0%,
@@ -140,10 +524,1244 @@ button { font: inherit; color: inherit; }
       #2e2e2e 92%,
       #5a5a5a 100%);
   box-shadow:
-    0 14px 24px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.65),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+    0 10px 16px rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 2px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Impostazioni: angolo alto a destra sulla carcassa */
+.settings-btn {
+  position: absolute;
+  right: clamp(4px, 0.55vw, 8px);
+  top: clamp(10px, 1.6vh, 18px);
+  bottom: auto;
+  z-index: 6;
+  width: clamp(16px, 1.7vw, 22px);
+  height: clamp(16px, 1.7vw, 22px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 35% 28%, #5a5a5a 0%, #2a2a2a 42%, #0c0c0c 100%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7);
+}
+.settings-btn-face {
+  display: grid;
+  place-items: center;
+  width: 62%;
+  height: 62%;
+  margin: 19% auto 0;
+  border-radius: 50%;
+  color: #1a2430;
+  background:
+    radial-gradient(circle at 40% 30%, #c8e0ff 0%, #4a7ab8 55%, #1a3048 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(230, 245, 255, 0.45),
+    0 0 6px rgba(80, 150, 220, 0.45);
+}
+.settings-btn-ico {
+  width: 72%;
+  height: 72%;
+  display: block;
+}
+.settings-btn:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 2px 4px rgba(0, 0, 0, 0.75);
+}
+.settings-btn.is-open .settings-btn-face {
+  background:
+    radial-gradient(circle at 40% 30%, #9af0b0 0%, #2f9a55 55%, #0a3020 100%);
+  color: #042018;
+  box-shadow:
+    inset 0 1px 0 rgba(220, 255, 230, 0.45),
+    0 0 7px rgba(60, 220, 120, 0.5);
+}
+
+/* Overlay impostazioni: SOLO schermo destro — icone, niente barra grande */
+.monitor-settings {
+  --right-share: calc(0.95 / 2.15);
+  --settings-slide: 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: calc(100% * var(--right-share));
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: clamp(6px, 1.1vw, 10px);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 16, 0.97), rgba(2, 8, 8, 0.99));
+  box-shadow:
+    inset 1px 0 0 rgba(80, 160, 140, 0.22),
+    inset 0 0 18px rgba(0, 0, 0, 0.5);
+  color: #d8f5ee;
+  overflow: hidden;
+  touch-action: pan-y;
+  /* cqw delle icone = larghezza pannello, non tutto il glass */
+  container-type: inline-size;
+  container-name: settings;
+}
+.is-hidden { display: none !important; }
+.monitor-settings.is-hidden { display: none !important; }
+.monitor-settings-head {
+  display: none;
+}
+.monitor-settings-close {
+  appearance: none;
+  border: 0;
+  width: clamp(20px, 4cqw, 26px);
+  height: clamp(20px, 4cqw, 26px);
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  color: #f2ead8;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+}
+/* Pagine impostazioni: slide tipo home telefono */
+.monitor-settings > .settings-page {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--settings-slide);
+  pointer-events: none;
+  visibility: hidden;
+  z-index: 0;
+  will-change: transform;
+}
+.monitor-settings > .settings-page.is-on {
+  pointer-events: auto;
+  visibility: visible;
+  z-index: 2;
+  transform: translate3d(0, 0, 0);
+}
+.monitor-settings > .settings-page.is-prep-right {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 3;
+  transition: none;
+  transform: translate3d(100%, 0, 0);
+}
+.monitor-settings > .settings-page.is-prep-left {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 3;
+  transition: none;
+  transform: translate3d(-100%, 0, 0);
+}
+.monitor-settings > .settings-page.is-out-left {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 1;
+  transform: translate3d(-100%, 0, 0);
+}
+.monitor-settings > .settings-page.is-out-right {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 1;
+  transform: translate3d(100%, 0, 0);
+}
+.monitor-settings.is-finger-drag {
+  touch-action: pan-y;
+}
+.monitor-settings.is-finger-drag > .settings-page {
+  transition: none !important;
+}
+.monitor-settings > .settings-page.is-drag-peek {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 3;
+}
+.monitor-settings.is-finger-snap > .settings-page {
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+/* Icone impostazioni: riga UTENTE/SVEGLIA/STAZIONI, sotto STANDBY — blocco centrato */
+.monitor-settings-icons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: center;
+  align-items: start;
+  gap: clamp(12px, 3.4cqw, 20px) clamp(8px, 3.2cqw, 16px);
+  overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  padding: clamp(10px, 2.4cqw, 18px) clamp(6px, 3cqw, 14px);
+  min-height: 0;
+}
+.monitor-set-ico-btn {
+  appearance: none;
+  border: 0;
+  padding: 2px;
+  margin: 0;
+  width: min(100%, 7em);
+  max-width: 7em;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.monitor-set-ico-standby {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: end;
+}
+.monitor-set-ico-bg {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: start;
+}
+
+/* Sfondi scena dietro al chassis */
+.radio.has-scene-bg {
+  padding: clamp(14px, 3.2vw, 40px);
+  background-color: #1a120c;
+  background-image: var(--scene-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.radio.has-scene-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, transparent 28%, rgba(8, 5, 3, 0.38) 72%, rgba(0, 0, 0, 0.62) 100%);
+  z-index: 0;
+}
+.radio.has-scene-bg .chassis {
+  z-index: 1;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.55),
+    inset 4px 0 8px rgba(255, 255, 255, 0.08),
+    inset -6px 0 10px rgba(0, 0, 0, 0.5),
+    0 1px 0 #4a4a4a,
+    0 0 0 1px #070707,
+    0 0 0 7px #1a1a1a,
+    0 0 0 8px #050505,
+    0 18px 28px rgba(0, 0, 0, 0.62),
+    0 40px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Tema: radio + mobile stesso acciaio grigio, effetto incasso */
+.radio.skin-acciaio.has-scene-bg {
+  background-color: #2f3235;
+  padding: clamp(8px, 2vw, 22px);
+}
+.radio.skin-acciaio.has-scene-bg::before {
+  background:
+    radial-gradient(ellipse at 50% 38%, transparent 40%, rgba(8, 10, 12, 0.22) 78%, rgba(0, 0, 0, 0.42) 100%);
+}
+.radio.skin-acciaio .chassis {
+  background: #3c4044;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.28),
+    inset 2px 0 5px rgba(255, 255, 255, 0.05),
+    inset -3px 0 6px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(22, 24, 26, 0.7),
+    0 0 0 3px #35383b,
+    0 0 0 4px #2c2f32,
+    0 6px 16px rgba(0, 0, 0, 0.28);
+}
+.radio.skin-acciaio .metal {
+  background-color: #3c4044;
+  background-image:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.08) 0px,
+      rgba(255, 255, 255, 0.025) 0.5px,
+      rgba(0, 0, 0, 0.12) 1px,
+      rgba(255, 255, 255, 0.018) 1.5px,
+      rgba(0, 0, 0, 0.04) 2px
+    ),
+    linear-gradient(180deg, #565b60 0%, #43484d 14%, #383c40 42%, #32363a 72%, #2a2d30 100%);
+}
+.radio.skin-acciaio .metal::before {
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(255, 255, 255, 0.16), transparent 55%),
+    radial-gradient(80% 50% at 80% 100%, rgba(170, 185, 200, 0.05), transparent 50%);
+}
+.radio.skin-acciaio .metal::after {
+  opacity: 0.22;
+}
+.radio.skin-acciaio .sheen {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 72%);
+}
+.radio.skin-acciaio .vignette {
+  background:
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.28) 100%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.1));
+}
+.radio.skin-acciaio .knob-well {
+  background:
+    radial-gradient(circle at 50% 42%, #4a4f54 0%, #2e3236 58%, #1c1e20 100%);
+  box-shadow:
+    inset 0 14px 22px rgba(0, 0, 0, 0.5),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.07),
+    0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.radio.skin-acciaio .vol-nums span {
+  color: #d0cbb8;
+}
+.radio.skin-acciaio .vol-ticks .tick.major {
+  background: rgba(220, 215, 200, 0.8);
+}
+.radio.skin-acciaio .bezel {
+  background:
+    linear-gradient(180deg,
+      #b0b4b8 0%,
+      #6a6e72 7%,
+      #2c3034 30%,
+      #181b1e 58%,
+      #3a3e42 92%,
+      #6a6e72 100%);
+  box-shadow:
+    0 8px 14px rgba(0, 0, 0, 0.35),
+    0 2px 0 rgba(255, 255, 255, 0.14),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.radio.skin-acciaio .settings-btn {
+  background:
+    radial-gradient(circle at 35% 28%, #6a6e72 0%, #3a3e42 42%, #181b1e 100%);
+}
+.monitor-set-ico {
+  width: min(56px, 22cqw);
+  height: min(56px, 22cqw);
+  max-width: 100%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #f0d78a;
+  background:
+    radial-gradient(circle at 32% 28%, #454545, #161616 52%, #050505);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.2),
+    inset 0 -4px 8px rgba(0,0,0,0.7),
+    0 0 0 1.5px rgba(201, 165, 90, 0.4),
+    0 4px 10px rgba(0,0,0,0.35);
+  transition: box-shadow 0.15s ease, filter 0.15s ease, transform 0.15s ease;
+}
+.monitor-set-lab {
+  font-family: var(--label);
+  letter-spacing: 0.1em;
+  font-size: clamp(0.55rem, 3.6cqw, 0.78rem);
+  color: rgba(201, 168, 78, 0.82);
+  text-transform: uppercase;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.monitor-set-ico-btn.is-selected .monitor-set-ico,
+.monitor-set-ico-btn:focus-visible .monitor-set-ico {
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.22),
+    inset 0 -3px 6px rgba(0,0,0,0.65),
+    0 0 0 2px #f0d78a,
+    0 0 12px rgba(240, 215, 138, 0.45);
+  transform: scale(1.04);
+}
+.monitor-set-ico-btn.is-selected .monitor-set-lab,
+.monitor-set-ico-btn:focus-visible .monitor-set-lab {
+  color: #f0d78a;
+}
+.monitor-set-ico-btn:active .monitor-set-ico {
+  filter: brightness(0.88);
+  transform: scale(0.94);
+}
+.monitor-set-ico svg { width: 54%; height: 54%; display: block; }
+
+.monitor-standby-editor {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: clamp(14px, 3cqw, 22px);
+  align-content: center;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(8px, 1.8cqw, 14px) clamp(8px, 2cqw, 16px);
+  box-sizing: border-box;
+}
+.standby-field {
+  display: grid;
+  gap: clamp(6px, 1.4cqw, 10px);
+}
+.standby-lab-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.standby-lab {
+  font-family: var(--label);
+  letter-spacing: 0.12em;
+  font-size: clamp(0.68rem, 2.2cqw, 0.88rem);
+  color: #c9a84e;
+  text-transform: uppercase;
+}
+.standby-countdown {
+  font-family: var(--vfd);
+  letter-spacing: 0.06em;
+  font-size: clamp(0.78rem, 2.4cqw, 1rem);
+  color: #f0d78a;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 3.2em;
+  text-align: right;
+}
+.standby-countdown.is-active {
+  color: #b8fff6;
+  text-shadow: 0 0 8px rgba(80, 220, 200, 0.35);
+}
+.standby-value-btn {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--vfd);
+  letter-spacing: 0.06em;
+  color: #f0d78a;
+  padding: clamp(14px, 2.6cqw, 18px) 14px;
+  font-size: clamp(0.95rem, 2.6cqw, 1.15rem);
+  border-radius: 10px;
+  min-height: clamp(48px, 10cqw, 58px);
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.35);
+}
+.standby-value-btn:active {
+  filter: brightness(1.08);
+}
+.monitor-standby-mins {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(6px, 1.4cqw, 12px);
+  box-sizing: border-box;
+}
+.standby-mins-list {
+  display: grid;
+  align-content: start;
+  gap: clamp(6px, 1.4cqw, 10px);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.standby-min-item {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--vfd);
+  letter-spacing: 0.06em;
+  color: rgba(240, 215, 138, 0.88);
+  padding: clamp(12px, 2.4cqw, 16px) 14px;
+  font-size: clamp(0.92rem, 2.5cqw, 1.12rem);
+  border-radius: 10px;
+  min-height: clamp(44px, 9cqw, 54px);
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.22);
+}
+.standby-min-item.is-active {
+  color: #f0d78a;
+  background: rgba(240, 215, 138, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(240, 215, 138, 0.65);
+}
+.standby-min-item.is-focus {
+  box-shadow: inset 0 0 0 2px #f0d78a;
+}
+
+.monitor-bg-pane {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(6px, 1.4cqw, 12px);
+  box-sizing: border-box;
+}
+.bg-theme-list {
+  display: grid;
+  align-content: start;
+  gap: clamp(8px, 1.6cqw, 12px);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.bg-theme-item {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(10px, 2cqw, 14px);
+  text-align: left;
+  cursor: pointer;
+  padding: clamp(8px, 1.6cqw, 12px);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.22);
+  color: rgba(240, 215, 138, 0.88);
+}
+.bg-theme-item.is-active {
+  color: #f0d78a;
+  background: rgba(240, 215, 138, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(240, 215, 138, 0.65);
+}
+.bg-theme-item.is-focus {
+  box-shadow: inset 0 0 0 2px #f0d78a;
+}
+.bg-theme-thumb {
+  width: clamp(52px, 12cqw, 72px);
+  height: clamp(36px, 8cqw, 48px);
+  border-radius: 6px;
+  background: #1a1a1a center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+  flex-shrink: 0;
+}
+.bg-theme-thumb.is-none {
+  background:
+    linear-gradient(135deg, #222 25%, #111 25%, #111 50%, #222 50%, #222 75%, #111 75%);
+  background-size: 10px 10px;
+}
+.bg-theme-name {
+  font-family: var(--label);
+  letter-spacing: 0.06em;
+  font-size: clamp(0.78rem, 2.4cqw, 0.98rem);
+  text-transform: none;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.monitor-alarm-editor {
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  gap: clamp(10px, 2.2cqw, 16px);
+  align-content: start;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(8px, 1.8cqw, 14px) clamp(8px, 2cqw, 16px) clamp(10px, 2cqw, 14px);
+  box-sizing: border-box;
+}
+
+.alarm-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(10px, 2cqw, 16px);
+  min-width: 0;
+  padding-right: clamp(2px, 0.8cqw, 8px);
+}
+.alarm-wheels {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: clamp(8px, 1.8cqw, 14px);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.alarm-wheel {
+  --alarm-digit-h: clamp(64px, 16cqw, 96px);
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 5.2em;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, #1a2220 0%, #0a1010 45%, #050808 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 165, 90, 0.28),
+    inset 0 10px 14px rgba(0,0,0,0.55);
+  overflow: hidden;
+  touch-action: none;
+  cursor: ns-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.alarm-wheel.is-focus {
+  box-shadow:
+    inset 0 0 0 1.5px rgba(245, 236, 214, 0.7),
+    0 0 10px rgba(245, 236, 214, 0.22);
+}
+.alarm-wheel-viewport {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: var(--alarm-digit-h);
+  overflow: hidden;
+}
+.alarm-wheel-strip {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  will-change: transform;
+  transform: translate3d(0, calc(var(--alarm-digit-h) * -1), 0);
+}
+.alarm-wheel.is-rolling .alarm-wheel-strip {
+  transition: none !important;
+}
+.alarm-wheel.is-snapping .alarm-wheel-strip {
+  transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.alarm-wheel-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32%;
+  pointer-events: none;
+  z-index: 2;
+}
+.alarm-wheel-fade.top {
+  top: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.72), transparent);
+}
+.alarm-wheel-fade.bot {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.72), transparent);
+}
+.alarm-wheel-digit {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  height: var(--alarm-digit-h);
+  width: 100%;
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: clamp(2.15rem, 8.2cqw, 3.15rem);
+  color: #f3ead6;
+  text-shadow:
+    0 0 5px rgba(255, 248, 230, 0.35),
+    0 0 10px rgba(240, 220, 180, 0.18);
+  user-select: none;
+  touch-action: none;
+  line-height: 1;
+  pointer-events: none;
+}
+.alarm-wheel-colon {
+  align-self: center;
+  flex: 0 0 auto;
+  font-family: var(--casio);
+  font-size: clamp(1.85rem, 6.8cqw, 2.65rem);
+  color: #f3ead6;
+  text-shadow: 0 0 5px rgba(255, 248, 230, 0.3);
+  padding: 0 4px;
+}
+.alarm-power-ico {
+  appearance: none;
+  border: 0;
+  flex: 0 0 auto;
+  width: clamp(52px, 12cqw, 68px);
+  height: clamp(52px, 12cqw, 68px);
+  margin-left: 0;
+  margin-right: clamp(2px, 0.6cqw, 6px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #6a6a6a;
+  background:
+    radial-gradient(circle at 32% 28%, #3a3a3a, #151515 55%, #050505);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.12),
+    inset 0 -3px 6px rgba(0,0,0,0.7),
+    0 0 0 1.5px rgba(120,120,120,0.35);
+  cursor: pointer;
+  transition: color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.alarm-power-ico svg {
+  width: 58%;
+  height: 58%;
+  display: block;
+}
+.alarm-power-ico.is-on {
+  color: #1a1408;
+  background:
+    radial-gradient(circle at 30% 22%, #8dff9a, #2ecc5a 48%, #0a5a28 92%);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.35),
+    inset 0 -4px 8px rgba(0,40,10,0.45),
+    0 0 0 1.5px rgba(80, 220, 120, 0.55),
+    0 0 14px rgba(60, 210, 100, 0.45);
+}
+.alarm-power-ico:active {
+  transform: scale(0.94);
+}
+
+.monitor-alarm-mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--label);
+  letter-spacing: 0.1em;
+  font-size: clamp(0.92rem, 2.8cqw, 1.2rem);
+  color: #e8f6f0;
+  cursor: pointer;
+  padding: clamp(14px, 2.8cqw, 20px) clamp(12px, 2.4cqw, 18px);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.22);
+}
+.monitor-alarm-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 2cqw, 14px);
+}
+.monitor-alarm-mode:has(input:checked) {
+  box-shadow: inset 0 0 0 1px rgba(240, 215, 138, 0.7);
+  background: rgba(240, 215, 138, 0.08);
+}
+.monitor-alarm-mode input {
+  width: 1.05em;
+  height: 1.05em;
+  accent-color: #f0d78a;
+}
+.monitor-alarm-select {
+  font-family: var(--vfd);
+  letter-spacing: 0.06em;
+  padding: clamp(14px, 2.6cqw, 18px) 14px;
+  font-size: clamp(0.95rem, 2.6cqw, 1.15rem);
+  border-radius: 10px;
+  min-height: clamp(48px, 10cqw, 58px);
+}
+.monitor-alarm-sound-wrap.is-hidden {
+  display: none !important;
+}
+.monitor-alarm-station-chip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(10px, 2cqw, 14px);
+  font-family: var(--label);
+  letter-spacing: 0.06em;
+  color: #f0d78a;
+  padding: clamp(12px, 2.4cqw, 16px) clamp(12px, 2.2cqw, 16px);
+  border-radius: 10px;
+  background: rgba(240, 215, 138, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.28);
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(52px, 11cqw, 64px);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.monitor-alarm-station-chip.is-hidden {
+  display: none !important;
+}
+.alarm-station-logo-wrap {
+  width: clamp(36px, 8cqw, 48px);
+  height: clamp(36px, 8cqw, 48px);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.28);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.alarm-station-logo-wrap.is-empty {
+  background: rgba(240, 215, 138, 0.14);
+  color: #f0d78a;
+  font-weight: 700;
+  font-size: clamp(0.85rem, 2.4cqw, 1.05rem);
+}
+.alarm-station-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.alarm-station-meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.alarm-station-name {
+  color: #f0d78a;
+  font-size: clamp(0.9rem, 2.4cqw, 1.1rem);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alarm-station-freq {
+  color: rgba(216, 245, 238, 0.7);
+  font-size: clamp(0.7rem, 1.9cqw, 0.85rem);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-stations-pane {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  padding: clamp(2px, 0.6cqw, 6px);
+  box-sizing: border-box;
+}
+.monitor-stations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: clamp(6px, 1.4cqw, 10px) clamp(5px, 1.2cqw, 8px);
+  min-height: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 2px 1px 8px;
+  touch-action: pan-y;
+}
+.monitor-station-item {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: clamp(8px, 1.8cqw, 12px) clamp(4px, 1cqw, 8px);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: #d8f5ee;
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--label);
+  font-size: clamp(0.62rem, 1.7cqw, 0.8rem);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.2);
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+.monitor-station-ico {
+  width: clamp(26px, 6.2cqw, 36px);
+  height: clamp(26px, 6.2cqw, 36px);
+  border-radius: 6px;
+  color: #f0d78a;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.25);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-family: var(--label);
+  font-size: clamp(0.7rem, 2cqw, 0.9rem);
+  font-weight: 700;
+}
+.monitor-station-ico.is-empty {
+  background: rgba(240, 215, 138, 0.12);
+}
+.monitor-station-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+.monitor-station-name {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-station-item.is-active {
+  color: #1a1408;
+  background: linear-gradient(180deg, #f0d78a, #b8923f);
+  box-shadow: none;
+}
+.monitor-station-item.is-active .monitor-station-ico {
+  color: #1a1408;
+  box-shadow: inset 0 0 0 1px rgba(26, 20, 8, 0.25);
+}
+.monitor-station-item.is-focus {
+  box-shadow:
+    inset 0 0 0 1.5px #f0d78a,
+    0 0 8px rgba(240, 215, 138, 0.35);
+}
+.monitor-station-item.is-active.is-focus {
+  box-shadow:
+    0 0 0 2px #fff6d0,
+    0 0 10px rgba(240, 215, 138, 0.5);
+}
+.monitor-station-item:active {
+  filter: brightness(0.92);
+  transform: scale(0.99);
+}
+
+/* Lista Cast custom — stesso schermo destro di impostazioni / spettro / TV */
+.monitor-cast {
+  --right-share: calc(0.95 / 2.15);
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: calc(100% * var(--right-share));
+  z-index: 9;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 6px;
+  padding: clamp(6px, 1vw, 10px);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 16, 0.97), rgba(2, 8, 8, 0.99));
+  box-shadow:
+    inset 1px 0 0 rgba(80, 160, 140, 0.22),
+    inset 0 0 18px rgba(0, 0, 0, 0.5);
+  color: #d8f5ee;
+  overflow: hidden;
+}
+.monitor-cast.is-hidden { display: none !important; }
+.monitor-cast-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: clamp(22px, 4.2cqw, 28px);
+}
+.monitor-cast-title {
+  font-family: var(--label);
+  letter-spacing: 0.18em;
+  font-size: clamp(0.62rem, 1.8cqw, 0.78rem);
+  color: #f0d78a;
+}
+.monitor-cast-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 1px 8px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.monitor-cast-item {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.18);
+}
+.monitor-cast-ico {
+  width: clamp(30px, 6.5cqw, 40px);
+  height: clamp(30px, 6.5cqw, 40px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #f0d78a;
+  background:
+    radial-gradient(circle at 32% 28%, #3a3a3a, #121212 55%, #050505);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.18),
+    inset 0 -3px 6px rgba(0,0,0,0.65),
+    0 0 0 1.5px rgba(201, 165, 90, 0.35);
+  flex: 0 0 auto;
+}
+.monitor-cast-ico svg { width: 58%; height: 58%; display: block; }
+.monitor-cast-meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.monitor-cast-name {
+  font-family: var(--label);
+  letter-spacing: 0.06em;
+  font-size: clamp(0.68rem, 2cqw, 0.86rem);
+  color: #e8f7f1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-cast-sub {
+  font-family: var(--label);
+  letter-spacing: 0.08em;
+  font-size: clamp(0.5rem, 1.35cqw, 0.62rem);
+  color: rgba(201, 168, 78, 0.7);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-cast-item.is-selected {
+  background: rgba(240, 215, 138, 0.08);
+  box-shadow:
+    inset 0 0 0 1.5px #f0d78a,
+    0 0 12px rgba(240, 215, 138, 0.28);
+}
+.monitor-cast-item.is-selected .monitor-cast-ico {
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.22),
+    inset 0 -3px 6px rgba(0,0,0,0.65),
+    0 0 0 2px #f0d78a,
+    0 0 10px rgba(240, 215, 138, 0.4);
+}
+.monitor-cast-item.is-selected .monitor-cast-name { color: #f0d78a; }
+.monitor-cast-item:active { filter: brightness(0.92); transform: scale(0.99); }
+.monitor-cast-empty {
+  font-family: var(--label);
+  letter-spacing: 0.1em;
+  font-size: clamp(0.58rem, 1.6cqw, 0.72rem);
+  color: rgba(216, 245, 238, 0.55);
+  padding: 8px 4px;
+}
+.monitor-cast-empty.is-hidden { display: none !important; }
+
+.monitor-name-editor {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: clamp(6px, 1.4cqw, 10px);
+  align-content: stretch;
+  justify-items: stretch;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(4px, 1cqw, 8px) clamp(4px, 1.2cqw, 10px) clamp(4px, 1cqw, 8px);
+  box-sizing: border-box;
+}
+.monitor-name-lab {
+  font-family: var(--label);
+  letter-spacing: 0.12em;
+  font-size: clamp(0.62rem, 1.7cqw, 0.78rem);
+  color: #c9a84e;
+  text-align: center;
+  text-transform: uppercase;
+  justify-self: center;
+}
+.monitor-name-input {
+  width: 100%;
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  padding: clamp(10px, 2cqw, 14px) 12px;
+  font-size: clamp(0.95rem, 2.8cqw, 1.2rem);
+  color: #f4fff9;
+  background: rgba(0,0,0,0.45);
+  box-shadow: inset 0 0 0 1px rgba(180,150,80,0.35);
+  outline: none;
+  text-align: center;
+  caret-color: #5fe8de;
+  cursor: default;
+}
+.monitor-name-input:focus {
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 215, 138, 0.55),
+    0 0 10px rgba(240, 215, 138, 0.18);
+}
+.monitor-name-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.monitor-name-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: clamp(0.62rem, 1.6cqw, 0.72rem);
+  color: #1a1408;
+  background: linear-gradient(180deg, #f0d78a, #b8923f);
+  cursor: pointer;
+}
+.monitor-name-btn.ghost {
+  color: #f0d78a;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(240, 215, 138, 0.4);
+}
+
+.device-kb {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 0.8cqw, 6px);
+  min-height: 0;
+  height: 100%;
+  padding: 2px 0 0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.device-kb-row {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(3px, 0.7cqw, 5px);
+  flex: 1 1 0;
+  min-height: 0;
+}
+.device-kb-key {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: clamp(5px, 1.1cqw, 8px);
+  font-family: var(--label);
+  font-size: clamp(0.72rem, 2.15cqw, 0.95rem);
+  letter-spacing: 0.04em;
+  color: #eef8f3;
+  background:
+    linear-gradient(180deg, rgba(48, 58, 54, 0.95), rgba(16, 22, 20, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 0 0 1px rgba(201, 165, 90, 0.22),
+    0 1px 2px rgba(0,0,0,0.35);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.device-kb-key:active,
+.device-kb-key.is-down {
+  filter: brightness(1.18);
+  transform: scale(0.97);
+  background:
+    linear-gradient(180deg, rgba(70, 82, 76, 0.98), rgba(28, 36, 32, 0.98));
+}
+.device-kb-key.is-shift-on {
+  color: #1a1408;
+  background: linear-gradient(180deg, #f0d78a, #b8923f);
+  box-shadow: none;
+}
+.device-kb-key.util {
+  flex: 1.35 1 0;
+  font-size: clamp(0.62rem, 1.7cqw, 0.78rem);
+  color: #f0d78a;
+}
+.device-kb-key.space {
+  flex: 5 1 0;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: clamp(0.58rem, 1.55cqw, 0.72rem);
+  color: rgba(240, 215, 138, 0.88);
+}
+.device-kb-key.back {
+  flex: 1.5 1 0;
+}
+
+/* Tasto power TV in basso a destra sulla carcassa */
+.view-btn {
+  position: absolute;
+  right: clamp(4px, 0.55vw, 8px);
+  bottom: clamp(10px, 1.6vh, 18px);
+  top: auto;
+  z-index: 6;
+  width: clamp(16px, 1.7vw, 22px);
+  height: clamp(16px, 1.7vw, 22px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 35% 28%, #5a5a5a 0%, #2a2a2a 42%, #0c0c0c 100%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7);
+}
+
+.view-btn-face {
+  display: grid;
+  place-items: center;
+  width: 62%;
+  height: 62%;
+  margin: 19% auto 0;
+  border-radius: 50%;
+  color: #2a1a04;
+  /* Giallo = nessun flusso / spettro */
+  background:
+    radial-gradient(circle at 40% 30%, #ffe0a0 0%, #c99430 55%, #4a3008 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.4),
+    0 0 5px rgba(232, 180, 80, 0.4);
+}
+
+.view-btn-ico {
+  width: 72%;
+  height: 72%;
+  display: block;
+}
+
+.view-btn:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 2px 4px rgba(0, 0, 0, 0.75);
+}
+
+/* Verde = stazione con flusso video disponibile */
+.view-btn.has-video .view-btn-face {
+  color: #042018;
+  background:
+    radial-gradient(circle at 40% 30%, #9af0b0 0%, #2f9a55 55%, #0a3020 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(220, 255, 230, 0.45),
+    0 0 7px rgba(60, 220, 120, 0.5);
+}
+
+.view-btn.is-video {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    inset 0 2px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .bezel-lip {
@@ -173,7 +1791,7 @@ button { font: inherit; color: inherit; }
   border-radius: 3px;
   overflow: hidden;
   display: grid;
-  /* Banda + spettro bilanciati come nel prototipo (~52% / 48%) */
+  /* Dial + spettro/video: stesse colonne in entrambe le viste */
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.95fr);
   background:
     radial-gradient(80% 65% at 18% 0%, rgba(70, 190, 195, 0.16), transparent 52%),
@@ -184,8 +1802,18 @@ button { font: inherit; color: inherit; }
     inset 0 -22px 36px rgba(0, 0, 0, 0.5);
 }
 
-.glass.flick {
+/*
+  Brillamento solo sulla striscia scale (+ neon), NON sul Casio grande / testa / meteo.
+  filter sul parent .dial faceva lampeggiare anche il misuratore FM in alto.
+*/
+.scale.flick,
+.dial-lamp.flick {
   animation: flicker 460ms linear;
+}
+
+.scale.flick-soft,
+.dial-lamp.flick-soft {
+  animation: flicker-soft 420ms linear;
 }
 
 @keyframes flicker {
@@ -195,6 +1823,22 @@ button { font: inherit; color: inherit; }
   40% { filter: brightness(1.1); }
   55% { filter: brightness(0.55); }
   100% { filter: brightness(1); }
+}
+
+@keyframes flicker-soft {
+  0% { filter: brightness(1); }
+  18% { filter: brightness(0.55); }
+  42% { filter: brightness(1.28); }
+  100% { filter: brightness(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scale.flick,
+  .scale.flick-soft,
+  .dial-lamp.flick,
+  .dial-lamp.flick-soft {
+    animation: none;
+  }
 }
 
 .glass-reflect {
@@ -212,140 +1856,63 @@ button { font: inherit; color: inherit; }
 }
 
 .dial {
+  position: relative;
   min-width: 0;
   min-height: 0;
   container-type: size;
-  overflow: hidden;
+  overflow: visible;
   display: grid;
-  grid-template-rows: 1fr 1fr auto;
-  padding: 5% 2% 2% 4%;
-  gap: 0;
+  /* Head a altezza FISSA: cambio stazione/logo non deve spostare scale/meteo */
+  grid-template-rows: 1.25em minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "scales";
+  padding: 4.2% 3.4% 4.2% 2.8%;
+  gap: 0.28em;
   border-right: 1px solid rgba(160, 210, 205, 0.14);
+  /* Scala tipografica col pozzo più alto */
+  font-size: clamp(11px, 4.2cqh, 16px);
 }
 
-.band {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: clamp(28px, 3.2vw, 42px) minmax(0, 1fr);
-  align-items: stretch;
-  gap: clamp(4px, 0.6vw, 10px);
-}
-
-.band-tag {
-  align-self: center;
-  font-family: var(--vfd);
-  font-weight: 400;
-  font-size: clamp(12px, 1.2vw, 16px);
-  letter-spacing: 0.08em;
-  color: #6ee8e0;
-  text-shadow: 0 0 6px rgba(40, 230, 210, 0.55);
-}
-
-.band-body {
-  position: relative;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  touch-action: none;
-  cursor: ew-resize;
-}
-
-.scale {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 100%;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.needle {
-  position: absolute;
-  left: 50%;
-  width: 2px;
-  height: 22%;
-  margin: 0;
-  border: 0;
-  border-radius: 1px;
-  background: linear-gradient(180deg, #ffd070 0%, #ff9a20 100%);
-  box-shadow: 0 0 5px rgba(255, 160, 40, 0.9);
-  transform: translateX(-50%);
-  z-index: 4;
-  pointer-events: none;
-}
-
-#bandFm .needle { top: 52%; }
-#bandAm .needle { top: 18%; }
-
-.needle::after { content: none; }
-
-.readout {
-  position: absolute;
-  left: 50%;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 0.14em;
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* Foto: FM grande sopra la riga, AM grande sotto la riga */
-#bandFm .readout {
-  top: 6%;
-  transform: translateX(-50%);
-}
-
-#bandAm .readout {
-  top: 58%;
-  transform: translateX(-50%);
-}
-
-.freq {
-  font-family: var(--vfd);
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(26px, 24cqh, 48px);
-  line-height: 0.82;
-  letter-spacing: 0.06em;
-  color: #5fe8de;
-  text-shadow:
-    0 0 4px rgba(60, 255, 235, 0.7),
-    0 0 10px rgba(0, 180, 165, 0.4);
-}
-
-.unit {
-  font-family: var(--vfd);
-  font-weight: 400;
-  font-size: 0.32em;
-  letter-spacing: 0.08em;
-  color: #6ee8e0;
-  text-shadow: 0 0 5px rgba(40, 230, 210, 0.55);
-  transform: translateY(-0.05em);
-}
-
-/* Come nel prototipo: entrambe le bande illuminate; ago solo sulla attiva */
-.radio.is-on .band .freq,
-.radio.is-on .band .unit,
-.radio.is-on .band .band-tag,
-.radio.is-on .band .scale {
-  opacity: 1;
-  filter: none;
-}
-
-.band:not(.is-active) .needle { opacity: 0; }
-
-.dial-foot {
+.dial-head {
+  grid-area: head;
   display: flex;
   align-items: center;
-  min-height: 1.1em;
-  padding: 0 0 2px;
+  gap: 0.45em;
+  min-width: 0;
+  max-width: 100%;
+  height: 1.25em;
+  min-height: 1.25em;
+  max-height: 1.25em;
+  padding: 0 2px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.station {
+.station-logo {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+  object-fit: contain;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(160, 210, 205, 0.18);
+}
+
+/* Slot logo sempre riservato — niente collasso al cambio stazione */
+.station-logo[hidden] {
+  display: block !important;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.station-name {
+  /* width:0 + flex → misura reale dello spazio, non del testo */
+  flex: 1 1 0;
+  width: 0;
   min-width: 0;
-  width: 100%;
   font-family: var(--vfd);
   font-size: clamp(9px, 0.95vw, 12px);
   letter-spacing: 0.12em;
@@ -354,17 +1921,1153 @@ button { font: inherit; color: inherit; }
   text-shadow: 0 0 6px rgba(120, 255, 240, 0.45);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  min-height: 1em;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
-.station.is-gold {
+.station-name.is-gold {
   color: var(--gold-hot);
   text-shadow: 0 0 8px rgba(230, 200, 120, 0.45);
 }
 
+.name-marquee {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  will-change: transform;
+  transform: translateX(0);
+}
+
+.name-seg {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.name-gap {
+  flex: 0 0 2.8em;
+  width: 2.8em;
+  height: 1px;
+}
+
+.station-name:not(.is-scroll) .name-gap,
+.station-name:not(.is-scroll) #nameSegB {
+  display: none;
+}
+
+.station-name.is-scroll .name-marquee {
+  animation: marquee-seamless var(--marquee-dur, 12s) linear infinite;
+}
+
+/* Cambio stazione: titolo arriva da destra (lato Casio FM) e si posiziona a sinistra */
+.station-name.is-name-enter .name-marquee {
+  animation: name-enter-from-right 0.72s cubic-bezier(0.22, 0.82, 0.2, 1) !important;
+}
+
+/* Ogni tanto: scorre via a sinistra (o destra) e rientra all’origine */
+.station-name.is-name-sweep .name-marquee {
+  animation: name-sweep-left 2.55s cubic-bezier(0.4, 0.05, 0.2, 1) !important;
+}
+
+.station-name.is-name-sweep.is-sweep-right .name-marquee {
+  animation: name-sweep-right 2.55s cubic-bezier(0.4, 0.05, 0.2, 1) !important;
+}
+
+/* Variante lenta dello scorrimento titolo radio */
+.station-name.is-name-sweep.is-name-sweep-slow .name-marquee {
+  animation-duration: 5.6s !important;
+  animation-timing-function: cubic-bezier(0.33, 0.05, 0.25, 1) !important;
+}
+
+@keyframes name-enter-from-right {
+  0% {
+    transform: translateX(85%);
+    opacity: 0;
+  }
+  18% { opacity: 1; }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes name-sweep-left {
+  0% { transform: translateX(0); opacity: 1; }
+  42% { transform: translateX(calc(-100% - 1.2em)); opacity: 0.2; }
+  42.1% { transform: translateX(calc(55% + 1.2em)); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes name-sweep-right {
+  0% { transform: translateX(0); opacity: 1; }
+  42% { transform: translateX(calc(55% + 1.2em)); opacity: 0.2; }
+  42.1% { transform: translateX(calc(-100% - 1.2em)); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .station-name.is-name-enter .name-marquee,
+  .station-name.is-name-sweep .name-marquee {
+    animation: none !important;
+  }
+}
+
+.dial-scales {
+  grid-area: scales;
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.7em 0;
+  /* Pannello scale immobile: niente reflow da contenuti sopra/sotto */
+  overflow: visible;
+  transform: none;
+}
+
+/*
+  Neon soft sotto le scale FM + AM (striscia lunga, leggera).
+  Solo opacità/intensità in JS — niente transform sul dial.
+*/
+.dial-lamp {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  contain: strict;
+}
+.dial-lamp-strip {
+  position: absolute;
+  left: calc(clamp(28px, 3.2vw, 42px) + 2%);
+  right: 2%;
+  height: 11%;
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 170, 51, 0.14) 6%,
+      rgba(255, 204, 102, 0.32) 18%,
+      rgba(255, 186, 90, 0.28) 50%,
+      rgba(255, 204, 102, 0.32) 82%,
+      rgba(255, 170, 51, 0.14) 94%,
+      transparent 100%);
+  box-shadow:
+    0 0 6px rgba(255, 170, 60, 0.22),
+    0 0 14px rgba(255, 150, 40, 0.12);
+  filter: blur(1.1px);
+}
+.dial-lamp-fm {
+  top: 18%;
+}
+.dial-lamp-am {
+  bottom: 18%;
+}
+.radio:not(.is-on) .dial-lamp {
+  opacity: 0 !important;
+}
+
+/* Spia STEREO: scritta sempre fissa a radio on; solo il pallino on/off/lampeggio */
+.stereo-pilot {
+  position: absolute;
+  left: 0.15em;
+  top: 48%;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.2;
+  filter: grayscale(0.55) brightness(0.7);
+  transition:
+    opacity 0.28s ease,
+    filter 0.28s ease;
+}
+.stereo-pilot-dot {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #ffd27a, #ff9a28 55%, #a84a10);
+  box-shadow:
+    0 0 0 1px rgba(80, 40, 10, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  opacity: 0.22;
+  filter: brightness(0.55);
+  transition: opacity 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+.stereo-pilot-lab {
+  font-family: var(--label);
+  font-size: clamp(0.48rem, 1.35cqw, 0.62rem);
+  letter-spacing: 0.16em;
+  color: rgba(255, 186, 90, 0.4);
+  text-transform: uppercase;
+  line-height: 1;
+}
+/* Testo STEREO fisso mentre è accesa (anche tra una stazione e l’altra) */
+.radio.is-on .stereo-pilot {
+  opacity: 1;
+  filter: none;
+}
+.radio.is-on .stereo-pilot-lab {
+  color: #ffcc66;
+  text-shadow:
+    0 0 6px rgba(255, 170, 50, 0.75),
+    0 0 12px rgba(255, 140, 30, 0.4);
+}
+/* Nessun segnale: pallino ambra lampeggia */
+.radio.is-on:not(.is-locked):not(.is-noise) .stereo-pilot-dot {
+  opacity: 1;
+  filter: none;
+  background:
+    radial-gradient(circle at 32% 28%, #ffe7b0, #ffb040 48%, #e07018 78%, #8a3a08);
+  box-shadow:
+    0 0 0 1px rgba(120, 60, 10, 0.45),
+    0 0 8px rgba(255, 160, 40, 0.85),
+    0 0 14px rgba(255, 140, 30, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  animation: stereo-dot-blink 0.85s steps(1, end) infinite;
+}
+/* Fruscio / avvicinamento stazione: rosso fisso */
+.radio.is-on.is-noise .stereo-pilot-dot {
+  opacity: 1;
+  filter: none;
+  background:
+    radial-gradient(circle at 32% 28%, #ffb0a0, #ff5a45 48%, #c02818 78%, #6a1008);
+  box-shadow:
+    0 0 0 1px rgba(100, 20, 10, 0.5),
+    0 0 8px rgba(255, 70, 50, 0.9),
+    0 0 14px rgba(220, 40, 30, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  animation: none;
+}
+/* Stazione agganciata: verde fisso */
+.radio.is-on.is-locked .stereo-pilot-dot {
+  opacity: 1;
+  filter: none;
+  background:
+    radial-gradient(circle at 32% 28%, #c8ffe0, #3ddc78 50%, #0e6a38);
+  box-shadow:
+    0 0 0 1px rgba(20, 80, 40, 0.45),
+    0 0 10px rgba(50, 220, 120, 0.9),
+    0 0 16px rgba(40, 200, 100, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  animation: none;
+}
+@keyframes stereo-dot-blink {
+  0%, 49% { opacity: 1; filter: brightness(1.05); }
+  50%, 100% { opacity: 0.12; filter: brightness(0.45); }
+}
+
+.dial-scales > .band {
+  position: relative;
+  z-index: 1;
+}
+
+/* Città + meteo a destra del Casio FM */
+.locale-wx {
+  position: absolute;
+  top: 0;
+  right: 0.2em;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  max-width: min(42%, 12.5em);
+  padding: 0.2em 0.25em;
+  transform: translateY(-58%);
+  pointer-events: none;
+  opacity: 0.96;
+  overflow: visible;
+}
+
+.locale-wx[hidden] {
+  display: none !important;
+}
+
+.wx-glyph {
+  flex: 0 0 auto;
+  width: clamp(26px, 3.4em, 40px);
+  height: clamp(26px, 3.4em, 40px);
+  color: var(--gold-hot, #e8c878);
+  filter: drop-shadow(0 0 5px rgba(230, 190, 100, 0.5));
+  overflow: visible;
+}
+
+.wx-glyph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Sole/luna: salgono di scatto e rientrano */
+.wx-glyph svg .wx-orb {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wx-glyph.is-bob svg .wx-orb {
+  animation: wx-orb-bob 1.05s cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+
+@keyframes wx-orb-bob {
+  0% { transform: translateY(0); }
+  32% { transform: translateY(-34%); }
+  100% { transform: translateY(0); }
+}
+
+.wx-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12em;
+  line-height: 1.08;
+  overflow: visible;
+}
+
+.wx-city {
+  font-family: var(--vfd);
+  font-size: clamp(11px, 1.05em, 15px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9fe8e0;
+  text-shadow: 0 0 6px rgba(120, 255, 240, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Città: scorre a destra (bordo dial) e rientra in fretta */
+.wx-city.is-drift {
+  overflow: visible;
+  text-overflow: clip;
+  animation: wx-city-drift 1.35s ease-in-out;
+}
+
+@keyframes wx-city-drift {
+  0% { transform: translateX(0); opacity: 1; }
+  40% { transform: translateX(2.6em); opacity: 0; }
+  58% { transform: translateX(2.6em); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-glyph.is-bob svg .wx-orb,
+  .wx-city.is-drift {
+    animation: none;
+  }
+}
+
+.wx-cond {
+  font-family: var(--vfd);
+  font-size: clamp(9px, 0.78em, 12px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(160, 210, 205, 0.68);
+  text-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wx-date {
+  font-family: var(--vfd);
+  font-size: clamp(9px, 0.8em, 12px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 215, 168, 0.78);
+  text-shadow: 0 0 4px rgba(230, 190, 100, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radio:not(.is-on) .locale-wx {
+  opacity: 0.22;
+  filter: grayscale(0.4);
+}
+
+.band {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.band-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.42em;
+  box-sizing: border-box;
+  font-family: var(--vfd);
+  font-weight: 400;
+  font-size: clamp(12px, 1.15em, 17px);
+  letter-spacing: 0.08em;
+  color: #6ee8e0;
+  text-shadow: 0 0 6px rgba(40, 230, 210, 0.55);
+  transition: color 180ms ease, text-shadow 180ms ease;
+  line-height: 1;
+}
+
+.band-sig {
+  width: 5px;
+  height: 5px;
+  margin-left: 0.12em;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: radial-gradient(circle at 35% 30%, #5a4030, #1a1008 70%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.radio.is-on .band-sig {
+  background: radial-gradient(circle at 35% 30%, #ffe0a0, #ff9a28 55%, #8a4008);
+  box-shadow:
+    0 0 8px rgba(255, 160, 40, 0.85),
+    0 0 2px #ffc060;
+}
+
+/* Verde solo sulla banda attiva quando c’è segnale */
+.radio.is-on.is-locked .band.is-active .band-sig {
+  background: radial-gradient(circle at 35% 30%, #c8ffe0, #3ddc78 50%, #0e6a38);
+  box-shadow:
+    0 0 10px rgba(50, 220, 120, 0.9),
+    0 0 3px #80ffb0;
+}
+
+.band-body {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  /* Visibile: i mini-display possono uscire un filo verso i bordi senza taglio */
+  overflow: visible;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+/*
+  Tag + scala. Importante: align-items:start (non stretch) —
+  con stretch + absolute la riga collassava a 0 e spariva tutta la mappa.
+*/
+.scale-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: clamp(28px, 3.2vw, 42px) minmax(0, 1fr);
+  align-items: start;
+  /* Scala più vicina a FM/AM → più aria a destra per l’unità */
+  gap: clamp(2px, 0.3vw, 5px);
+  z-index: 1;
+}
+
+#bandFm .scale-row {
+  bottom: 8%;
+}
+
+#bandAm .scale-row {
+  top: 8%;
+}
+
+.band-tag {
+  position: absolute;
+  left: 0;
+  width: clamp(28px, 3.2vw, 42px);
+  margin: 0;
+  padding: 0;
+  z-index: 2;
+}
+
+/*
+  Ancorate alla baseline SVG (FM 90 / AM 28), poi salite di un gradino
+  (-50% = centro sul punto; -0.7em = alza la scritta sulla riga).
+*/
+#bandFm .band-tag {
+  top: 90%;
+  transform: translateY(calc(-50% - 0.72em));
+}
+
+#bandAm .band-tag {
+  top: 28%;
+  transform: translateY(calc(-50% - 0.72em));
+}
+
+.scale {
+  position: relative;
+  left: auto;
+  right: auto;
+  grid-column: 2;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 10 / 1;
+  overflow: visible;
+  display: block;
+  min-height: 18px;
+  max-height: 100%;
+}
+.scale .scale-base { stroke: rgba(90, 230, 220, 0.4); }
+.scale .scale-tick { stroke: #4abbb3; }
+.scale .scale-tick.major { stroke: #7ee8e0; }
+.scale .scale-label {
+  fill: #6edfd6;
+  /* font-size solo in user unit SVG (attributo), così resta proporzionato alla scala */
+  font-weight: 500;
+}
+
+.scale .scale-unit {
+  fill: #6edfd6;
+  font-weight: 500;
+}
+
+/* Banda attiva: scala frequenze dorata */
+.radio.is-on .band.is-active .scale .scale-base {
+  stroke: rgba(232, 215, 168, 0.55);
+}
+.radio.is-on .band.is-active .scale .scale-tick {
+  stroke: #a88448;
+}
+.radio.is-on .band.is-active .scale .scale-tick.major {
+  stroke: var(--gold-hot);
+}
+.radio.is-on .band.is-active .scale .scale-label,
+.radio.is-on .band.is-active .scale .scale-unit {
+  fill: var(--gold-hot);
+}
+
+/* Unico ago allungato: attraversa scala FM + AM (stesso offset della colonna tag) */
+.needle-rail {
+  position: absolute;
+  left: calc(clamp(28px, 3.2vw, 42px) + clamp(4px, 0.6vw, 10px));
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.needle {
+  position: absolute;
+  /* Più corto: non attraversa tutto FM+AM */
+  top: 18%;
+  height: 52%;
+  left: 50%;
+  width: 2px;
+  margin: 0;
+  border: 0;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #ffe08a 0%, #ffb040 42%, #ff8a18 100%);
+  box-shadow:
+    0 0 6px rgba(255, 160, 40, 0.95),
+    0 0 2px rgba(255, 220, 140, 0.7);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.needle::after { content: none; }
+
+/* Ago visibile anche a radio spenta, ma spento (niente glow) */
+.radio:not(.is-on) .needle {
+  opacity: 0.55;
+  visibility: visible;
+  background: linear-gradient(180deg, #5a564c 0%, #3a3832 45%, #2a2824 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    inset 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Icone stato a destra sul dial: WhatsApp subito prima della sveglia */
+.dial-status-icos {
+  position: absolute;
+  right: 0.15em;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(4px, 0.9cqw, 8px);
+  transform: translateY(18%);
+  pointer-events: none;
+}
+.dial-status-icos > button {
+  pointer-events: auto;
+}
+
+/* In zoom dial: le animazioni UI devono restare vive */
+.dial.is-panel-zoom .station-name .name-marquee,
+.dial.is-panel-zoom .album-art-inner,
+.dial.is-panel-zoom .wx-glyph svg .wx-orb,
+.dial.is-panel-zoom .wx-city,
+.dial.is-panel-zoom .scale.flick-soft,
+.dial.is-panel-zoom .dial-lamp.flick-soft,
+.dial.is-panel-zoom .track-block.is-meta-enter .album-art,
+.dial.is-panel-zoom .track-block.is-meta-enter .track-artist-row,
+.dial.is-panel-zoom .track-block.is-meta-enter .track-title-row {
+  animation-play-state: running !important;
+}
+
+/*
+  Mini-display: un solo “buco” nel pannello, cifre sotto un vetrino.
+*/
+.readout {
+  --readout-size: clamp(18px, 14cqh, 32px);
+  position: absolute;
+  left: 50%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16em;
+  z-index: 6;
+  pointer-events: none;
+  width: calc(var(--readout-size) * 6.05);
+  min-height: calc(var(--readout-size) * 1.78);
+  padding: 0.42em 0.55em 0.38em;
+  font-size: var(--readout-size);
+  border-radius: 4px;
+  border: 0;
+  background: #030405;
+  box-shadow:
+    /* labbro del foro nel pannello */
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    /* pozzo: profondità sotto il vetro */
+    inset 0 10px 18px rgba(0, 0, 0, 1),
+    inset 0 3px 6px rgba(0, 0, 0, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  transition: box-shadow 180ms ease;
+}
+
+.readout::after {
+  content: none;
+}
+
+/* Solo vetrino sopra le cifre — niente seconda cornice */
+.readout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(155deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.06) 16%,
+      transparent 38%,
+      rgba(0, 0, 0, 0.2) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* FM / AM equidistanti: Casio in alto e in basso, scale libere */
+#bandFm .readout {
+  top: 0;
+  bottom: auto;
+  transform: translate(-50%, -78%);
+}
+
+#bandAm .readout {
+  top: auto;
+  bottom: 0;
+  /* Solo AM: meno sporgenza sotto il vetro (FM/scale intatte) */
+  transform: translate(-50%, 18%);
+  z-index: 8;
+}
+
+/* Sveglia LCD Casio: sempre visibile — spenta = incisa, armata = accesa */
+.dial-alarm-ico,
+.dial-wa-ico {
+  appearance: none;
+  border: 0;
+  position: relative;
+  z-index: 10;
+  width: clamp(20px, 4.4cqw, 28px);
+  height: clamp(20px, 4.4cqw, 28px);
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(48, 72, 68, 0.42);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: none;
+  opacity: 1;
+  transition: color 0.28s ease, filter 0.28s ease, opacity 0.28s ease;
+}
+.dial-alarm-ico[hidden] {
+  display: grid !important;
+}
+.dial-alarm-ico svg,
+.dial-wa-ico svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Armata = sempre accesa (anche radio spenta / solo display visibile) */
+.dial-alarm-ico.is-armed {
+  color: #5fe8de;
+  filter: drop-shadow(0 0 3px rgba(95, 232, 220, 0.55));
+}
+.radio:not(.is-on) .dial-alarm-ico.is-armed {
+  color: #5fe8de;
+  filter: drop-shadow(0 0 3px rgba(95, 232, 220, 0.45));
+  opacity: 1;
+}
+.dial-alarm-ico:active,
+.dial-wa-ico:active {
+  transform: scale(0.94);
+}
+
+/* WhatsApp: spenta = grigia; accesa = verde + badge conteggio */
+.dial-wa-ico.is-lit {
+  color: #25d366;
+  filter: drop-shadow(0 0 3px rgba(37, 211, 102, 0.55));
+}
+.radio:not(.is-on) .dial-wa-ico.is-lit {
+  color: #25d366;
+  filter: drop-shadow(0 0 3px rgba(37, 211, 102, 0.45));
+  opacity: 1;
+}
+.dial-wa-count {
+  position: absolute;
+  top: -0.35em;
+  right: -0.45em;
+  min-width: 1.15em;
+  height: 1.15em;
+  padding: 0 0.2em;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font: 700 0.58em/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0;
+  color: #06140c;
+  background: #dfffe8;
+  box-shadow: 0 0 0 1px rgba(10, 40, 20, 0.35);
+  pointer-events: none;
+}
+.dial-wa-count[hidden] {
+  display: none !important;
+}
+
+
+/* Casio 7-segmenti: sottofondo “888…” + cifre accese sopra */
+.casio {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: end;
+  min-width: 4.6em;
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: 1em;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.casio-ghost,
+.casio .freq {
+  grid-area: 1 / 1;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.casio-ghost {
+  color: rgba(48, 72, 68, 0.55);
+  text-shadow: none;
+  user-select: none;
+}
+
+.freq {
+  position: relative;
+  z-index: 1;
+  color: #5fe8de;
+  text-shadow:
+    0 0 4px rgba(60, 255, 235, 0.7),
+    0 0 10px rgba(0, 180, 165, 0.4);
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.unit {
+  position: relative;
+  z-index: 1;
+  font-family: var(--vfd);
+  font-weight: 400;
+  font-size: 0.3em;
+  letter-spacing: 0.08em;
+  color: #6ee8e0;
+  text-shadow: 0 0 5px rgba(40, 230, 210, 0.55);
+  transform: translateY(0.08em);
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.radio.is-on .band .band-tag,
+.radio.is-on .band .scale,
+.radio.is-on .band .readout {
+  opacity: 1;
+  filter: none;
+}
+
+/* Banda non attiva: cifre spente (restano gli 8 fantasma Casio) */
+.radio.is-on .band:not(.is-active) .freq {
+  color: rgba(28, 48, 46, 0.35);
+  text-shadow: none;
+}
+.radio.is-on .band:not(.is-active) .unit {
+  color: #1c302e;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+}
+
+/* Banda attiva: segmenti Casio dorati accesi */
+.radio.is-on .band.is-active .freq {
+  color: var(--gold-hot);
+  text-shadow:
+    0 0 5px rgba(232, 215, 168, 0.65),
+    0 0 12px rgba(200, 170, 90, 0.4);
+}
+.radio.is-on .band.is-active .unit {
+  color: var(--gold-hot);
+  text-shadow:
+    0 0 6px rgba(232, 215, 168, 0.55),
+    0 0 12px rgba(200, 170, 90, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.radio.is-on .band.is-active .band-tag {
+  color: var(--gold-hot);
+  text-shadow:
+    0 0 6px rgba(232, 215, 168, 0.55),
+    0 0 12px rgba(200, 170, 90, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.radio.is-on .band.is-active .readout {
+  box-shadow:
+    0 1px 0 rgba(255, 240, 200, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    0 0 10px rgba(200, 170, 90, 0.12),
+    inset 0 10px 18px rgba(0, 0, 0, 1),
+    inset 0 3px 6px rgba(0, 0, 0, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Overlay in basso a sinistra: tagliato prima del Casio/beige AM */
+.dial-foot {
+  --art-slot: clamp(28px, 2.7em, 44px);
+  --line-slot: 1.15em;
+  /* Larghezza = da sinistra fino all’inizio del Casio AM centrato */
+  --am-half: calc(var(--readout-size, 20px) * 3.05);
+  grid-area: scales;
+  align-self: end;
+  justify-self: start;
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0;
+  width: calc(50% - var(--am-half) - 16px);
+  max-width: calc(50% - 4.2em);
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  margin: 0 0 0.05em 0.05em;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  transform: translateY(0.85em);
+}
+
+.track-block {
+  --art-slot: clamp(28px, 2.7em, 44px);
+  --line-slot: 1.15em;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  /* Tre slot fissi: copertina / artista / titolo — non si spostano se manca un pezzo */
+  display: grid;
+  grid-template-rows: var(--art-slot) var(--line-slot) var(--line-slot);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: 0.1em;
+  font-family: var(--vfd);
+  font-size: clamp(9px, 0.95vw, 12px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9fe8e0;
+  text-shadow: 0 0 6px rgba(120, 255, 240, 0.45);
+  opacity: 0.92;
+  overflow: hidden;
+}
+
+.track-block.is-empty {
+  opacity: 0;
+}
+
+/* Arrivo meta: cover da sinistra, artista/titolo da destra */
+.track-block.is-meta-enter .album-art {
+  animation: meta-art-in 0.58s cubic-bezier(0.22, 0.9, 0.28, 1) both;
+}
+.track-block.is-meta-enter .track-artist-row {
+  animation: meta-text-in 0.58s cubic-bezier(0.22, 0.9, 0.28, 1) 0.04s both;
+}
+.track-block.is-meta-enter .track-title-row {
+  animation: meta-text-in 0.58s cubic-bezier(0.22, 0.9, 0.28, 1) 0.1s both;
+}
+@keyframes meta-art-in {
+  from {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes meta-text-in {
+  from {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .track-block.is-meta-enter .album-art,
+  .track-block.is-meta-enter .track-artist-row,
+  .track-block.is-meta-enter .track-title-row {
+    animation: none;
+  }
+}
+
+/* Slot 1: copertina — posto fisso anche senza immagine */
+.album-art {
+  width: var(--art-slot);
+  height: var(--art-slot);
+  margin: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(255, 255, 255, 0.1);
+  perspective: 420px;
+}
+
+/* Tiene lo slot: non collassa se manca la cover */
+.album-art[hidden] {
+  display: block !important;
+  visibility: hidden;
+}
+
+.album-art-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.album-art.is-flip .album-art-inner {
+  animation: album-art-flip 1.35s ease-in-out;
+}
+
+.album-art-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 3px;
+}
+
+.album-art-face.is-front {
+  object-fit: cover;
+}
+
+.album-art-face.is-back {
+  transform: rotateY(180deg);
+  background:
+    radial-gradient(circle at 50% 48%, #2a2a2c 0 18%, transparent 19%),
+    repeating-radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      transparent 1px 3px),
+    linear-gradient(145deg, #3a3a3e 0%, #1a1a1c 55%, #0e0e10 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+@keyframes album-art-flip {
+  0% { transform: rotateY(0deg); }
+  42% { transform: rotateY(180deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-art.is-flip .album-art-inner {
+    animation: none;
+  }
+}
+
+/* Slot 2: artista — posto fisso; scorre solo se non entra */
+.track-artist-row {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: var(--line-slot);
+  line-height: var(--line-slot);
+  overflow: hidden;
+  color: var(--gold-hot);
+  text-shadow: 0 0 7px rgba(230, 200, 120, 0.45);
+}
+
+.track-artist-row.is-scroll {
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+}
+
+.artist-marquee {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  will-change: transform;
+  transform: translateX(0);
+  color: inherit;
+  text-shadow: inherit;
+}
+
+.artist-seg {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.artist-gap {
+  flex: 0 0 2.4em;
+  width: 2.4em;
+  height: 1px;
+}
+
+.track-artist-row:not(.is-scroll) .artist-gap,
+.track-artist-row:not(.is-scroll) #artistSegB {
+  display: none;
+}
+
+.track-artist-row.is-scroll .artist-marquee {
+  animation: marquee-seamless var(--marquee-dur, 10s) linear infinite;
+}
+
+/* Slot 3: titolo scorrevole — viewport fino al Casio AM */
+.track-title-row {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: var(--line-slot);
+  line-height: var(--line-slot);
+  overflow: hidden;
+  color: #9fe8e0;
+  text-shadow: 0 0 6px rgba(120, 255, 240, 0.45);
+  /* Entrata/uscita morbida: lettera da destra, sparisce a sinistra */
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 16px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 16px),
+    transparent 100%
+  );
+}
+
+.track-marquee {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  will-change: transform;
+  transform: translateX(0);
+}
+
+.track-seg {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.track-gap {
+  flex: 0 0 2.8em;
+  width: 2.8em;
+  height: 1px;
+}
+
+.track-block.is-scroll .track-marquee {
+  /* Scorrevole più fluido: durata più lunga, GPU, fade ai bordi già in mask */
+  animation: marquee-seamless var(--marquee-dur, 20s) linear infinite;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@keyframes marquee-seamless {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(-1 * var(--marquee-shift, 50%)), 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-block.is-scroll .track-marquee,
+  .track-artist-row.is-scroll .artist-marquee,
+  .station-name.is-scroll .name-marquee {
+    animation: none;
+  }
+}
+
+/* RADIO/TV nascosto per ora: piede solo artista + titolo a sinistra */
+.mode-tag {
+  display: none !important;
+}
+
 .spec {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -374,6 +3077,399 @@ button { font: inherit; color: inherit; }
   border-left: 0;
 }
 
+/* Pannello sveglia: riempie il display destro (come impostazioni) */
+.alarm-ring-panel {
+  --right-share: calc(0.95 / 2.15);
+  appearance: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: calc(100% * var(--right-share));
+  z-index: 22;
+  margin: 0;
+  padding: clamp(10px, 2vw, 18px);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: clamp(10px, 1.6vh, 18px);
+  color: #5fe8de;
+  background:
+    radial-gradient(70% 55% at 50% 38%, rgba(40, 120, 110, 0.28), transparent 62%),
+    linear-gradient(180deg, #061210 0%, #020807 55%, #010404 100%);
+  box-shadow:
+    inset 1px 0 0 rgba(80, 180, 160, 0.28),
+    inset 0 0 28px rgba(0, 0, 0, 0.55);
+  animation: alarm-ring-in 0.38s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+.alarm-ring-panel.is-hidden {
+  display: none !important;
+}
+.alarm-ring-panel.is-out {
+  animation: alarm-ring-out 0.28s ease-in forwards;
+  pointer-events: none;
+}
+.alarm-ring-glow {
+  position: absolute;
+  inset: 18% 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(95, 232, 220, 0.22), transparent 68%);
+  pointer-events: none;
+  animation: alarm-ring-pulse 1.1s ease-in-out infinite;
+}
+.alarm-ring-ico {
+  position: relative;
+  z-index: 1;
+  width: min(72%, 220px);
+  height: auto;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: #5fe8de;
+  filter: drop-shadow(0 0 14px rgba(95, 232, 220, 0.55));
+  animation: alarm-ring-wobble 0.42s ease-in-out infinite;
+  transform-origin: 50% 58%;
+}
+.alarm-ring-ico svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.alarm-ring-lab {
+  position: relative;
+  z-index: 1;
+  font-family: var(--label);
+  font-size: clamp(10px, 1.15vw, 13px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  color: rgba(180, 230, 220, 0.78);
+  text-shadow: 0 0 8px rgba(60, 200, 180, 0.35);
+}
+.alarm-ring-panel:active .alarm-ring-ico {
+  animation: none;
+  transform: scale(0.94);
+  filter: drop-shadow(0 0 8px rgba(95, 232, 220, 0.35));
+}
+@keyframes alarm-ring-wobble {
+  0% { transform: rotate(-7deg) translateX(-3px); }
+  25% { transform: rotate(6deg) translateX(4px); }
+  50% { transform: rotate(-5deg) translateX(-2px); }
+  75% { transform: rotate(7deg) translateX(3px); }
+  100% { transform: rotate(-7deg) translateX(-3px); }
+}
+@keyframes alarm-ring-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+@keyframes alarm-ring-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes alarm-ring-out {
+  to { opacity: 0; transform: scale(0.96); }
+}
+@media (max-width: 900px) {
+  .alarm-ring-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+}
+
+.glass.is-video .spec {
+  display: none;
+}
+
+.video-panel {
+  min-width: 0;
+  min-height: 0;
+  display: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px;
+  padding: 2px 4px 2px 4px;
+}
+
+.glass.is-video .video-panel {
+  display: grid;
+}
+
+.video-panel[hidden] {
+  display: none !important;
+}
+
+.video-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  align-self: center;
+  font-family: var(--label);
+  font-weight: 400;
+  font-size: clamp(8px, 0.78vw, 11px);
+  letter-spacing: 0.2em;
+  color: #d4c090;
+  text-shadow: 0 0 8px rgba(210, 180, 100, 0.2);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.video-well {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #050606;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+
+/* TV a tutta larghezza: niente barre laterali; sopra/sotto la cornice può toccare il vetro */
+.crt {
+  --crt-ar: 16 / 9;
+  position: relative;
+  width: 100cqw;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: var(--crt-ar);
+  /* Se l’altezza 16:9 supera il pozzo, si ritaglia solo sopra/sotto la cornice */
+  max-height: none;
+}
+
+.crt-bezel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  /* Cornice sottile in alto/basso → più area utile al video */
+  padding: clamp(4px, 0.65vh, 7px) clamp(7px, 1vw, 11px) clamp(5px, 0.75vh, 8px);
+  border-radius: 10px;
+  /* Plastica grigia TV anni ’70/’80 */
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.03) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(165deg,
+      #6a6d70 0%,
+      #4e5256 16%,
+      #35383c 40%,
+      #2a2d30 58%,
+      #3e4246 82%,
+      #585c60 100%);
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(10, 10, 12, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.crt-bezel::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 8px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 28%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 4px,
+      rgba(0, 0, 0, 0.05) 4px 5px
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.7),
+    inset 0 5px 10px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 2px rgba(160, 165, 170, 0.12);
+}
+
+/* Filetto argento interno */
+.crt-bezel::after {
+  content: "";
+  position: absolute;
+  inset: clamp(4px, 0.7vh, 7px) clamp(5px, 0.85vw, 9px);
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(190, 195, 200, 0.4),
+    inset 0 0 0 2px rgba(20, 20, 22, 0.55);
+  z-index: 2;
+}
+
+.crt-tube {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  padding: 2px;
+  background:
+    radial-gradient(ellipse at 50% 40%, #1a1c1b 0%, #070808 70%, #000 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 15, 15, 0.95),
+    inset 0 0 0 2px rgba(140, 145, 150, 0.2),
+    inset 0 8px 16px rgba(0, 0, 0, 0.9);
+}
+
+.crt-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #020303;
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 1px rgba(70, 100, 90, 0.12);
+}
+
+.crt-screen video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Cornice già = AR del video → riempie lo schermo tubo */
+  object-fit: fill;
+  background: #000;
+  filter: contrast(1.04) saturate(1.04);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.crt-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.1) 0 1px,
+      transparent 1px 3px
+    );
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+}
+
+.crt-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.28) 100%),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.08) 0%, transparent 26%, transparent 72%, rgba(0, 0, 0, 0.12) 100%);
+}
+
+.crt-static {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  image-rendering: pixelated;
+  opacity: 0.72;
+  filter: brightness(0.78) contrast(1.05);
+  transition: opacity 0.18s linear, filter 0.18s linear;
+  background: #121214;
+}
+
+.video-well.no-signal .crt-static {
+  opacity: 0.55;
+  filter: brightness(0.62) contrast(1.08);
+}
+
+.video-well.is-paused .crt-static {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.video-well.has-signal .crt-static {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s linear;
+}
+
+.video-well.has-signal .crt-screen video {
+  opacity: 1;
+}
+
+.crt-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-family: var(--vfd);
+  font-size: clamp(14px, 2.2vw, 26px);
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  color: #7ecf9a;
+  text-shadow:
+    0 0 6px rgba(80, 220, 140, 0.55),
+    0 0 18px rgba(40, 180, 100, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.8);
+  animation: crt-hud-flicker 2.4s steps(2, end) infinite;
+}
+
+.crt-hud[hidden] {
+  display: none !important;
+}
+
+.video-well.is-paused .crt-hud {
+  color: #d4c090;
+  text-shadow:
+    0 0 6px rgba(220, 190, 100, 0.5),
+    0 0 16px rgba(180, 140, 60, 0.3),
+    0 1px 0 rgba(0, 0, 0, 0.8);
+}
+
+.video-well.no-signal .crt-hud {
+  color: #8eb8b0;
+  text-shadow:
+    0 0 5px rgba(100, 180, 160, 0.45),
+    0 0 14px rgba(60, 140, 120, 0.28),
+    0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.video-well.has-signal .crt-hud {
+  display: none !important;
+}
+
+@keyframes crt-hud-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  94% { opacity: 0.72; }
+  96% { opacity: 1; }
+  98% { opacity: 0.85; }
+}
+
+.radio:not(.is-on) .video-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.radio.is-on .crt-tube {
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 20, 20, 0.95),
+    inset 0 0 0 2px rgba(150, 180, 160, 0.12),
+    inset 0 6px 14px rgba(0, 0, 0, 0.8);
+}
+
 .spec-title {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
@@ -381,9 +3477,11 @@ button { font: inherit; color: inherit; }
   font-family: var(--label);
   font-weight: 400;
   font-size: clamp(8px, 0.78vw, 11px);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.2em;
   color: #d4c090;
   text-shadow: 0 0 8px rgba(210, 180, 100, 0.2);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .spec-well {
@@ -397,6 +3495,7 @@ button { font: inherit; color: inherit; }
 }
 
 .bars {
+  position: relative;
   min-height: 0;
   display: flex;
   align-items: flex-end;
@@ -405,18 +3504,66 @@ button { font: inherit; color: inherit; }
   padding: 2px 2px 0;
 }
 
+/* PAUSA a LED: sulla scia colorata, scende col picco della barra */
+.spec-pause {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.spec-pause.is-hidden {
+  display: none !important;
+}
+.spec-pause-ch {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: auto;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  /* Non DSEG7: alfabeto completo (U/S) — stretta come PAUSA video */
+  font-family: "Barlow Condensed", "Share Tech Mono", sans-serif;
+  font-weight: 600;
+  font-size: clamp(0.95rem, 3.4cqw, 1.55rem);
+  line-height: 1;
+  letter-spacing: 0;
+  color: #b8fff6;
+  text-shadow:
+    0 0 4px rgba(50, 255, 230, 1),
+    0 0 10px rgba(40, 220, 200, 0.7),
+    0 0 16px rgba(30, 180, 170, 0.4);
+  -webkit-mask-image: repeating-linear-gradient(
+    180deg,
+    #000 0 3px,
+    transparent 3px 5px
+  );
+  mask-image: repeating-linear-gradient(
+    180deg,
+    #000 0 3px,
+    transparent 3px 5px
+  );
+  opacity: 0.98;
+  /* Centro della lettera = livello target (mezzo spettro), sopra i picchi gialli */
+  transform: translate(-50%, 50%);
+  will-change: bottom, left;
+}
+
 .bar {
   position: relative;
   flex: 1 1 0;
   max-width: 26px;
   height: 100%;
   min-width: 6px;
+  /* Matrice LED spenta (sempre sotto i fill accesi) */
   background:
     repeating-linear-gradient(
       180deg,
-      rgba(50, 255, 235, 0.045) 0 5px,
-      transparent 5px 7px
+      rgba(36, 58, 52, 0.42) 0 3px,
+      transparent 3px 5px
     );
+  box-shadow: inset 0 0 0 1px rgba(20, 40, 35, 0.25);
 }
 
 .bar .fill {
@@ -471,12 +3618,13 @@ button { font: inherit; color: inherit; }
 }
 
 .controls {
+  position: relative;
   min-height: 0;
   display: grid;
-  grid-template-columns: 0.42fr 0.92fr 1.12fr 0.9fr;
+  grid-template-columns: 0.4fr 0.82fr 0.72fr 1.05fr 0.86fr;
   align-items: center;
   justify-items: center;
-  gap: clamp(4px, 1vw, 14px);
+  gap: clamp(4px, 0.9vw, 12px);
   padding-top: 0;
 }
 
@@ -492,8 +3640,30 @@ button { font: inherit; color: inherit; }
 }
 
 .power-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: clamp(16px, 2.8vh, 32px);
   padding-top: 0;
+  width: auto;
+}
+
+.power-stack .ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  gap: 7px;
+}
+
+.power-stack .lbl {
+  display: block;
+  width: 100%;
+  text-align: center;
+  /* letter-spacing sposta otticamente a destra: compenso */
+  padding-inline-end: 0.28em;
+  box-sizing: border-box;
 }
 
 .ctrl {
@@ -539,13 +3709,18 @@ button { font: inherit; color: inherit; }
 
 /* POWER / STOP — pozzetto incavato, cornice colorata, centro scuro */
 .lamp {
-  width: clamp(54px, 6.6vw, 78px);
-  aspect-ratio: 1;
+  --lamp-size: clamp(54px, 6.6vw, 78px);
+  width: var(--lamp-size);
+  height: var(--lamp-size);
+  flex: 0 0 var(--lamp-size);
+  aspect-ratio: 1 / 1;
   padding: 8px;
   border: 0;
   border-radius: 10px;
   cursor: pointer;
   position: relative;
+  box-sizing: border-box;
+  align-self: center;
   background: #070707;
   box-shadow:
     inset 0 12px 18px rgba(0, 0, 0, 0.92),
@@ -559,75 +3734,621 @@ button { font: inherit; color: inherit; }
   place-items: center;
   width: 100%;
   height: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
   border-radius: 4px;
   background: #121212;
   box-shadow:
     inset 0 8px 14px rgba(0, 0, 0, 0.9),
     inset 0 0 0 4px #6e2828;
-  transition: box-shadow 0.2s ease, color 0.2s ease;
+  transition: box-shadow 90ms ease, transform 90ms ease, color 0.2s ease;
 }
 
 .lamp:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 4px 8px rgba(0, 0, 0, 0.55);
+  transform: none;
 }
 
 .lamp:active .lamp-face {
+  transform: scale(0.97);
   box-shadow:
-    inset 0 14px 18px rgba(0, 0, 0, 0.92),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.8);
+    inset 0 10px 14px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 4px #4a1a1a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.radio.is-on .lamp.power .lamp-face {
-  background: #121212;
+.radio.is-on .lamp.power:active .lamp-face {
+  transform: scale(0.96);
   box-shadow:
-    inset 0 0 0 4px #2ea84c,
-    inset 0 8px 14px rgba(0, 0, 0, 0.9),
-    0 0 8px rgba(40, 180, 80, 0.28);
+    inset 0 12px 16px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 2px #0a3d1c,
+    inset 0 0 0 5px #176a32,
+    inset 0 0 0 6px rgba(180, 255, 200, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 10px rgba(40, 180, 80, 0.35);
 }
 
-.lamp.transport .transport-text {
-  font-family: var(--label);
-  font-weight: 500;
-  font-size: clamp(11px, 1.05vw, 14px);
-  letter-spacing: 0.18em;
-  color: #fff5f5;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+
+/* POWER: pozzetto più profondo + cornice LED a smusso */
+.lamp.power {
+  box-shadow:
+    inset 0 14px 22px rgba(0, 0, 0, 0.95),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.07),
+    0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
+.lamp.power .lamp-face {
+  position: relative;
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 38% 28%, #2a2a2a 0%, #101010 48%, #080808 100%);
+  box-shadow:
+    inset 0 0 0 2px #3a1515,
+    inset 0 0 0 5px #6e2828,
+    inset 0 0 0 6px rgba(255, 160, 140, 0.12),
+    inset 0 10px 16px rgba(0, 0, 0, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.lamp.power .lamp-face::before {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse at 35% 25%, rgba(255, 255, 255, 0.14), transparent 55%),
+    radial-gradient(circle at 50% 60%, rgba(0, 0, 0, 0.55), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lamp.power .lamp-face::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 12%;
+  height: 28%;
+  border-radius: 40% / 60%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent);
+  pointer-events: none;
   z-index: 1;
 }
 
-.radio.is-on .lamp.transport .lamp-face {
-  background: #121212;
+.radio.is-on .lamp.power {
   box-shadow:
-    inset 0 0 0 4px #c43838,
-    inset 0 8px 14px rgba(0, 0, 0, 0.9),
-    0 0 8px rgba(200, 40, 40, 0.25);
+    inset 0 14px 22px rgba(0, 0, 0, 0.95),
+    inset 0 -2px 4px rgba(80, 220, 120, 0.06),
+    inset 0 0 0 1px rgba(80, 220, 120, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(40, 180, 80, 0.22),
+    0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.radio.is-on.is-stopped .lamp.transport .lamp-face {
-  background: #121212;
+.radio.is-on .lamp.power .lamp-face {
+  background:
+    radial-gradient(circle at 38% 28%, #1a2a1c 0%, #0c140e 50%, #060a07 100%);
   box-shadow:
-    inset 0 0 0 4px #2ea84c,
-    inset 0 8px 14px rgba(0, 0, 0, 0.9),
-    0 0 8px rgba(40, 180, 80, 0.25);
+    inset 0 0 0 2px #0c4a22,
+    inset 0 0 0 5px #2ea84c,
+    inset 0 0 0 6px rgba(180, 255, 200, 0.35),
+    inset 0 9px 16px rgba(0, 0, 0, 0.88),
+    inset 0 -1px 0 rgba(160, 255, 190, 0.18),
+    0 0 12px rgba(46, 200, 90, 0.45),
+    0 0 22px rgba(40, 180, 80, 0.22);
 }
 
-.radio.is-on.is-stopped .lamp.transport .transport-text {
-  color: #e8fff0;
-  text-shadow: 0 0 6px rgba(40, 180, 80, 0.35);
+.radio.is-on .lamp.power .lamp-face::before {
+  background:
+    radial-gradient(ellipse at 35% 25%, rgba(180, 255, 200, 0.22), transparent 55%),
+    radial-gradient(circle at 50% 70%, rgba(40, 160, 80, 0.25), transparent 65%);
 }
 
-.radio:not(.is-on) .lamp.transport {
-  filter: none;
+.radio.is-on .lamp.power .lamp-face::after {
+  background: linear-gradient(180deg, rgba(220, 255, 230, 0.28), transparent);
+}
+
+/* PAUSE/PLAY — sempre aspetto spento; solo rilievo premuto/rilasciato */
+.lamp.transport {
+  transition: box-shadow 160ms ease, transform 160ms ease;
   box-shadow:
     inset 0 12px 18px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
     0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.radio:not(.is-on) .lamp.transport .lamp-face {
-  background: radial-gradient(circle at 40% 32%, #3a1818, #1a0c0c 72%);
+.lamp.transport .lamp-face {
+  position: relative;
+  background:
+    linear-gradient(180deg, #2a2a2a 0%, #141414 42%, #0c0c0c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    inset 0 8px 12px rgba(0, 0, 0, 0.55);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+/* Rilasciato (in riproduzione): un filo in rilievo */
+.radio.is-on:not(.is-stopped) .lamp.transport {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 10px 16px rgba(0, 0, 0, 0.88),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 3px 0 #050505,
+    0 5px 10px rgba(0, 0, 0, 0.45);
+}
+
+.radio.is-on:not(.is-stopped) .lamp.transport .lamp-face {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.6),
+    inset 0 6px 10px rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Premuto (pausa): solo incassato, nessun colore */
+.radio.is-on.is-stopped .lamp.transport {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 14px 20px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.radio.is-on.is-stopped .lamp.transport .lamp-face {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 4px 10px rgba(0, 0, 0, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.lamp.transport:active .lamp-face {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    inset 0 5px 12px rgba(0, 0, 0, 0.95);
+}
+
+.lamp.transport .transport-icon {
+  position: relative;
+  width: clamp(16px, 1.8vw, 20px);
+  height: clamp(14px, 1.6vw, 18px);
+  z-index: 1;
+}
+
+.lamp.transport .transport-icon .ico-pause {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(4px, 0.45vw, 6px);
+  width: 100%;
+  height: 100%;
+}
+
+.lamp.transport .transport-icon .ico-pause::before,
+.lamp.transport .transport-icon .ico-pause::after {
+  content: '';
+  width: clamp(4px, 0.45vw, 6px);
+  border-radius: 1px;
+  background: #7a7a7a;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* S-meter + orologio Casio sotto SIGNAL */
+.meter-group {
+  align-self: start;
+  padding-top: clamp(2px, 0.6vh, 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(5px, 0.85vh, 11px);
+  width: min(24vh, 19vw, 186px);
+  max-width: 100%;
+}
+
+.smeter,
+.casio-clock {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Cornice SIGNAL: fine, quasi in tinta con la carcassa */
+.smeter-bezel {
+  position: relative;
+  padding: clamp(1.5px, 0.22vw, 2.5px);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg,
+      #1a1a1a 0%,
+      #101010 48%,
+      #141414 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.smeter-bezel::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 2px;
+  pointer-events: none;
+  background: transparent;
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.smeter-well {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  aspect-ratio: 1.72 / 1;
+  background: #05090b;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.08),
+    inset 0 10px 16px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px rgba(0, 0, 0, 0.95);
+}
+
+/* Stesso fondo del display (scala FM/AM) */
+.smeter-face {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 65% at 18% 0%, rgba(70, 190, 195, 0.16), transparent 52%),
+    linear-gradient(180deg, #0b1417 0%, #05090b 48%, #020304 100%);
+  transition: filter 220ms ease, background 220ms ease;
+}
+
+.smeter-scale {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+.smeter-arc {
+  stroke: rgba(90, 230, 220, 0.55);
+  stroke-width: 1.8;
+}
+
+.smeter-redzone {
+  stroke: #e53935;
+  stroke-width: 8.5;
+  opacity: 0.92;
+}
+
+.smeter-tick {
+  stroke: #7ee8e0;
+  stroke-width: 1.55;
+  stroke-linecap: square;
+}
+
+.smeter-tick.is-minor {
+  stroke: #4abbb3;
+  stroke-width: 1;
+  opacity: 0.95;
+}
+
+.smeter-num {
+  fill: #8ef0e8;
+  font-family: var(--label);
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke fill;
+  stroke: rgba(0, 20, 24, 0.55);
+  stroke-width: 0.55px;
+}
+
+.smeter-num.is-db {
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  fill: #6edfd6;
+}
+
+.smeter-num.is-red {
+  fill: #ff6b5c;
+  stroke: rgba(40, 0, 0, 0.35);
+}
+
+.smeter-lab {
+  fill: #7ee8e0;
+  font-family: var(--label);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  paint-order: stroke fill;
+  stroke: rgba(0, 20, 24, 0.45);
+  stroke-width: 0.45px;
+}
+
+.smeter-needle {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 2.2px;
+  height: 70%;
+  margin: 0;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) rotate(-48deg);
+  background: linear-gradient(180deg, #ff5a4a 0 16%, #f2f6f6 16% 100%);
+  border-radius: 1px;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.7),
+    0 0 6px rgba(126, 232, 224, 0.2);
+  z-index: 2;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.smeter-pivot {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #5a5a5a, #1a1a1a 60%, #050505 100%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.smeter-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.05) 22%,
+      transparent 44%,
+      rgba(0, 0, 0, 0.06) 100%);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Orologio Casio sotto SIGNAL — LCD centrato, HH:MM intero */
+.casio-clock-bezel {
+  position: relative;
+  padding: clamp(1.5px, 0.22vw, 2.5px);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg,
+      #1a1a1a 0%,
+      #101010 48%,
+      #141414 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.casio-clock-bezel::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.casio-clock-well {
+  position: relative;
+  container-type: inline-size;
+  border-radius: 4px;
+  overflow: hidden;
+  height: clamp(36px, 5.2vh, 52px);
+  background: #05090b;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.08),
+    inset 0 8px 14px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px rgba(0, 0, 0, 0.95);
+}
+
+.casio-clock-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6%;
+  overflow: hidden;
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(70, 190, 195, 0.14), transparent 55%),
+    linear-gradient(180deg, #0b1417 0%, #05090b 48%, #020304 100%);
+}
+
+.casio-clock-lcd {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-family: var(--casio);
+  font-weight: 700;
+  /* 22cqw: HH:MM deve stare nel pozzo anche su schermi stretti */
+  font-size: clamp(14px, 22cqw, 28px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.casio-clock-ghost,
+.casio-clock-time {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08em;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.casio-clock-ghost {
+  color: rgba(48, 72, 68, 0.48);
+  text-shadow: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.casio-clock-time {
+  position: relative;
+  z-index: 1;
+  color: rgba(40, 58, 55, 0.5);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+#clockHours,
+#clockMins {
+  display: inline-block;
+  min-width: 1.55em;
+  text-align: center;
+}
+
+.casio-clock-colon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.26em;
+  width: 0.42em;
+  flex: 0 0 auto;
+  opacity: 0.4;
+}
+
+.casio-clock-colon i {
+  display: block;
+  width: 0.2em;
+  height: 0.2em;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 0 0 3px rgba(60, 255, 235, 0.35);
+}
+
+.casio-clock-colon.is-ghost {
+  opacity: 1;
+  color: inherit;
+}
+
+.casio-clock-colon.is-ghost i {
+  box-shadow: none;
+  background: currentColor;
+}
+
+.casio-clock-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.05) 22%,
+      transparent 44%,
+      rgba(0, 0, 0, 0.06) 100%);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.radio.is-on .casio-clock-face {
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(70, 190, 195, 0.18), transparent 55%),
+    linear-gradient(180deg, #0d181c 0%, #071014 48%, #030608 100%);
+}
+
+.radio.is-on .casio-clock-time {
+  color: #5fe8de;
+  text-shadow:
+    0 0 4px rgba(60, 255, 235, 0.7),
+    0 0 10px rgba(0, 180, 165, 0.4);
+}
+
+.radio.is-on .casio-clock-colon:not(.is-ghost) {
+  opacity: 1;
+  color: #5fe8de;
+  animation: casio-colon-blink 1s steps(1, end) infinite;
+}
+
+@keyframes casio-colon-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio.is-on .casio-clock-colon:not(.is-ghost) {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Accesa: stesso display, scala in oro come la banda attiva */
+.radio.is-on .smeter-face {
+  background:
+    radial-gradient(80% 65% at 18% 0%, rgba(70, 190, 195, 0.2), transparent 52%),
+    linear-gradient(180deg, #0d181c 0%, #071014 48%, #030608 100%);
+  filter: none;
+}
+
+.radio.is-on .smeter-arc {
+  stroke: rgba(232, 215, 168, 0.65);
+}
+
+.radio.is-on .smeter-tick {
+  stroke: #e8d7a8;
+}
+
+.radio.is-on .smeter-tick.is-minor {
+  stroke: #a88448;
+}
+
+.radio.is-on .smeter-num {
+  fill: #f0e2b8;
+  stroke: rgba(0, 12, 16, 0.55);
+}
+
+.radio.is-on .smeter-num.is-db {
+  fill: #d4c090;
+}
+
+.radio.is-on .smeter-num.is-red {
+  fill: #ff6b5c;
+}
+
+.radio.is-on .smeter-lab {
+  fill: #e8d7a8;
+}
+
+.radio.is-on .smeter-well {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.1),
+    inset 0 8px 14px rgba(0, 0, 0, 0.55),
+    0 0 10px rgba(70, 190, 195, 0.1);
+}
+
+.radio:not(.is-on) .smeter-face {
+  filter: brightness(0.72) saturate(0.85);
+}
+
+.radio:not(.is-on) .smeter-needle {
+  opacity: 0.55;
 }
 
 .vol-wrap {
@@ -660,6 +4381,7 @@ button { font: inherit; color: inherit; }
 .vol-nums span {
   position: absolute;
   z-index: 2;
+  pointer-events: none;
   transform: translate(-50%, -50%);
   font-family: var(--label);
   font-weight: 400;
@@ -698,29 +4420,46 @@ button { font: inherit; color: inherit; }
   border-radius: 50%;
   touch-action: none;
   cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 2;
 }
 
 .knob.is-grab { cursor: grabbing; }
 
-.knurl {
+/* Volume: zigrinatura fine metallica */
+.knob.vol .knurl {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background:
     repeating-conic-gradient(
-      from 0.4deg,
-      #080808 0deg 2.2deg,
-      #6a6a6a 2.35deg 3.1deg,
-      #1a1a1a 3.25deg 5.4deg,
-      #4a4a4a 5.5deg 6.1deg,
-      #101010 6.2deg 8deg
+      from 0deg,
+      #050505 0deg 1.6deg,
+      #9a9a9a 1.8deg 2.6deg,
+      #1c1c1c 2.8deg 4.2deg,
+      #d0d0d0 4.4deg 5deg,
+      #2a2a2a 5.2deg 6.4deg,
+      #7a7a7a 6.55deg 7.1deg,
+      #0c0c0c 7.2deg 8deg
     );
   box-shadow:
     0 16px 26px rgba(0, 0, 0, 0.72),
     0 4px 0 rgba(0, 0, 0, 0.45),
-    inset 0 2px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.55),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(0, 0, 0, 0.65);
+}
+
+.knob.vol .knurl::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(115deg, rgba(0, 0, 0, 0.25) 8%, transparent 38%, rgba(255, 255, 255, 0.18) 62%, rgba(255, 255, 255, 0.08) 78%, transparent 92%);
+  pointer-events: none;
+  mix-blend-mode: soft-light;
 }
 
 .knob .rim {
@@ -776,39 +4515,47 @@ button { font: inherit; color: inherit; }
     0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
-.tune-group { position: relative; }
-
-.tune-bridge {
-  position: absolute;
-  left: 50%;
-  top: 0.95em;
-  right: -42%;
-  height: 0;
-  border-top: 1px solid #cbb98a;
-  z-index: 3;
-  pointer-events: none;
+.tune-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(8px, 1.2vh, 14px);
+  min-width: 0;
+  max-height: 100%;
+  width: 100%;
 }
 
-.tune-bridge::before {
-  content: "";
+.tune-group .lbl-row {
+  position: relative;
+  z-index: 5;
+}
+
+/* Linea TUNING → FM: left/top/width impostati da JS */
+.tune-bridge {
   position: absolute;
-  left: -0.5px;
+  left: 0;
   top: 0;
-  width: 1px;
-  height: 14px;
-  background: #cbb98a;
+  width: 0;
+  height: 0;
+  border-top: 1px solid #cbb98a;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
 }
 
 .tune-led {
   position: absolute;
   left: 50%;
-  top: 16px;
-  width: 6px;
-  height: 6px;
-  transform: translate(-50%, -50%);
+  top: 5px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #5a4030, #1a1008 70%);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  transition: background 180ms ease, box-shadow 180ms ease;
 }
 
 .radio.is-on .tune-led {
@@ -818,24 +4565,114 @@ button { font: inherit; color: inherit; }
     0 0 2px #ffc060;
 }
 
+.radio.is-on.is-locked .tune-led {
+  background: radial-gradient(circle at 35% 30%, #c8ffe0, #3ddc78 50%, #0e6a38);
+  box-shadow:
+    0 0 10px rgba(50, 220, 120, 0.9),
+    0 0 3px #80ffb0;
+}
+
+/* Stessa dimensione del volume */
 .knob-slot {
   position: relative;
-  width: min(34vh, 26vw, 260px);
+  width: min(26vh, 22vw, 220px);
   aspect-ratio: 1;
+  z-index: 2;
+  touch-action: none;
+}
+
+.vol-wrap {
+  touch-action: none;
+}
+
+.tune-ticks,
+.tune-nums {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Lignette del rullo: aspetto FISSO, mai legate alla banda */
+.tune-ticks .tick {
+  position: absolute;
+  width: 1.5px;
+  height: 6px;
+  border-radius: 1px;
+  background: rgba(210, 190, 140, 0.55);
+}
+
+.tune-ticks .tick.major {
+  width: 2px;
+  height: 9px;
+  background: rgba(235, 215, 160, 0.88);
+}
+
+.tune-ticks .tick.tick-inner {
+  height: 5px;
+}
+
+.tune-ticks .tick.tick-inner.major {
+  height: 7px;
+}
+
+/* Numeri fissi (sempre uguali); si illumina solo indicata + tag FM/AM */
+.tune-nums span,
+.tune-nums .tune-lab {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  font-family: var(--label);
+  font-weight: 400;
+  font-size: clamp(9px, 1.05vw, 13px);
+  color: #8a7a58;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.85),
+    0 -1px 0 rgba(255, 230, 180, 0.1);
+  white-space: nowrap;
+  opacity: 1;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.tune-nums .tune-lab.is-am:not(.tune-band-tag) {
+  font-size: clamp(7px, 0.82vw, 10px);
+  letter-spacing: 0.01em;
+}
+
+.tune-nums .tune-band-tag,
+.tune-nums .tune-band-tag.is-fm,
+.tune-nums .tune-band-tag.is-am {
+  font-size: clamp(9px, 0.95vw, 12px);
+  letter-spacing: 0.12em;
+  font-weight: 500;
+}
+
+/* Solo cifra sotto la linguetta + scritta FM/AM attiva */
+.tune-nums .tune-lab.is-indicated,
+.radio.band-fm .tune-nums .tune-band-tag.is-fm,
+.radio.band-am .tune-nums .tune-band-tag.is-am {
+  color: var(--gold-hot);
+  text-shadow:
+    0 0 6px rgba(232, 215, 168, 0.55),
+    0 1px 0 rgba(0, 0, 0, 0.7),
+    0 -1px 0 rgba(255, 240, 200, 0.22);
 }
 
 .tune-ring {
   position: absolute;
-  inset: 0;
+  inset: 8%;
   border-radius: 50%;
   background: repeating-conic-gradient(
     from -0.35deg,
     transparent 0deg 2.6deg,
-    #e4d2a4 2.6deg 2.95deg
+    rgba(228, 210, 164, 0.35) 2.6deg 2.95deg
   );
-  -webkit-mask-image: radial-gradient(circle, transparent 0 71%, #000 72% 77.5%, transparent 78.5%);
-  mask-image: radial-gradient(circle, transparent 0 71%, #000 72% 77.5%, transparent 78.5%);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 78%, #000 79% 86%, transparent 87%);
+  mask-image: radial-gradient(circle, transparent 0 78%, #000 79% 86%, transparent 87%);
   pointer-events: none;
+  z-index: 1;
+  opacity: 0.55;
 }
 
 .tune-well {
@@ -843,17 +4680,119 @@ button { font: inherit; color: inherit; }
   width: auto;
   height: auto;
   padding: 3%;
+  box-shadow:
+    inset 0 16px 24px rgba(0, 0, 0, 0.9),
+    inset 0 -3px 0 rgba(255, 255, 255, 0.07),
+    0 10px 16px rgba(0, 0, 0, 0.4);
 }
 
-/* TUNING: knurl → cornice oro → anello nero → calotta oro più piccola */
+/* TUNING: ruota solo knurl/anello; oro e calotta restano fissi */
+.knob.tune .knob-spin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Tuning: corona a denti larghi, tono bronzo/oro — diversa dal volume */
+.knob.tune .knob-spin .knurl {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(
+      from 0.5deg,
+      #120c06 0deg 3.8deg,
+      #7a5224 4deg 5.2deg,
+      #f0d090 5.35deg 7deg,
+      #9a6a34 7.15deg 8.3deg,
+      #1c140a 8.45deg 12deg
+    );
+  box-shadow:
+    0 18px 28px rgba(0, 0, 0, 0.78),
+    0 5px 0 #1a1208,
+    0 6px 0 rgba(255, 220, 160, 0.12),
+    inset 0 3px 2px rgba(255, 235, 190, 0.4),
+    inset 0 -12px 18px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(90, 60, 22, 0.9);
+}
+
+.knob.tune .knob-spin .knurl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      transparent 0deg 5.4deg,
+      rgba(0, 0, 0, 0.6) 5.6deg 6.5deg,
+      transparent 6.7deg 12deg
+    );
+  pointer-events: none;
+}
+
+.knob.tune .knob-spin .knurl::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(0, 0, 0, 0.5) 80%, rgba(0, 0, 0, 0.82) 100%),
+    linear-gradient(125deg, rgba(255, 230, 170, 0.28) 10%, transparent 38%, rgba(255, 245, 210, 0.2) 66%, transparent 88%);
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+
+.knob.tune .tune-mark {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: 4px;
+  height: 22%;
+  transform: translateX(-50%);
+  border-radius: 2px 2px 1px 1px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #ffe9a8 22%, #e0b850 55%, #8a5a18 100%);
+  box-shadow:
+    0 0 10px rgba(255, 210, 110, 1),
+    0 0 3px rgba(255, 240, 180, 0.9),
+    1px 0 0 rgba(0, 0, 0, 0.35),
+    -1px 0 0 rgba(255, 255, 255, 0.2),
+    0 2px 2px rgba(0, 0, 0, 0.45);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.knob.tune .tune-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, #ffe9a8 10%, #c99430 70%);
+  box-shadow: 0 0 6px rgba(255, 200, 100, 0.75);
+  border-radius: 1px;
+}
+
 .knob.tune .gold-outer {
   position: absolute;
-  inset: 8%;
+  inset: 7%;
   border-radius: 50%;
   background: transparent;
   box-shadow:
-    inset 0 0 0 2px #d7b56a,
-    inset 0 1px 0 rgba(255, 236, 190, 0.7);
+    inset 0 0 0 3px #d7b56a,
+    inset 0 2px 1px rgba(255, 240, 200, 0.85),
+    inset 0 -2px 3px rgba(80, 50, 10, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .knob.tune .black-ring {
@@ -861,10 +4800,12 @@ button { font: inherit; color: inherit; }
   inset: 14%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 40% 32%, #3a3a3a 0%, #161616 48%, #070707 100%);
+    radial-gradient(circle at 42% 32%, #4a4a4a 0%, #1c1c1c 42%, #070707 100%);
   box-shadow:
-    inset 0 6px 10px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    inset 0 8px 14px rgba(0, 0, 0, 0.8),
+    inset 0 -3px 4px rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.75),
+    0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
 .knob.tune .black-ring::after {
@@ -881,11 +4822,15 @@ button { font: inherit; color: inherit; }
   inset: 34%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 36% 30%, #fff1c4 0%, #e2c06a 22%, #b8883a 55%, #6a4a14 100%);
+    radial-gradient(circle at 36% 28%, #fff8dc 0%, #efd080 18%, #c99640 48%, #7a5018 82%, #3a280c 100%);
   box-shadow:
-    0 0 0 2px #0c0c0c,
-    inset 0 2px 2px rgba(255, 255, 255, 0.75),
-    inset 0 -6px 8px rgba(80, 40, 0, 0.35);
+    0 6px 10px rgba(0, 0, 0, 0.45),
+    0 0 0 2px #0a0a0a,
+    0 0 0 3px rgba(200, 160, 80, 0.25),
+    inset 0 3px 3px rgba(255, 255, 255, 0.8),
+    inset 0 -8px 10px rgba(80, 40, 0, 0.4);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .knob.tune .cap-rings {
@@ -959,12 +4904,49 @@ button { font: inherit; color: inherit; }
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 38%, #222 0%, #080808 58%, #000 100%);
+    radial-gradient(circle at 50% 38%, #2a2a2a 0%, #0c0c0c 58%, #000 100%);
   box-shadow:
-    inset 0 8px 12px rgba(0, 0, 0, 0.95),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-    0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(0, 0, 0, 0.8);
+    inset 0 10px 14px rgba(0, 0, 0, 0.95),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 10px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.85);
+}
+
+.key-well.switch-well {
+  width: clamp(52px, 5.8vw, 68px);
+  height: clamp(36px, 4.2vw, 48px);
+  aspect-ratio: auto;
+  border-radius: 999px;
+  padding: 3px;
+  place-items: stretch;
+  justify-items: stretch;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.key-well.switch-well:focus,
+.key-well.switch-well:focus-visible,
+.key.switch:focus,
+.key.switch:focus-visible,
+.key.switch::-moz-focus-inner {
+  outline: none !important;
+  border: 0;
+  box-shadow: none;
+}
+
+.key.switch:focus,
+.key.switch:focus-visible {
+  /* ripristina solo l’ombra del pallino, senza alone di focus */
+  box-shadow:
+    0 5px 8px rgba(0, 0, 0, 0.75),
+    0 1px 0 #030303,
+    inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -7px 9px rgba(0, 0, 0, 0.65);
 }
 
 .preset-well .preset-led {
@@ -999,11 +4981,27 @@ button { font: inherit; color: inherit; }
     0 1px 0 #030303,
     inset 0 2px 2px rgba(255, 255, 255, 0.55),
     inset 0 -7px 9px rgba(0, 0, 0, 0.65);
+  transition: box-shadow 90ms ease, filter 90ms ease;
 }
 
+/* CH±: verde plastica (non LED) */
 .key.ch {
   background:
-    radial-gradient(circle at 32% 26%, #b0a890 0%, #5a5040 28%, #1a1810 62%, #050505 100%);
+    radial-gradient(circle at 32% 26%, #7ecf8a 0%, #3d9a52 26%, #1e6a32 58%, #0a2e14 100%);
+  box-shadow:
+    0 5px 8px rgba(0, 0, 0, 0.75),
+    0 1px 0 #030303,
+    inset 0 2px 2px rgba(200, 255, 210, 0.35),
+    inset 0 -7px 9px rgba(0, 40, 15, 0.7);
+}
+
+.key.ch:active {
+  filter: brightness(0.9);
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.55),
+    0 0 0 1px #030303,
+    inset 0 3px 5px rgba(0, 40, 15, 0.75),
+    inset 0 1px 0 rgba(180, 240, 190, 0.2);
 }
 
 .key.is-lit {
@@ -1014,12 +5012,54 @@ button { font: inherit; color: inherit; }
     inset 0 -6px 8px rgba(0, 0, 0, 0.5);
 }
 
+/* Premuta leggera: niente discesa, solo ombra più interna */
 .key:active {
-  transform: translateY(2px) scale(0.95);
+  transform: none;
+  filter: brightness(0.88);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.55),
-    inset 0 4px 7px rgba(0, 0, 0, 0.78),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+    0 2px 3px rgba(0, 0, 0, 0.55),
+    0 0 0 1px #030303,
+    inset 0 3px 5px rgba(0, 0, 0, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Pallino switch: scorrimento L/R + drag */
+.key.switch {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: clamp(22px, 2.7vw, 32px);
+  height: clamp(22px, 2.7vw, 32px);
+  margin: 0;
+  transform: translateY(-50%);
+  transition: left 180ms cubic-bezier(0.22, 0.9, 0.28, 1);
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.key.switch.is-right {
+  left: calc(100% - 4px - clamp(22px, 2.7vw, 32px));
+}
+
+.key.switch.is-dragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+.key.switch:active {
+  transform: translateY(-50%);
+  filter: none;
+  background:
+    radial-gradient(circle at 32% 26%, #a8a8a8 0%, #484848 24%, #1a1a1a 58%, #050505 100%);
+  box-shadow:
+    0 5px 8px rgba(0, 0, 0, 0.75),
+    0 1px 0 #030303,
+    inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -7px 9px rgba(0, 0, 0, 0.65);
 }
 
 .key.cast {
@@ -1030,35 +5070,153 @@ button { font: inherit; color: inherit; }
     0 5px 7px rgba(0, 0, 0, 0.6),
     inset 0 1px 1px rgba(255, 255, 255, 0.4),
     inset 0 -5px 7px rgba(0, 0, 0, 0.55);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
+/* Cast attivo: tasto visibilmente premuto / incassato */
 .key.cast.is-lit {
+  transform: translateY(2px);
   background:
-    radial-gradient(circle at 35% 30%, #dff3ff, #4db0ff 38%, #1563b8 72%);
+    radial-gradient(circle at 40% 35%, #3a7ab8, #0e3a6a 48%, #060606 78%);
   box-shadow:
-    0 0 14px rgba(80, 180, 255, 0.8),
-    0 5px 7px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px rgba(255, 255, 255, 0.55);
+    inset 0 4px 10px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(120, 190, 255, 0.25),
+    0 0 12px rgba(60, 160, 255, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .key.cast:not(.is-ready) {
   opacity: 0.55;
 }
 
-.radio:not(.is-on) .dial,
-.radio:not(.is-on) .spec,
+/* Spenta: readout/ago/stazione off; spettro resta come LCD con LED fantasma */
 .radio:not(.is-on) .readout,
-.radio:not(.is-on) .station,
+.radio:not(.is-on) .track-block,
+.radio:not(.is-on) .album-art,
+.radio:not(.is-on) .station-name,
+.radio:not(.is-on) .station-logo,
+.radio:not(.is-on) .dial-head,
+.radio:not(.is-on) .band-sig,
 .radio:not(.is-on) .glass-reflect {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-.radio:not(.is-on) .glass {
-  background: #020303;
+.radio:not(.is-on) .spec {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+}
+
+.radio:not(.is-on) .spec-well {
+  background:
+    linear-gradient(180deg, rgba(8, 14, 12, 0.55) 0%, rgba(4, 8, 7, 0.35) 100%);
   box-shadow:
-    inset 0 0 40px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(50, 80, 70, 0.12),
+    inset 0 8px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Quadrettini LED spenti: a malapena visibili */
+.radio:not(.is-on) .bar {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(28, 48, 42, 0.55) 0 3px,
+      rgba(6, 10, 9, 0.15) 3px 5px
+    );
+  box-shadow: inset 0 0 0 1px rgba(18, 32, 28, 0.35);
+  filter: brightness(0.72) saturate(0.35);
+}
+
+.radio:not(.is-on) .bar .fill,
+.radio:not(.is-on) .bar .cap {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  box-shadow: none !important;
+}
+
+.radio:not(.is-on) .spec-title {
+  color: #3a5048;
+  text-shadow: none;
+  opacity: 0.55;
+}
+
+.radio:not(.is-on) .spec-labels span {
+  color: #2a3c36;
+  opacity: 0.4;
+  text-shadow: none;
+}
+
+/* Accesa: sotto i LED restano i quadretti spenti molto tenui */
+.radio.is-on .bar {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(40, 70, 62, 0.2) 0 3px,
+      transparent 3px 5px
+    );
+  filter: none;
+  box-shadow: none;
+}
+
+/* Idle dim: su APK = luminosità di sistema; CSS solo fallback web (leggero) */
+.radio.is-on.is-idle-dim:not(.is-idle-dim-sys) .chassis {
+  filter: brightness(0.55) saturate(0.7);
+  transition: filter 1.2s ease;
+}
+.radio.is-on.is-idle-dim-sys .chassis {
+  filter: none;
+}
+.radio.is-on:not(.is-idle-dim) .chassis {
+  filter: none;
+  transition: filter 0.55s ease;
+}
+
+.radio:not(.is-on) .dial {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  filter: none; /* niente filtro sul dial intero: altrimenti spegne anche l’icona sveglia */
+}
+.radio:not(.is-on) .dial .band-body,
+.radio:not(.is-on) .dial .needle-rail {
+  filter: brightness(0.38) saturate(0.45) contrast(0.92);
+}
+.radio:not(.is-on) .dial-alarm-ico,
+.radio:not(.is-on) .dial-wa-ico {
+  pointer-events: auto !important;
+}
+.radio:not(.is-on) .dial-alarm-ico:not(.is-armed),
+.radio:not(.is-on) .dial-wa-ico:not(.is-lit) {
+  filter: none;
+}
+
+.radio:not(.is-on) .band-tag {
+  color: #2a4a48;
+  text-shadow: none;
+}
+
+.radio:not(.is-on) .scale .scale-base {
+  stroke: rgba(40, 70, 68, 0.55);
+}
+.radio:not(.is-on) .scale .scale-tick {
+  stroke: #2a4844;
+}
+.radio:not(.is-on) .scale .scale-tick.major {
+  stroke: #355854;
+}
+.radio:not(.is-on) .scale .scale-label,
+.radio:not(.is-on) .scale .scale-unit {
+  fill: #2f524e;
+}
+
+.radio:not(.is-on) .glass {
+  background:
+    linear-gradient(180deg, #070c0e 0%, #040608 48%, #020303 100%);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.85),
     inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
@@ -1083,52 +5241,296 @@ audio {
   pointer-events: none;
 }
 
+/* Cassa speaker: griglia a quadretti grigia, come una vera cassa */
+.speaker {
+  display: none;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #6a6a6a 0%, #4a4a4a 12%, #3a3a3a 50%, #2e2e2e 88%, #454545 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.45),
+    inset 3px 0 5px rgba(255, 255, 255, 0.06),
+    inset -3px 0 5px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.speaker-bay {
+  position: absolute;
+  inset: 7%;
+  border-radius: 6px;
+  background: #3f3f3f;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+    inset 0 8px 14px rgba(0, 0, 0, 0.35),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.speaker-mesh {
+  position: absolute;
+  inset: 9%;
+  z-index: 2;
+  border-radius: 5px;
+  /* griglia metallica a quadretti sopra il sub */
+  background-color: rgba(42, 42, 42, 0.35);
+  background-image:
+    linear-gradient(#626262 1.6px, transparent 1.6px),
+    linear-gradient(90deg, #626262 1.6px, transparent 1.6px);
+  background-size: 6px 6px;
+  background-position: 0 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3),
+    inset 0 8px 12px rgba(0, 0, 0, 0.22),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.speaker-driver {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(38%, 22vh, 150px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}
+
+.speaker-rim,
+.speaker-surround,
+.speaker-ring,
+.speaker-cone,
+.speaker-dust {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  display: block;
+}
+
+.speaker-rim {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 50% 38%, #3a3a3a 0%, #1e1e1e 40%, #0e0e0e 78%, #080808 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.12),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.speaker-surround {
+  width: 88%;
+  height: 88%;
+  background:
+    radial-gradient(circle at 50% 45%,
+      #2a2a2a 0%,
+      #181818 55%,
+      #303030 70%,
+      #121212 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(55, 55, 55, 0.55),
+    inset 0 4px 6px rgba(255, 255, 255, 0.04),
+    inset 0 -6px 8px rgba(0, 0, 0, 0.55);
+}
+
+.speaker-ring {
+  width: 74%;
+  height: 74%;
+  background:
+    radial-gradient(circle at 40% 30%, #3f3f3f 0%, #222 35%, #101010 70%, #1a1a1a 100%);
+  box-shadow:
+    inset 0 3px 5px rgba(255, 255, 255, 0.07),
+    inset 0 -8px 10px rgba(0, 0, 0, 0.6);
+}
+
+.speaker-cone {
+  width: 52%;
+  height: 52%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.03) 0 1px,
+      transparent 1px 4px
+    ),
+    radial-gradient(circle at 38% 28%, #4a4a4a 0%, #2a2a2a 30%, #121212 65%, #070707 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -5px 8px rgba(0, 0, 0, 0.65),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.speaker-dust {
+  width: 20%;
+  height: 20%;
+  background:
+    radial-gradient(circle at 35% 28%, #5a5a5a 0%, #2a2a2a 45%, #101010 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.22),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.6),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+}
+
 @media (orientation: portrait) {
   .radio { padding: clamp(8px, 2vw, 16px); }
   .chassis {
-    width: min(96vw, calc(94dvh * 0.72));
-    height: min(94dvh, calc(96vw / 0.72));
+    width: min(96vw, calc(94dvh * 0.62));
+    height: min(94dvh, calc(96vw / 0.62));
     max-height: none;
   }
   .panel {
-    grid-template-rows: 32% minmax(0, 1fr);
-    gap: 12px;
+    grid-template-rows: minmax(0, 1.42fr) minmax(0, 1fr) minmax(0, 0.65fr);
+    gap: 1.1%;
+    padding: 2.5% 3.4% 2.4%;
   }
-  .glass { grid-template-columns: 1fr; grid-template-rows: 1.15fr 0.85fr; }
+  .glass { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.12fr); }
   .spec { border-left: 0; border-top: 1px solid rgba(170, 220, 220, 0.08); }
-  .controls {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "power volume"
-      "tune tune"
-      "modes modes";
-    align-items: center;
+  /* Portrait: lo schermo destro è la riga sotto (spectrum/TV) */
+  .monitor-settings,
+  .monitor-cast {
+    top: calc(100% * 0.95 / 2.07);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(80, 160, 140, 0.22),
+      inset 0 0 18px rgba(0, 0, 0, 0.5);
   }
-  .power-stack { grid-area: power; }
-  .vol-group { grid-area: volume; }
-  .tune-group { grid-area: tune; }
-  .modes { grid-area: modes; width: 100%; }
-  .tune-bridge::after { width: 28vw; }
-  .knob-slot { width: min(22vh, 46vw, 220px); }
-  .vol-wrap { width: min(18vh, 34vw, 180px); }
-  .freq { font-size: clamp(22px, 6.2vw, 40px); font-weight: 400; }
+
+  .controls {
+    grid-template-columns: auto minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 1.05fr);
+    grid-template-areas:
+      "power volume meter tune"
+      "modes modes modes modes";
+    align-items: center;
+    justify-items: center;
+    gap: 10px 6px;
+  }
+  .meter-group { grid-area: meter; }
+  .power-stack {
+    grid-area: power;
+    justify-self: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: auto;
+  }
+  .power-stack .ctrl {
+    gap: 5px;
+    align-items: center;
+    width: 100%;
+  }
+  .power-stack .lbl {
+    font-size: clamp(10px, 2.6vw, 13px);
+    letter-spacing: 0.16em;
+    padding-inline-end: 0.16em;
+  }
+  .power-stack .lamp { --lamp-size: clamp(48px, 12vw, 64px); }
+  .vol-group { grid-area: volume; justify-self: center; }
+  .tune-group { grid-area: tune; justify-self: center; }
+  .modes {
+    grid-area: modes;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 4px;
+    padding-top: 2px;
+  }
+  .mode-main,
+  .mode-extra {
+    display: contents;
+  }
+  .mode {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 4px;
+  }
+  .mode .lbl.compact {
+    font-size: clamp(7px, 2.1vw, 10px);
+    letter-spacing: 0.06em;
+  }
+  .tune-bridge { display: none; }
+  .knob-slot,
+  .vol-wrap { width: min(24vw, 18vh, 126px); }
+  .meter-group {
+    align-self: start;
+    padding-top: clamp(2px, 0.5vh, 6px);
+  }
+  .meter-group { width: min(24vh, 32vw, 168px); }
+  .readout { --readout-size: clamp(18px, 5vw, 32px); }
+
+  .speaker {
+    display: block;
+    align-self: stretch;
+    justify-self: stretch;
+  }
 }
 
 @media (max-height: 720px) and (orientation: landscape) {
-  .panel { grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.4fr); gap: 12px; }
-  .freq { font-size: clamp(22px, 3.8vw, 48px); }
-  .lamp { width: clamp(46px, 5.8vw, 64px); padding: 10px; }
-  .knob-slot { width: min(28vh, 24vw, 220px); }
+  .panel { grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr); gap: 6px; }
+  .readout { --readout-size: clamp(20px, 3.6vw, 40px); }
+  .lamp { --lamp-size: clamp(46px, 5.8vw, 64px); padding: 8px; }
+  .knob-slot,
   .vol-wrap { width: min(22vh, 18vw, 170px); }
 }
 
-/* iPhone / iOS: stessa radio del tablet, in miniatura proporzionata */
+/* Tablet / schermi larghi: display alto + spazio MyTuner senza mangiare la TV */
+@media (min-width: 900px), (orientation: landscape) and (min-width: 700px) and (min-height: 520px) {
+  .tune-nums .tune-lab {
+    font-size: clamp(10px, 1.15vw, 14px);
+  }
+  .panel {
+    grid-template-rows: minmax(0, 1.55fr) minmax(0, 1fr);
+    padding-top: 3.4%;
+    padding-bottom: 5.6%;
+  }
+  .maker-mark {
+    right: clamp(14px, 2.6%, 26px);
+    bottom: clamp(8px, 2%, 16px);
+  }
+}
+
+/* iPhone: stesse proporzioni del tablet. In landscape il display non deve mangiare i tasti. */
+.is-ios .metal::after {
+  display: none;
+}
+
+.is-ios .glass.flick {
+  animation: none;
+}
+
+.is-ios .panel {
+  grid-template-rows: minmax(0, 1.48fr) minmax(0, 1fr);
+}
+
+.is-ios .readout {
+  --readout-size: clamp(14px, 14cqh, 28px);
+}
+
+.is-ios .spec-title {
+  font-size: clamp(7px, 0.72vw, 10px);
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+.is-ios .mode .lbl.compact {
+  white-space: nowrap;
+}
+
 .is-ios .radio {
   padding:
-    max(4px, env(safe-area-inset-top))
-    max(4px, env(safe-area-inset-right))
-    max(4px, env(safe-area-inset-bottom))
-    max(4px, env(safe-area-inset-left));
+    max(6px, env(safe-area-inset-top))
+    max(6px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom))
+    max(6px, env(safe-area-inset-left));
 }
 
 .is-ios .chassis {
@@ -1137,78 +5539,542 @@ audio {
   max-width: none;
   max-height: none;
   aspect-ratio: 1.95 / 1;
-  border-radius: 5px;
 }
 
-.is-ios .panel {
-  grid-template-rows: minmax(0, 0.7fr) minmax(0, 1fr);
-  gap: 3%;
-  padding: 4% 4.2% 3.4%;
-}
-
-.is-ios .controls {
-  grid-template-columns: 0.42fr 0.92fr 1.12fr 0.9fr;
-  align-items: center;
-}
-
-.is-ios .freq {
-  font-size: clamp(16px, 4.8cqh, 34px);
-  font-weight: 400;
-}
-
-.is-ios .lamp {
-  width: clamp(44px, 9.5%, 64px);
-  padding: 7px;
-}
-
-.is-ios .knob-slot {
-  width: min(42%, 36cqh, 200px);
-}
-
-.is-ios .vol-wrap {
-  width: min(36%, 30cqh, 160px);
-}
-
-.is-ios .key-well {
-  width: clamp(32px, 7%, 44px);
-}
-
+.is-ios .knob,
+.is-ios .band-body,
+.is-ios .lamp,
 .is-ios .key {
-  width: clamp(20px, 4.4%, 28px);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.is-ios .mode-main {
-  gap: clamp(6px, 1.2vh, 12px) clamp(12px, 2vw, 22px);
+.is-ios .knob-slot,
+.is-ios .vol-wrap {
+  width: min(28vh, 22vw, 200px);
 }
 
 @media (orientation: portrait) {
   .is-ios .chassis {
-    width: min(100%, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.62));
-    height: min(100%, calc((100dvw - env(safe-area-inset-left) - env(safe-area-inset-right)) / 0.62));
-    aspect-ratio: 0.62 / 1;
+    width: min(100%, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.58));
+    height: min(100%, calc((100dvw - env(safe-area-inset-left) - env(safe-area-inset-right)) / 0.58));
+    aspect-ratio: 0.58 / 1;
   }
   .is-ios .panel {
-    grid-template-rows: 30% minmax(0, 1fr);
-    gap: 2.5%;
+    grid-template-rows: minmax(0, 1.42fr) minmax(0, 1fr) minmax(0, 0.65fr);
+    gap: 1.1%;
+    padding: 2.3% 3.2% 2.2%;
   }
   .is-ios .glass {
     grid-template-columns: 1fr;
-    grid-template-rows: 1.15fr 0.85fr;
+    grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  }
+  .is-ios .monitor-settings,
+  .is-ios .monitor-cast {
+    top: calc(100% * 0.95 / 2.1);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
   }
   .is-ios .controls {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto minmax(0, 0.9fr) minmax(0, 0.65fr) minmax(0, 1.05fr);
     grid-template-areas:
-      "power volume"
-      "tune tune"
-      "modes modes";
+      "power volume meter tune"
+      "modes modes modes modes";
   }
-  .is-ios .power-stack { grid-area: power; }
-  .is-ios .vol-group { grid-area: volume; }
-  .is-ios .tune-group { grid-area: tune; }
-  .is-ios .modes { grid-area: modes; width: 100%; }
-  .is-ios .tune-bridge { display: none; }
-  .is-ios .knob-slot { width: min(46%, 28vh, 200px); }
-  .is-ios .vol-wrap { width: min(40%, 22vh, 160px); }
+  .is-ios .meter-group {
+    grid-area: meter;
+    align-self: start;
+    padding-top: clamp(2px, 0.5vh, 6px);
+  }
+  .is-ios .meter-group { width: min(24vh, 32vw, 168px); }
+  .is-ios .power-stack {
+    flex-direction: column;
+    justify-self: center;
+    align-items: center;
+    gap: 10px;
+  }
+  .is-ios .power-stack .ctrl {
+    align-items: center;
+    width: 100%;
+  }
+  .is-ios .power-stack .lbl {
+    text-align: center;
+    letter-spacing: 0.16em;
+    padding-inline-end: 0.16em;
+  }
+  .is-ios .modes {
+    flex-direction: row;
+    width: 100%;
+  }
+  .is-ios .mode-main,
+  .is-ios .mode-extra {
+    display: contents;
+  }
+  .is-ios .knob-slot,
+  .is-ios .vol-wrap { width: min(24vw, 17vh, 118px); }
+  .is-ios .speaker-driver {
+    width: min(30%, 16vh, 110px);
+  }
+  .is-ios .speaker-mesh {
+    background-size: 5px 5px;
+  }
+  .is-ios .key-well.switch-well {
+    width: 48px;
+    height: 34px;
+  }
+  .is-ios .key.switch {
+    width: 24px;
+    height: 24px;
+  }
+  .is-ios .key.switch.is-right {
+    left: calc(100% - 4px - 24px);
+  }
+}
+
+/* iPhone landscape: più spazio sotto ai tasti (cornice un filo più alta) */
+@media (orientation: landscape) and (max-height: 480px) {
+  .is-ios .chassis {
+    width: min(98%, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 1.92));
+    height: min(100%, calc(98vw / 1.92));
+    max-height: 100%;
+    aspect-ratio: 1.92 / 1;
+  }
+  .is-ios .panel {
+    grid-template-rows: minmax(0, 1.22fr) minmax(0, 1.12fr);
+    gap: 1.1%;
+    padding: 1.1% 1.9% 3.6%;
+  }
+  .is-ios .maker-mark {
+    bottom: clamp(8px, 2.6%, 14px);
+  }
+  .is-ios .glass {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.95fr);
+  }
+  .is-ios .spec-title {
+    font-size: 8px;
+    letter-spacing: 0.14em;
+  }
+  .is-ios .lbl {
+    white-space: nowrap;
+  }
+  .is-ios .controls {
+    width: 100%;
+    grid-template-columns: 0.48fr 0.9fr 0.7fr 1.05fr 0.95fr;
+    justify-content: stretch;
+    justify-items: center;
+    align-items: center;
+    gap: clamp(4px, 0.7vw, 10px);
+  }
+  .is-ios .meter-group {
+    align-self: start;
+    padding-top: clamp(2px, 0.6vh, 8px);
+  }
+  .is-ios .meter-group { width: min(30vh, 20vw, 168px); }
+  .is-ios .power-stack {
+    justify-self: center;
+    align-items: center;
+    padding-left: 0;
+    gap: 10px;
+  }
+  .is-ios .power-stack .ctrl {
+    align-items: center;
+    width: 100%;
+  }
+  .is-ios .power-stack .lbl {
+    text-align: center;
+    padding-inline-end: 0.28em;
+  }
+  .is-ios .vol-group { justify-self: center; }
+  .is-ios .tune-group { justify-self: center; }
+  .is-ios .modes {
+    justify-self: end;
+    align-items: flex-end;
+    padding-right: 1%;
+    gap: 8px;
+  }
+  .is-ios .readout {
+    --readout-size: clamp(12px, 11cqh, 20px);
+  }
+  .is-ios .knob-slot,
+  .is-ios .vol-wrap {
+    width: min(31vh, 20vw, 128px);
+  }
+  .is-ios .lamp {
+    --lamp-size: 54px;
+    padding: 6px;
+  }
+  .is-ios .mode-main {
+    gap: 7px 16px;
+  }
+  .is-ios .mode-extra {
+    gap: 16px;
+  }
+  .is-ios .key-well {
+    width: 40px;
+  }
+  .is-ios .key-well.switch-well {
+    width: 56px;
+    height: 40px;
+  }
+  .is-ios .key.switch {
+    width: 28px;
+    height: 28px;
+  }
+  .is-ios .key.switch.is-right {
+    left: calc(100% - 4px - 28px);
+  }
+  .is-ios .group {
+    gap: 6px;
+  }
+  .is-ios .lbl {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+  }
+}
+
+/* Smartphone: stessa disposizione Casio del tablet (FM alto / AM basso) */
+@media (max-width: 700px) {
+  .dial {
+    /* Stesse proporzioni relative del tablet */
+    padding: 6.5% 3% 3.5% 2.6%;
+    gap: 0.35em;
+    overflow: visible;
+  }
+  .dial-head {
+    position: relative;
+    z-index: 2;
+    max-width: 100%;
+  }
+  .dial-scales {
+    gap: 0.7em 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+  #bandFm,
+  #bandAm {
+    transform: none;
+  }
+  .band-tag {
+    font-size: clamp(12px, 3.2vw, 16px);
+  }
+  .readout {
+    --readout-size: clamp(15px, 4.4vw, 26px);
+    left: 50%;
+  }
+  /* Identici al tablet */
+  #bandFm .readout {
+    top: 0;
+    bottom: auto;
+    transform: translate(-50%, -78%);
+  }
+  #bandAm .readout {
+    top: auto;
+    bottom: 0;
+    transform: translate(-50%, 18%);
+  }
+  .locale-wx {
+    right: 0.15em;
+    max-width: min(40%, 11em);
+    gap: 0.42em;
+    transform: translateY(-52%);
+  }
+  .wx-glyph {
+    width: clamp(22px, 6.2vw, 32px);
+    height: clamp(22px, 6.2vw, 32px);
+  }
+  .wx-city {
+    font-size: clamp(10px, 2.9vw, 13px);
+  }
+  .wx-cond,
+  .wx-date {
+    font-size: clamp(8px, 2.3vw, 11px);
+  }
+  .dial-foot {
+    z-index: 4;
+    width: calc(50% - (var(--readout-size, 18px) * 3.05) - 14px);
+    max-width: calc(50% - 4em);
+    min-height: 0;
+    margin: 0 0 0.1em 0;
+    overflow: hidden;
+  }
+  .meter-group {
+    align-self: start;
+    padding-top: clamp(2px, 0.5vh, 6px);
+    width: min(26vh, 34vw, 176px);
+  }
+  .smeter-bezel,
+  .casio-clock-bezel {
+    padding: clamp(1.5px, 0.35vw, 2.5px);
+  }
+  .casio-clock-well {
+    height: clamp(30px, 4.6vh, 42px);
+  }
+  .casio-clock-face {
+    padding: 0 5%;
+  }
+  .casio-clock-lcd {
+    font-size: clamp(12px, 19cqw, 22px);
+  }
+  #clockHours,
+  #clockMins {
+    min-width: 1.48em;
+  }
+  /* Ingranaggio impostazioni: un filo a sinistra, non fuori cornice */
+  .settings-btn {
+    right: clamp(10px, 2.8vw, 16px);
+    top: clamp(8px, 1.4vh, 14px);
+    width: clamp(15px, 4.2vw, 20px);
+    height: clamp(15px, 4.2vw, 20px);
+  }
+}
+
+/* —— Solo smartphone: impostazioni compatte (tablet invariato) —— */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) {
+  .monitor-settings {
+    padding: 3px 6px 4px 4px;
+  }
+
+  /* Home: icone grosse e centrate, STANDBY sotto */
+  .monitor-settings-icons {
+    align-content: center;
+    justify-items: center;
+    gap: 8px 6px;
+    padding: 6px 4px;
+  }
+  .monitor-set-ico-btn {
+    width: min(28cqw, 5em);
+    max-width: 32%;
+    gap: 3px;
+    padding: 0;
+  }
+  .monitor-set-ico {
+    width: min(40px, 16cqw);
+    height: min(40px, 16cqw);
+  }
+  .monitor-set-lab {
+    font-size: clamp(0.5rem, 2.9cqw, 0.6rem);
+    letter-spacing: 0.04em;
+  }
+  .standby-value-btn,
+  .standby-min-item {
+    min-height: clamp(40px, 9cqw, 48px);
+    padding: 10px 12px;
+    font-size: clamp(0.85rem, 3.2cqw, 1rem);
+  }
+
+  /* Nome utente: niente titolo, spazio alla tastiera */
+  .monitor-name-lab {
+    display: none !important;
+  }
+  .monitor-name-editor {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 4px;
+    padding: 2px 3px 2px;
+  }
+  .monitor-name-input {
+    padding: 6px 8px;
+    font-size: clamp(0.78rem, 3.4cqw, 0.95rem);
+    border-radius: 6px;
+  }
+  .monitor-name-actions {
+    gap: 4px;
+  }
+  .monitor-name-btn {
+    padding: 5px 8px;
+    font-size: clamp(0.52rem, 2.4cqw, 0.62rem);
+  }
+  .device-kb {
+    gap: 2px;
+    padding-top: 0;
+  }
+  .device-kb-row {
+    gap: 2px;
+  }
+  .device-kb-key {
+    border-radius: 4px;
+    font-size: clamp(0.62rem, 2.6cqw, 0.78rem);
+  }
+  .device-kb-key.util {
+    font-size: clamp(0.55rem, 2.2cqw, 0.68rem);
+  }
+  .device-kb-key.space {
+    font-size: clamp(0.5rem, 2cqw, 0.6rem);
+  }
+
+  /* Sveglia: ruote e controlli ridotti allo schermo telefono */
+  .monitor-alarm-editor {
+    gap: 4px;
+    padding: 2px 3px 3px;
+  }
+  .alarm-top-row {
+    gap: 4px;
+    padding-right: 0;
+  }
+  .alarm-wheels {
+    gap: 3px;
+  }
+  .alarm-wheel {
+    --alarm-digit-h: clamp(26px, 5.2vh, 36px);
+    border-radius: 7px;
+    max-width: 3.4em;
+  }
+  .alarm-wheel-digit {
+    font-size: clamp(1rem, 4.2cqw, 1.35rem);
+  }
+  .alarm-wheel-colon {
+    font-size: clamp(0.95rem, 3.8cqw, 1.2rem);
+    padding: 0;
+  }
+  .alarm-power-ico {
+    width: clamp(28px, 7cqw, 36px);
+    height: clamp(28px, 7cqw, 36px);
+    margin-right: 0;
+  }
+  .monitor-alarm-modes {
+    gap: 4px;
+  }
+  .monitor-alarm-mode {
+    gap: 5px;
+    padding: 5px 6px;
+    font-size: clamp(0.58rem, 2.6cqw, 0.72rem);
+    border-radius: 6px;
+  }
+  .monitor-alarm-select {
+    padding: 5px 8px;
+    font-size: clamp(0.68rem, 2.8cqw, 0.82rem);
+  }
+  .monitor-alarm-station-chip {
+    gap: 5px;
+    padding: 5px 6px;
+  }
+  .alarm-station-logo-wrap {
+    width: clamp(22px, 5.5cqw, 28px);
+    height: clamp(22px, 5.5cqw, 28px);
+  }
+  .alarm-station-name {
+    font-size: clamp(0.62rem, 2.6cqw, 0.75rem);
+  }
+  .alarm-station-freq {
+    font-size: clamp(0.5rem, 2cqw, 0.6rem);
+  }
+
+  .monitor-stations-grid {
+    gap: 4px;
+    padding: 1px 0 4px;
+  }
+  .monitor-station-item {
+    padding: 5px 3px;
+    gap: 3px;
+    font-size: clamp(0.52rem, 2.4cqw, 0.68rem);
+  }
+  .monitor-station-ico {
+    width: clamp(20px, 5cqw, 26px);
+    height: clamp(20px, 5cqw, 26px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  /* Android/phone landscape: più fascia comandi, tasti non tagliati */
+  .chassis {
+    width: min(98vw, calc(96dvh * 1.92));
+    height: min(96dvh, calc(98vw / 1.92));
+    max-height: none;
+    aspect-ratio: 1.92 / 1;
+  }
+  .panel {
+    grid-template-rows: minmax(0, 1.22fr) minmax(0, 1.12fr);
+    gap: 1.1%;
+    padding: 1.1% 2% 3.8%;
+  }
+  .dial {
+    padding: 5% 2.4% 2.2% 2.4%;
+    gap: 0.32em;
+    overflow: visible;
+  }
+  .dial-scales {
+    gap: 0.7em 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  #bandFm,
+  #bandAm {
+    transform: none;
+  }
+  .readout {
+    --readout-size: clamp(14px, 3.2vh, 24px);
+  }
+  #bandFm .readout {
+    top: 0;
+    bottom: auto;
+    transform: translate(-50%, -78%);
+  }
+  #bandAm .readout {
+    top: auto;
+    bottom: 0;
+    transform: translate(-50%, 18%);
+  }
+  .dial-foot {
+    z-index: 4;
+    width: calc(50% - (var(--readout-size, 16px) * 3.05) - 14px);
+    max-width: calc(50% - 3.8em);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .meter-group {
+    align-self: start;
+    padding-top: clamp(2px, 0.6vh, 8px);
+    width: min(32vh, 20vw, 172px);
+  }
+  .maker-mark {
+    bottom: clamp(8px, 2.5%, 14px);
+  }
+}
+
+/* Overlay Cast da telecomando: serve un tocco sul tablet (gesto Chrome) */
+.cast-remote-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+.cast-remote-gate.is-hidden { display: none !important; }
+.cast-remote-gate-btn {
+  appearance: none;
+  border: 0;
+  width: min(100%, 420px);
+  border-radius: 22px;
+  padding: 28px 22px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  color: #f4f7ff;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.22), transparent 40%),
+    linear-gradient(165deg, #3a7ad4, #16407a 55%, #0b2448);
+  box-shadow:
+    0 18px 40px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    0 0 0 2px rgba(120,180,255,0.35);
+}
+.cast-remote-gate-title {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-size: clamp(2rem, 8vw, 3rem);
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+.cast-remote-gate-hint {
+  font-size: 1rem;
+  opacity: 0.85;
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {

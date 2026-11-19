@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="screen-orientation" content="portrait" />
+  <title>MyTuner Control</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="/control/icons/favicon-32.png" sizes="32x32" />
+  <link rel="icon" href="/control/icons/favicon-48.png" sizes="48x48" />
+  <link rel="apple-touch-icon" href="/control/icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@560;650;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/control.css" />
+</head>
+<body>
+  <div class="stage" id="app">
+    <div class="pair-overlay is-hidden" id="pairPanel" role="dialog" aria-label="Collega dispositivo">
+      <div class="pair-card">
+        <div class="pair-title">Connect</div>
+        <p class="pair-hint">Scegli la radio MyTuner da comandare.</p>
+        <div class="pair-status" id="pairStatus">In cerca…</div>
+        <ul class="radio-list" id="radioList"></ul>
+        <div class="pair-actions">
+          <button type="button" class="pair-btn" id="btnScan">Cerca</button>
+          <button type="button" class="pair-btn ghost" id="btnPurge">Ripulisci</button>
+          <button type="button" class="pair-btn ghost" id="btnDisconnect">Disconnetti</button>
+          <button type="button" class="pair-btn ghost" id="btnPairClose">Chiudi</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="remote" id="remotePanel" aria-label="Telecomando MyTuner">
+      <div class="chassis">
+        <i class="grain" aria-hidden="true"></i>
+        <i class="bevel" aria-hidden="true"></i>
+        <i class="frame" aria-hidden="true"></i>
+
+        <div class="top-row">
+          <div class="slot">
+            <span class="lab">CAST</span>
+            <button type="button" class="knob cast" data-act="cast" id="btnCast" aria-label="Cast">
+              <span class="knob-face cast-face"><i class="ico-cast"></i></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab">CONNECT</span>
+            <button type="button" class="knob connect is-warn" id="btnConnect" aria-label="Collega dispositivi">
+              <span class="knob-face connect-face"><i class="ico-link"></i></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab">POWER</span>
+            <button type="button" class="knob power" data-act="power" id="btnPower" aria-label="Power">
+              <span class="knob-face power-face"><i class="ico-power"></i></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="func-row triple mid-row">
+          <div class="slot">
+            <span class="lab dual" id="labBand"><span data-v="fm">FM</span>/<span data-v="am">AM</span></span>
+            <button type="button" class="knob mini" data-act="band" id="btnBand" aria-label="FM o AM">
+              <span class="knob-face"></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab dual" id="labView"><span data-v="radio">RADIO</span>/<span data-v="tv">TV</span></span>
+            <button type="button" class="knob mini view" data-act="view" id="btnView" aria-label="TV o radio">
+              <span class="knob-face view-face"><i class="ico-view"></i></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab dual" id="labStereo"><span data-v="mo">MONO</span>/<span data-v="st">STEREO</span></span>
+            <button type="button" class="knob mini" data-act="stereo" id="btnStereo" aria-label="Mono o stereo">
+              <span class="knob-face"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="func-row triple">
+          <div class="slot">
+            <span class="lab dual" id="labAuto"><span data-v="auto">AUT</span>/<span data-v="man">MAN</span></span>
+            <button type="button" class="knob mini" data-act="auto" id="btnAuto" aria-label="Auto o manuale">
+              <span class="knob-face"></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab">SET</span>
+            <button type="button" class="knob mini settings" data-act="settings" id="btnSettings" aria-label="Impostazioni">
+              <span class="knob-face settings-face"><i class="ico-settings"></i></span>
+            </button>
+          </div>
+          <div class="slot">
+            <span class="lab">PRESET</span>
+            <button type="button" class="knob mini" data-act="preset" id="btnPreset" aria-label="Preset">
+              <span class="knob-face"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="tune-wrap" id="tuneWrap">
+          <span class="lab" id="tuneLab">TUNING</span>
+          <div class="tune-stage">
+            <div class="slot zoom-slot zoom-slot-l">
+              <span class="lab">ZOOM</span>
+              <button type="button" class="knob mini zoom zoom-l" data-act="zoom_left" id="btnZoomL" aria-label="Ingrandisci dial">
+                <span class="knob-face zoom-face"><i class="ico-zoom" data-side="l"></i></span>
+              </button>
+            </div>
+            <div class="tune" id="tuneWheel">
+              <div class="tune-well" aria-hidden="true"></div>
+              <div class="tune-ring" id="tuneRing">
+                <i class="tune-knurl"></i>
+                <i class="tune-black"></i>
+                <i class="tune-face"></i>
+                <i class="tune-brush"></i>
+                <i class="tune-pointer"></i>
+              </div>
+              <i class="tune-notch" aria-hidden="true"></i>
+              <button type="button" class="dir u" data-act="nav_up" aria-label="Su"><i></i></button>
+              <button type="button" class="dir r" data-act="nav_right" aria-label="Destra"><i></i></button>
+              <button type="button" class="dir d" data-act="nav_down" aria-label="Giù"><i></i></button>
+              <button type="button" class="dir l" data-act="nav_left" aria-label="Sinistra"><i></i></button>
+              <button type="button" class="tune-core" data-act="pause" id="btnPause" aria-label="Pausa o play">
+                <i class="ico-transport"></i>
+                <i class="ico-alarm" aria-hidden="true"></i>
+                <span class="enter-lab" aria-hidden="true">ENTER</span>
+              </button>
+            </div>
+            <div class="slot zoom-slot zoom-slot-r">
+              <span class="lab">ZOOM</span>
+              <button type="button" class="knob mini zoom zoom-r" data-act="zoom_right" id="btnZoomR" aria-label="Ingrandisci spettro o TV">
+                <span class="knob-face zoom-face"><i class="ico-zoom" data-side="r"></i></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <button type="button" class="pill back is-hidden" data-act="settings_back" id="btnRemoteBack">INDIETRO</button>
+          <button type="button" class="pill ch" data-act="ch_down">CH −</button>
+          <button type="button" class="pill ch" data-act="ch_up">CH +</button>
+        </div>
+
+        <div class="vol-wrap">
+          <span class="lab">VOLUME</span>
+          <div class="vol-strip" id="volStrip" aria-label="Volume" role="slider" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5">
+            <button type="button" class="vol-end" id="btnVolDown" aria-label="Volume meno">−</button>
+            <div class="vol-track" id="volTrack">
+              <div class="vol-fill" id="volFill"></div>
+              <div class="vol-thumb" id="volThumb"></div>
+            </div>
+            <button type="button" class="vol-end" id="btnVolUp" aria-label="Volume più">+</button>
+          </div>
+        </div>
+
+        <div class="brand" aria-hidden="true">MyTuner</div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/control.js"></script>
+</body>
+</html>

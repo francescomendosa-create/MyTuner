@@ -1,0 +1,39 @@
+{
+  "id": "/control/?pwa=control-v2",
+  "name": "MyTuner Control",
+  "short_name": "Control",
+  "description": "Telecomando MyTuner",
+  "start_url": "/control/?pwa=control-v2",
+  "scope": "/control/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b2a4a",
+  "theme_color": "#0a0a0a",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/control/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/control/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/control/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/control/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

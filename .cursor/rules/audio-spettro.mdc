@@ -1,0 +1,12 @@
+---
+description: Non modificare audio e spettro di MyTuner
+alwaysApply: true
+---
+
+# Audio e spettro — non toccare
+
+La configurazione audio e dello spettro su iOS è allineata ad Android e va lasciata com’è.
+
+Non cambiare il grafo Web Audio, il player iOS (fetch, frame MP3, decode, BufferSource), l’AnalyserNode, `setMix`, il lock delle stazioni o il percorso Android con `MediaElementSource`.
+
+Modifiche consentite: grafica, layout, tasti, chassis. Se un intervento visivo richiede JS, limita il cambiamento a classi e DOM, senza alterare playback o spettro.

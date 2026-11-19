@@ -2,8 +2,9 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0c0c">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,7 +15,7 @@
 <meta name="application-name" content="MyTuner">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500&family=Great+Vibes&family=Share+Tech+Mono&display=swap">
 <link rel="stylesheet" href="css/radio.css">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
@@ -24,6 +25,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
 };
 </script>
 <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 </head>
 <body>
 <svg class="filters" aria-hidden="true">
@@ -41,43 +43,346 @@ window.__onGCastApiAvailable = function (isAvailable) {
     <div class="panel">
       <section class="bezel" id="bezel">
         <div class="bezel-lip" aria-hidden="true"></div>
+        <button type="button" class="settings-btn" id="btnSpecSettings" aria-label="Impostazioni" title="Impostazioni">
+          <span class="settings-btn-face" aria-hidden="true">
+            <svg class="settings-btn-ico" viewBox="0 0 24 24" focusable="false">
+              <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M19.4 13.1a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V19a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H5a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H10a1.7 1.7 0 0 0 1-1.5V5a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V10c.1.7.7 1.2 1.5 1.2H19a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <button type="button" class="view-btn" id="btnViewMode" aria-label="Accensione TV / spettro-video" aria-pressed="false" title="TV · SPECTRUM / VIDEO">
+          <span class="view-btn-face" aria-hidden="true">
+            <svg class="view-btn-ico" viewBox="0 0 24 24" focusable="false">
+              <path d="M12 3v9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M8.2 6.4a7.2 7.2 0 1 0 7.6 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
         <div class="glass" id="glass">
           <div class="dial">
-            <div class="band is-active" id="bandFm" data-band="fm">
-              <div class="band-tag">FM</div>
-              <div class="band-body" data-band="fm">
-                <svg class="scale" id="scaleFm"></svg>
-                <div class="needle" id="needleFm"></div>
-                <div class="readout">
-                  <span class="freq" id="freqFm">98.1</span>
-                  <span class="unit">MHz</span>
+            <div class="dial-head">
+              <img class="station-logo" id="stationLogo" alt="" width="18" height="18" hidden>
+              <div class="station-name" id="stationName" aria-live="polite">
+                <div class="name-marquee" id="nameMarquee">
+                  <span class="name-seg" id="nameSegA"></span>
+                  <span class="name-gap" aria-hidden="true"></span>
+                  <span class="name-seg" id="nameSegB" aria-hidden="true"></span>
+                  <span class="name-gap" aria-hidden="true"></span>
                 </div>
               </div>
             </div>
-            <div class="band" id="bandAm" data-band="am">
-              <div class="band-tag">AM</div>
-              <div class="band-body" data-band="am">
-                <svg class="scale" id="scaleAm"></svg>
-                <div class="needle" id="needleAm"></div>
-                <div class="readout">
-                  <span class="freq" id="freqAm">810</span>
-                  <span class="unit">kHz</span>
+            <div class="dial-scales">
+              <i class="dial-lamp" id="dialLamp" aria-hidden="true">
+                <i class="dial-lamp-strip dial-lamp-fm"></i>
+                <i class="dial-lamp-strip dial-lamp-am"></i>
+              </i>
+              <span class="stereo-pilot" id="stereoPilot" aria-hidden="true">
+                <i class="stereo-pilot-dot"></i>
+                <span class="stereo-pilot-lab">STEREO</span>
+              </span>
+              <aside class="locale-wx" id="localeWx" hidden>
+                <span class="wx-glyph" id="wxGlyph" aria-hidden="true"></span>
+                <div class="wx-text">
+                  <div class="wx-city" id="wxCity"></div>
+                  <div class="wx-cond" id="wxCond"></div>
+                  <div class="wx-date" id="wxDate"></div>
                 </div>
+              </aside>
+              <div class="band is-active" id="bandFm" data-band="fm">
+                <div class="band-body" data-band="fm">
+                  <div class="scale-row">
+                    <div class="band-tag">FM<i class="band-sig" aria-hidden="true"></i></div>
+                    <svg class="scale" id="scaleFm"></svg>
+                  </div>
+                  <div class="readout">
+                    <span class="casio">
+                      <span class="casio-ghost" aria-hidden="true">888.8</span>
+                      <span class="freq" id="freqFm"> 98.1</span>
+                    </span>
+                    <span class="unit">MHz</span>
+                  </div>
+                </div>
+              </div>
+              <div class="band" id="bandAm" data-band="am">
+                <div class="band-body" data-band="am">
+                  <div class="scale-row">
+                    <div class="band-tag">AM<i class="band-sig" aria-hidden="true"></i></div>
+                    <svg class="scale" id="scaleAm"></svg>
+                  </div>
+                  <div class="readout">
+                    <span class="casio">
+                      <span class="casio-ghost" aria-hidden="true">8888</span>
+                      <span class="freq" id="freqAm"> 810</span>
+                    </span>
+                    <span class="unit">kHz</span>
+                  </div>
+                </div>
+              </div>
+              <div class="needle-rail" aria-hidden="true">
+                <div class="needle" id="dialNeedle"></div>
+              </div>
+              <div class="dial-status-icos" id="dialStatusIcos">
+                <button type="button" class="dial-wa-ico" id="dialWaIco" aria-label="WhatsApp" title="WhatsApp" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path fill="currentColor" d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.23 8.23 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23-1.48 0-2.93-.39-4.19-1.15l-.3-.17-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24m4.52 10.6c-.25-.12-1.47-.72-1.7-.8-.23-.09-.39-.12-.56.12-.16.25-.64.8-.79.96-.14.17-.3.19-.55.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.23-1.48-1.38-1.73-.14-.25-.02-.38.11-.51.11-.11.25-.3.37-.44.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.39 1.01 2.56.12.17 1.75 2.67 4.23 3.74 2.49 1.07 2.49.71 2.94.67.45-.04 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.17-.47-.29"/>
+                  </svg>
+                  <span class="dial-wa-count" id="dialWaCount" hidden>0</span>
+                </button>
+                <button type="button" class="dial-alarm-ico" id="dialAlarmIco" aria-label="Sveglia" title="Sveglia">
+                  <svg viewBox="0 0 64 64" focusable="false" aria-hidden="true">
+                    <path fill="currentColor" d="M32 8c-9 0-16 6.4-16 15.2V32l-5.2 7.4c-.9 1.3-.1 3.1 1.6 3.1h39.2c1.7 0 2.5-1.8 1.6-3.1L48 32V23.2C48 14.4 41 8 32 8zm0 5.2c5.8 0 10.4 4 10.4 9.6V33.2l3.2 4.6H18.4l3.2-4.6V22.8c0-5.6 4.6-9.6 10.4-9.6z"/>
+                    <rect x="24" y="46" width="16" height="5.5" rx="1.2" fill="currentColor"/>
+                    <path fill="currentColor" d="M12 22c-2.8 2-4.4 4.6-4.4 7.6s1.6 5.6 4.4 7.6l2.4-3.2c-1.6-1.2-2.4-2.8-2.4-4.4s.8-3.2 2.4-4.4L12 22zm40 0l-2.4 3.2c1.6 1.2 2.4 2.8 2.4 4.4s-.8 3.2-2.4 4.4L52 37.2c2.8-2 4.4-4.6 4.4-7.6S54.8 24 52 22z"/>
+                  </svg>
+                </button>
               </div>
             </div>
             <div class="dial-foot">
-              <div class="station" id="stationLine" aria-live="polite"></div>
+              <div class="track-block is-empty" id="trackLine" aria-live="polite">
+                <div class="album-art" id="albumArt" hidden>
+                  <div class="album-art-inner">
+                    <img class="album-art-face is-front" id="albumArtImg" alt="" width="36" height="36" decoding="async">
+                    <span class="album-art-face is-back" aria-hidden="true"></span>
+                  </div>
+                </div>
+                <div class="track-artist-row" id="trackArtistRow">
+                  <div class="artist-marquee" id="artistMarquee">
+                    <span class="artist-seg" id="artistSegA"></span>
+                    <span class="artist-gap" id="artistGapA" aria-hidden="true"></span>
+                    <span class="artist-seg" id="artistSegB" aria-hidden="true"></span>
+                    <span class="artist-gap" aria-hidden="true"></span>
+                  </div>
+                </div>
+                <div class="track-title-row">
+                  <div class="track-marquee" id="trackMarquee">
+                    <span class="track-seg" id="trackSegA"></span>
+                    <span class="track-gap" id="trackGapA" aria-hidden="true"></span>
+                    <span class="track-seg" id="trackSegB" aria-hidden="true"></span>
+                    <span class="track-gap" aria-hidden="true"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="mode-tag" id="modeTag" aria-hidden="true">RADIO</div>
             </div>
           </div>
 
-          <div class="spec">
-            <div class="spec-title">SPECTRUM ANALYZER</div>
+          <div class="spec" id="specPanel">
+            <div class="spec-title">SPECTRUM</div>
             <div class="spec-well">
-              <div class="bars" id="bars"></div>
+              <div class="bars" id="bars">
+                <div class="spec-pause is-hidden" id="specPause" aria-hidden="true">
+                  <span class="spec-pause-ch" data-i="0">P</span>
+                  <span class="spec-pause-ch" data-i="1">A</span>
+                  <span class="spec-pause-ch" data-i="2">U</span>
+                  <span class="spec-pause-ch" data-i="3">S</span>
+                  <span class="spec-pause-ch" data-i="4">A</span>
+                </div>
+              </div>
               <div class="spec-labels" id="specLabels"></div>
             </div>
           </div>
+          <div class="video-panel" id="videoPanel" hidden>
+            <div class="video-title">TV</div>
+            <div class="video-well">
+              <div class="crt">
+                <div class="crt-bezel">
+                  <div class="crt-tube">
+                    <div class="crt-screen">
+                      <video id="stationVideo" playsinline webkit-playsinline muted autoplay></video>
+                      <canvas class="crt-static" id="crtStatic" aria-hidden="true"></canvas>
+                      <div class="crt-hud" id="crtHud" hidden></div>
+                      <i class="crt-scan" aria-hidden="true"></i>
+                      <i class="crt-glow" aria-hidden="true"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="glass-reflect" aria-hidden="true"></div>
+          <div class="monitor-settings is-hidden" id="monitorSettings" aria-label="Impostazioni">
+            <div class="monitor-settings-head" aria-hidden="true"></div>
+            <div class="monitor-settings-icons settings-page is-on" id="monitorSettingsBody" role="listbox" aria-label="Voci impostazioni">
+              <button type="button" class="monitor-set-ico-btn" id="btnDeviceName" data-set="user" role="option" aria-selected="false" aria-label="Utente">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <circle cx="32" cy="20" r="11" fill="none" stroke="currentColor" stroke-width="3.4"/>
+                    <path d="M14 52c3-12 10-18 18-18s15 6 18 18" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">UTENTE</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn" id="btnAlarmSettings" data-set="alarm" role="option" aria-selected="false" aria-label="Sveglia">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <circle cx="32" cy="34" r="16" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M32 34V24M32 34l9 6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M14 18l8 6M50 18l-8 6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M22 50h20" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">SVEGLIA</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn" id="btnStationsSettings" data-set="stations" role="option" aria-selected="false" aria-label="Stazioni">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <rect x="10" y="14" width="44" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M18 24h28M18 32h28M18 40h18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="44" cy="40" r="3.2" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">STAZIONI</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn monitor-set-ico-standby" id="btnStandbySettings" data-set="standby" role="option" aria-selected="false" aria-label="Standby">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <circle cx="32" cy="32" r="18" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M32 18v14" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+                    <path d="M22 40c2.8 4.2 6.2 6.2 10 6.2s7.2-2 10-6.2" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">STANDBY</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn monitor-set-ico-bg" id="btnBgSettings" data-set="bg" role="option" aria-selected="false" aria-label="Sfondi">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <rect x="10" y="14" width="44" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M10 40l12-10 10 8 8-6 14 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="22" cy="24" r="3.2" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">SFONDI</span>
+              </button>
+            </div>
+            <div class="monitor-bg-pane settings-page" id="monitorBgPane" aria-label="Sfondi">
+              <div class="bg-theme-list" id="bgThemeList" role="listbox"></div>
+            </div>
+            <form class="monitor-standby-editor settings-page" id="monitorStandbyEditor">
+              <div class="standby-field">
+                <div class="standby-lab-row">
+                  <span class="standby-lab" id="idleDimLab">Schermo scuro</span>
+                  <span class="standby-countdown" id="idleDimCountdown" aria-live="polite">—</span>
+                </div>
+                <button type="button" class="standby-value-btn" id="btnIdleDim" aria-labelledby="idleDimLab">2 minuti</button>
+              </div>
+              <div class="standby-field">
+                <div class="standby-lab-row">
+                  <span class="standby-lab" id="idleStandbyLab">Standby</span>
+                  <span class="standby-countdown" id="idleStandbyCountdown" aria-live="polite">—</span>
+                </div>
+                <button type="button" class="standby-value-btn" id="btnIdleStandby" aria-labelledby="idleStandbyLab">5 minuti</button>
+              </div>
+            </form>
+            <div class="monitor-standby-mins settings-page" id="monitorStandbyMinsPane" aria-label="Minuti">
+              <div class="standby-mins-list" id="standbyMinsList" role="listbox"></div>
+            </div>
+            <form class="monitor-name-editor settings-page" id="monitorNameEditor" autocomplete="off">
+              <div class="monitor-name-lab" id="deviceNameLab">Nome dispositivo</div>
+              <input class="monitor-name-input" id="deviceNameInput" name="deviceName" maxlength="48" autocomplete="off" readonly inputmode="none" tabindex="-1" enterkeyhint="done" aria-labelledby="deviceNameLab" aria-label="Nome dispositivo" />
+              <div class="monitor-name-actions">
+                <button type="button" class="monitor-name-btn ghost" id="btnDeviceNameCancel">Annulla</button>
+                <button type="submit" class="monitor-name-btn" id="btnDeviceNameSave">Salva</button>
+              </div>
+              <div class="device-kb" id="deviceNameKb" aria-label="Tastiera"></div>
+            </form>
+            <form class="monitor-alarm-editor settings-page" id="monitorAlarmEditor">
+              <div class="alarm-top-row">
+                <div class="alarm-wheels" id="alarmWheels" aria-label="Orario sveglia">
+                  <div class="alarm-wheel" data-idx="0" role="spinbutton" aria-label="Decine ore">
+                    <span class="alarm-wheel-fade top" aria-hidden="true"></span>
+                    <div class="alarm-wheel-viewport">
+                      <div class="alarm-wheel-strip" id="alarmStrip0">
+                        <span class="alarm-wheel-digit" data-slot="prev">2</span>
+                        <span class="alarm-wheel-digit" data-slot="cur" id="alarmDigit0">0</span>
+                        <span class="alarm-wheel-digit" data-slot="next">1</span>
+                      </div>
+                    </div>
+                    <span class="alarm-wheel-fade bot" aria-hidden="true"></span>
+                  </div>
+                  <div class="alarm-wheel" data-idx="1" role="spinbutton" aria-label="Unità ore">
+                    <span class="alarm-wheel-fade top" aria-hidden="true"></span>
+                    <div class="alarm-wheel-viewport">
+                      <div class="alarm-wheel-strip" id="alarmStrip1">
+                        <span class="alarm-wheel-digit" data-slot="prev">6</span>
+                        <span class="alarm-wheel-digit" data-slot="cur" id="alarmDigit1">7</span>
+                        <span class="alarm-wheel-digit" data-slot="next">8</span>
+                      </div>
+                    </div>
+                    <span class="alarm-wheel-fade bot" aria-hidden="true"></span>
+                  </div>
+                  <span class="alarm-wheel-colon" aria-hidden="true">:</span>
+                  <div class="alarm-wheel" data-idx="2" role="spinbutton" aria-label="Decine minuti">
+                    <span class="alarm-wheel-fade top" aria-hidden="true"></span>
+                    <div class="alarm-wheel-viewport">
+                      <div class="alarm-wheel-strip" id="alarmStrip2">
+                        <span class="alarm-wheel-digit" data-slot="prev">5</span>
+                        <span class="alarm-wheel-digit" data-slot="cur" id="alarmDigit2">0</span>
+                        <span class="alarm-wheel-digit" data-slot="next">1</span>
+                      </div>
+                    </div>
+                    <span class="alarm-wheel-fade bot" aria-hidden="true"></span>
+                  </div>
+                  <div class="alarm-wheel" data-idx="3" role="spinbutton" aria-label="Unità minuti">
+                    <span class="alarm-wheel-fade top" aria-hidden="true"></span>
+                    <div class="alarm-wheel-viewport">
+                      <div class="alarm-wheel-strip" id="alarmStrip3">
+                        <span class="alarm-wheel-digit" data-slot="prev">9</span>
+                        <span class="alarm-wheel-digit" data-slot="cur" id="alarmDigit3">0</span>
+                        <span class="alarm-wheel-digit" data-slot="next">1</span>
+                      </div>
+                    </div>
+                    <span class="alarm-wheel-fade bot" aria-hidden="true"></span>
+                  </div>
+                </div>
+                <button type="button" class="alarm-power-ico" id="alarmPowerBtn" aria-pressed="false" aria-label="Attiva o disattiva sveglia" title="Attiva/Disattiva">
+                  <svg viewBox="0 0 64 64" focusable="false" aria-hidden="true">
+                    <circle cx="32" cy="34" r="15" fill="none" stroke="currentColor" stroke-width="3.4"/>
+                    <path d="M32 34V24M32 34l8 5" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+                    <path d="M15 18l7 5M49 18l-7 5" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="monitor-alarm-modes" role="radiogroup" aria-label="Tipo sveglia">
+                <label class="monitor-alarm-mode">
+                  <input type="radio" name="alarmMode" value="sound" checked />
+                  <span>Suono</span>
+                </label>
+                <label class="monitor-alarm-mode" id="alarmModeMusicLab">
+                  <input type="radio" name="alarmMode" value="music" />
+                  <span>Musica</span>
+                </label>
+              </div>
+              <div class="monitor-alarm-sound-wrap" id="alarmSoundWrap">
+                <select class="monitor-name-input monitor-alarm-select" id="alarmSoundSelect" aria-label="Suono sveglia">
+                  <option value="leggera">Leggera musicale</option>
+                </select>
+              </div>
+              <div class="monitor-alarm-station-chip is-hidden" id="alarmStationChip" aria-live="polite"></div>
+            </form>
+            <div class="monitor-stations-pane settings-page" id="monitorStationsPane">
+              <div class="monitor-stations-grid" id="settingsStationsGrid" role="listbox" aria-label="Elenco stazioni"></div>
+            </div>
+          </div>
+          <div class="monitor-cast is-hidden" id="monitorCast" aria-label="Dispositivi Cast">
+            <div class="monitor-cast-head">
+              <span class="monitor-cast-title">CAST</span>
+              <button type="button" class="monitor-settings-close" id="btnMonitorCastClose" aria-label="Chiudi Cast">×</button>
+            </div>
+            <div class="monitor-cast-list" id="monitorCastList" role="listbox" aria-label="Casse Cast"></div>
+            <div class="monitor-cast-empty" id="monitorCastEmpty">Cerca dispositivi…</div>
+          </div>
+          <button type="button" class="alarm-ring-panel is-hidden" id="btnAlarmHush" aria-label="Taci sveglia">
+            <span class="alarm-ring-glow" aria-hidden="true"></span>
+            <span class="alarm-ring-ico" aria-hidden="true">
+              <svg viewBox="0 0 64 64" focusable="false">
+                <path fill="currentColor" d="M32 8c-9 0-16 6.4-16 15.2V32l-5.2 7.4c-.9 1.3-.1 3.1 1.6 3.1h39.2c1.7 0 2.5-1.8 1.6-3.1L48 32V23.2C48 14.4 41 8 32 8zm0 5.2c5.8 0 10.4 4 10.4 9.6V33.2l3.2 4.6H18.4l3.2-4.6V22.8c0-5.6 4.6-9.6 10.4-9.6z"/>
+                <rect x="24" y="46" width="16" height="5.5" rx="1.2" fill="currentColor"/>
+                <path fill="currentColor" d="M12 22c-2.8 2-4.4 4.6-4.4 7.6s1.6 5.6 4.4 7.6l2.4-3.2c-1.6-1.2-2.4-2.8-2.4-4.4s.8-3.2 2.4-4.4L12 22zm40 0l-2.4 3.2c1.6 1.2 2.4 2.8 2.4 4.4s-.8 3.2-2.4 4.4L52 37.2c2.8-2 4.4-4.6 4.4-7.6S54.8 24 52 22z"/>
+              </svg>
+            </span>
+            <span class="alarm-ring-lab">TOCCA PER TACITARE</span>
+          </button>
         </div>
       </section>
 
@@ -90,10 +395,12 @@ window.__onGCastApiAvailable = function (isAvailable) {
             </button>
           </div>
           <div class="ctrl">
-            <div class="lbl" id="lblTransport">STOP</div>
-            <button type="button" class="lamp transport" id="btnStop" aria-label="Stop" aria-pressed="false">
+            <div class="lbl" id="lblTransport">PAUSE/PLAY</div>
+            <button type="button" class="lamp transport" id="btnStop" aria-label="Pausa" aria-pressed="false">
               <span class="lamp-face transport-face">
-                <b class="transport-text">STOP</b>
+                <span class="transport-icon" aria-hidden="true">
+                  <i class="ico-pause"></i>
+                </span>
               </span>
             </button>
           </div>
@@ -118,18 +425,60 @@ window.__onGCastApiAvailable = function (isAvailable) {
           </div>
         </div>
 
+        <div class="group meter-group">
+          <div class="smeter" id="sMeter" aria-label="Indicatore di segnale" aria-live="off">
+            <div class="smeter-bezel">
+              <div class="smeter-well">
+                <div class="smeter-face" aria-hidden="true">
+                  <svg class="smeter-scale" viewBox="0 0 200 118" preserveAspectRatio="xMidYMid meet">
+                    <path class="smeter-arc" d="M22 92 A78 78 0 0 1 178 92" fill="none"/>
+                    <path class="smeter-redzone" d="M118 28.5 A78 78 0 0 1 168 62" fill="none" stroke-linecap="butt"/>
+                    <g class="smeter-ticks"></g>
+                    <text class="smeter-lab" x="100" y="103" text-anchor="middle">SIGNAL</text>
+                  </svg>
+                  <div class="smeter-needle" id="sNeedle">
+                    <i class="smeter-pivot"></i>
+                  </div>
+                </div>
+                <div class="smeter-glass" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+          <div class="casio-clock" id="casioClock" aria-label="Orologio">
+            <div class="casio-clock-bezel">
+              <div class="casio-clock-well">
+                <div class="casio-clock-face">
+                  <div class="casio-clock-lcd">
+                    <span class="casio-clock-ghost" aria-hidden="true">88<span class="casio-clock-colon is-ghost" aria-hidden="true"><i></i><i></i></span>88</span>
+                    <span class="casio-clock-time" id="casioClockTime">
+                      <span id="clockHours">00</span>
+                      <span class="casio-clock-colon" aria-hidden="true"><i></i><i></i></span>
+                      <span id="clockMins">00</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="casio-clock-glass" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="group tune-group">
           <div class="lbl-row">
-            <div class="lbl">TUNING</div>
+            <div class="lbl" id="lblTune">TUNING</div>
           </div>
-          <span class="tune-bridge" aria-hidden="true"><i class="tune-led"></i></span>
           <div class="knob-slot">
+            <div class="tune-ticks" id="tuneTicks" aria-hidden="true"></div>
+            <div class="tune-nums" id="tuneNums" aria-hidden="true"></div>
             <div class="tune-ring" aria-hidden="true"></div>
             <div class="knob-well tune-well">
               <div class="knob tune" id="tuneKnob" role="slider" aria-label="Sintonia" tabindex="0">
-                <div class="knurl"></div>
+                <div class="knob-spin" id="tuneSpin" aria-hidden="true">
+                  <div class="knurl"></div>
+                  <div class="black-ring"></div>
+                  <i class="tune-mark"></i>
+                </div>
                 <div class="gold-outer"></div>
-                <div class="black-ring"></div>
                 <div class="cap">
                   <i class="cap-rings" aria-hidden="true"></i>
                 </div>
@@ -143,15 +492,15 @@ window.__onGCastApiAvailable = function (isAvailable) {
           <div class="mode-main">
             <div class="mode">
               <div class="lbl compact" id="lblBand"><span class="is-active" data-v="fm">FM</span>/<span data-v="am">AM</span></div>
-              <div class="key-well"><button type="button" class="key" id="btnBand" aria-label="FM o AM"></button></div>
+              <div class="key-well switch-well"><button type="button" class="key switch" id="btnBand" aria-label="FM o AM"></button></div>
             </div>
             <div class="mode">
               <div class="lbl compact" id="lblStereo"><span data-v="mo">MONO</span>/<span class="is-active" data-v="st">STEREO</span></div>
-              <div class="key-well"><button type="button" class="key" id="btnMono" aria-label="Mono o stereo"></button></div>
+              <div class="key-well switch-well"><button type="button" class="key switch" id="btnMono" aria-label="Mono o stereo"></button></div>
             </div>
             <div class="mode">
               <div class="lbl compact" id="lblAuto"><span data-v="auto">AUTO</span>/<span class="is-active" data-v="man">MANUAL</span></div>
-              <div class="key-well"><button type="button" class="key" id="btnAuto" aria-label="Ricerca automatica o manuale"></button></div>
+              <div class="key-well switch-well"><button type="button" class="key switch" id="btnAuto" aria-label="Ricerca automatica o manuale"></button></div>
             </div>
             <div class="mode">
               <div class="lbl compact">PRESET</div>
@@ -163,12 +512,12 @@ window.__onGCastApiAvailable = function (isAvailable) {
           </div>
           <div class="mode-extra">
             <div class="mode">
-              <div class="lbl compact">CH +</div>
-              <div class="key-well"><button type="button" class="key ch" id="btnChUp" aria-label="Canale successivo"></button></div>
-            </div>
-            <div class="mode">
               <div class="lbl compact">CH −</div>
               <div class="key-well"><button type="button" class="key ch" id="btnChDown" aria-label="Canale precedente"></button></div>
+            </div>
+            <div class="mode">
+              <div class="lbl compact">CH +</div>
+              <div class="key-well"><button type="button" class="key ch" id="btnChUp" aria-label="Canale successivo"></button></div>
             </div>
             <div class="mode">
               <div class="lbl compact" id="lblCast">CAST</div>
@@ -176,12 +525,32 @@ window.__onGCastApiAvailable = function (isAvailable) {
             </div>
           </div>
         </div>
+        <span class="tune-bridge" id="tuneBridge" aria-hidden="true"><i class="tune-led"></i></span>
       </section>
+
+      <div class="speaker" aria-hidden="true">
+        <div class="speaker-bay"></div>
+        <div class="speaker-driver">
+          <i class="speaker-rim"></i>
+          <i class="speaker-surround"></i>
+          <i class="speaker-ring"></i>
+          <i class="speaker-cone"></i>
+          <i class="speaker-dust"></i>
+        </div>
+        <div class="speaker-mesh"></div>
+      </div>
     </div>
     <div class="vignette" aria-hidden="true"></div>
   </div>
 </div>
 <audio id="player" playsinline webkit-playsinline preload="auto" crossorigin="anonymous"></audio>
+<div class="cast-remote-gate is-hidden" id="castRemoteGate" role="dialog" aria-label="Apri Cast">
+  <button type="button" class="cast-remote-gate-btn" id="castRemoteGateBtn">
+    <span class="cast-remote-gate-title">CAST</span>
+    <span class="cast-remote-gate-hint">Tocca per scegliere la cassa</span>
+  </button>
+</div>
+<script src="js/native-bridge.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

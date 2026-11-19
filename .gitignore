@@ -12,3 +12,12 @@ _preview/
 firebase-debug.log
 firebase-debug.*.log
 ui-debug.log
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+android/*.iml
+android/app/google-services.json
+*.jks
+*.keystore

@@ -1,0 +1,191 @@
+package app.mytuner.radio;
+
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.Window;
+import android.view.WindowManager;
+import android.webkit.WebView;
+
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+
+import com.getcapacitor.BridgeActivity;
+
+import org.json.JSONObject;
+
+public class MainActivity extends BridgeActivity {
+    private static long lastAlarmInjectAt = 0;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(RemoteWakePlugin.class);
+        registerPlugin(NativeCastPlugin.class);
+        registerPlugin(WhatsAppNotifyPlugin.class);
+        super.onCreate(savedInstanceState);
+        applyImmersiveFullscreen();
+        try {
+            com.google.android.gms.cast.framework.CastContext.getSharedInstance(this);
+        } catch (Exception ignored) { }
+        handleRemoteIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleRemoteIntent(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        applyImmersiveFullscreen();
+        try { NotifyHush.engage(this); } catch (Exception ignored) { }
+        /* Niente forceAlarmToFront qui: riavviava in loop con intent sticky */
+    }
+
+    @Override
+    public void onPause() {
+        try { NotifyHush.release(this); } catch (Exception ignored) { }
+        super.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        try { NotifyHush.release(this); } catch (Exception ignored) { }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) applyImmersiveFullscreen();
+    }
+
+    private void applyImmersiveFullscreen() {
+        Window window = getWindow();
+        if (window == null) return;
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false);
+            WindowInsetsControllerCompat c =
+                WindowCompat.getInsetsController(window, window.getDecorView());
+            if (c != null) {
+                c.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
+                c.setSystemBarsBehavior(
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                );
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                WindowManager.LayoutParams lp = window.getAttributes();
+                lp.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                window.setAttributes(lp);
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * Solo se NON siamo già in primo piano: porta il task avanti.
+     * Mai startActivity(MainActivity) da qui → loop onNewIntent.
+     */
+    private void bringTaskForwardIfNeeded() {
+        if (hasWindowFocus()) {
+            try { RemoteWakePlugin.applyWake(this); } catch (Exception ignored) { }
+            return;
+        }
+        try { RemoteWakePlugin.applyWake(this); } catch (Exception ignored) { }
+        try { AppReveal.moveOwnTasksToFront(this); } catch (Exception ignored) { }
+    }
+
+    private void handleRemoteIntent(Intent intent) {
+        if (intent == null) return;
+        boolean alarmFire = intent.getBooleanExtra("alarm_fire", false)
+            || AlarmClockHelper.ACTION_FIRE.equals(intent.getAction());
+        boolean alarmReveal = intent.getBooleanExtra("alarm_reveal", false);
+        boolean wake = intent.getBooleanExtra("wake_display", false)
+            || "app.mytuner.radio.REMOTE_WAKE".equals(intent.getAction())
+            || alarmFire
+            || alarmReveal;
+        if (!wake) return;
+
+        bringTaskForwardIfNeeded();
+
+        String act = intent.getStringExtra("remote_action");
+        String val = intent.getStringExtra("remote_value");
+        /* Pulisci subito così onResume / re-entry non riparte */
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.removeExtra("wake_display");
+        intent.removeExtra("alarm_reveal");
+        intent.removeExtra("alarm_fire");
+        intent.removeExtra("remote_action");
+        intent.removeExtra("remote_value");
+        setIntent(intent);
+
+        if (alarmReveal || alarmFire) {
+            try {
+                android.app.NotificationManager nm =
+                    (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null) nm.cancel(45010);
+            } catch (Exception ignored) { }
+            if (alarmFire) {
+                long now = System.currentTimeMillis();
+                if (now - lastAlarmInjectAt > 4000L) {
+                    lastAlarmInjectAt = now;
+                    getBridge().getWebView().postDelayed(this::injectAlarmFire, 350);
+                }
+            }
+            return;
+        }
+
+        if (act == null || act.isEmpty()) act = "wake";
+        if (val == null || val.isEmpty()) val = "display";
+        final boolean powerOn = "power".equals(act)
+            && ("on".equalsIgnoreCase(val) || "1".equals(val) || "true".equalsIgnoreCase(val));
+        final String injectAct = powerOn ? "power" : "wake";
+        final String injectVal = powerOn ? "on" : "display";
+        getBridge().getWebView().postDelayed(() -> injectRemoteCmd(injectAct, injectVal), 700);
+    }
+
+    private void injectRemoteCmd(String action, String value) {
+        try {
+            WebView web = getBridge().getWebView();
+            if (web == null) return;
+            JSONObject payload = new JSONObject();
+            payload.put("type", "remote-cmd");
+            payload.put("action", action);
+            payload.put("value", value);
+            payload.put("from", "native-fcm");
+            String js = "(function(){try{window.dispatchEvent(new CustomEvent('mytuner-native-cmd',{detail:"
+                + payload.toString()
+                + "}));}catch(e){}})();";
+            web.evaluateJavascript(js, null);
+        } catch (Exception ignored) { }
+    }
+
+    private void injectAlarmFire() {
+        try {
+            WebView web = getBridge().getWebView();
+            if (web == null) return;
+            String js = "(function(){try{window.dispatchEvent(new CustomEvent('mytuner-alarm-fire',"
+                + "{detail:{from:'alarm-clock'}}));}catch(e){}})();";
+            web.evaluateJavascript(js, null);
+        } catch (Exception ignored) { }
+    }
+
+    public static void ensureOverlayPermission(android.app.Activity activity) {
+        if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        try {
+            if (Settings.canDrawOverlays(activity)) return;
+            Intent i = new Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + activity.getPackageName())
+            );
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(i);
+        } catch (Exception ignored) { }
+    }
+}
