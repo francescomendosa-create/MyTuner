@@ -1,4 +1,4 @@
-const APP_VERSION = 'v209';
+const APP_VERSION = 'v227';
 
 /* Hub remoto: in APK/offline gli asset sono locali (Capacitor), API/stream restano sul worker */
 const HUB_ORIGIN = (() => {
@@ -641,11 +641,13 @@ const modeTag = document.getElementById('modeTag');
 const freqFm = document.getElementById('freqFm');
 const freqAm = document.getElementById('freqAm');
 const dialNeedle = document.getElementById('dialNeedle');
+const vintageNeedle = document.getElementById('vintageNeedle');
 const bandFm = document.getElementById('bandFm');
 const bandAm = document.getElementById('bandAm');
 const tuneKnob = document.getElementById('tuneKnob');
 const tuneSpin = document.getElementById('tuneSpin');
 const volKnob = document.getElementById('volKnob');
+const volSpin = document.getElementById('volSpin');
 const volNums = document.getElementById('volNums');
 const barsHost = document.getElementById('bars');
 const specLabels = document.getElementById('specLabels');
@@ -2961,6 +2963,7 @@ function setNeedlePosition(pct, { animate = false } = {}) {
   if (!animate || lastNeedlePct == null) {
     needleAnimToken += 1;
     dialNeedle.style.left = `${to}%`;
+    if (vintageNeedle) vintageNeedle.style.left = `${to}%`;
     lastNeedlePct = to;
     return;
   }
@@ -2972,7 +2975,9 @@ function setNeedlePosition(pct, { animate = false } = {}) {
     if (token !== needleAnimToken) return;
     const t = Math.min(1, (now - t0) / dur);
     const e = t * t * (3 - 2 * t);
-    dialNeedle.style.left = `${from + (to - from) * e}%`;
+    const needleLeft = `${from + (to - from) * e}%`;
+    dialNeedle.style.left = needleLeft;
+    if (vintageNeedle) vintageNeedle.style.left = needleLeft;
     if (t < 1) {
       requestAnimationFrame(step);
       return;
@@ -3076,14 +3081,14 @@ function paintVolume(opts = {}) {
     if (volAnim) cancelAnimationFrame(volAnim);
     volAnim = 0;
     volDegShown = target;
-    volKnob.style.transform = `rotate(${target}deg)`;
+    volSpin.style.transform = `rotate(${target}deg)`;
     return;
   }
   const from = volDegShown;
   const to = target;
   if (Math.abs(to - from) < 0.08) {
     volDegShown = to;
-    volKnob.style.transform = `rotate(${to}deg)`;
+    volSpin.style.transform = `rotate(${to}deg)`;
     return;
   }
   if (volAnim) cancelAnimationFrame(volAnim);
@@ -3094,7 +3099,7 @@ function paintVolume(opts = {}) {
     const e = t * t * (3 - 2 * t);
     const d = from + (to - from) * e;
     volDegShown = d;
-    volKnob.style.transform = `rotate(${d}deg)`;
+    volSpin.style.transform = `rotate(${d}deg)`;
     if (t < 1) volAnim = requestAnimationFrame(step);
     else volAnim = 0;
   };
@@ -6810,6 +6815,19 @@ document.getElementById('btnBgSettings')?.addEventListener('click', (event) => {
   paintSettingsFocus();
   openBgPane(true);
 });
+document.getElementById('btnRadioModels')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  settingsTrail = false;
+  openRadiosPane(true);
+});
+document.getElementById('monitorRadiosBody')?.addEventListener('click', (event) => {
+  const btn = event.target.closest('.monitor-set-ico-btn');
+  if (!btn || !btn.closest('#monitorRadiosBody')) return;
+  event.stopPropagation();
+  playKeyClick();
+  selectRadioSkin(btn.dataset.radio || '');
+});
 document.getElementById('bgThemeList')?.addEventListener('click', (event) => {
   const btn = event.target.closest('.bg-theme-item');
   if (!btn) return;
@@ -7083,6 +7101,7 @@ let presetHeld = false;
 let presetTimer = 0;
 btnPreset.addEventListener('pointerdown', (event) => {
   presetHeld = false;
+  btnPreset.classList.add('is-down');
   btnPreset.setPointerCapture(event.pointerId);
   presetTimer = window.setTimeout(() => {
     presetHeld = true;
@@ -7093,9 +7112,13 @@ btnPreset.addEventListener('pointerdown', (event) => {
 });
 btnPreset.addEventListener('pointerup', () => {
   window.clearTimeout(presetTimer);
+  btnPreset.classList.remove('is-down');
   if (!presetHeld) cyclePreset();
 });
-btnPreset.addEventListener('pointercancel', () => window.clearTimeout(presetTimer));
+btnPreset.addEventListener('pointercancel', () => {
+  window.clearTimeout(presetTimer);
+  btnPreset.classList.remove('is-down');
+});
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === ' ' || event.key === 'p' || event.key === 'P')) return;
@@ -7583,11 +7606,18 @@ function paintDeviceNameLabel() {
 }
 
 function settingsIconButtons() {
-  return [...document.querySelectorAll('#monitorSettingsBody .monitor-set-ico-btn')];
+  const root = settingsPage === 'home2'
+    ? '#monitorHome2Body'
+    : settingsPage === 'radios'
+      ? '#monitorRadiosBody'
+      : '#monitorSettingsBody';
+  return [...document.querySelectorAll(`${root} .monitor-set-ico-btn`)];
 }
 
 const SETTINGS_PAGES = {
   home: 'monitorSettingsBody',
+  home2: 'monitorHome2Body',
+  radios: 'monitorRadiosBody',
   user: 'monitorNameEditor',
   alarm: 'monitorAlarmEditor',
   stations: 'monitorStationsPane',
@@ -7608,13 +7638,19 @@ function settingsPageEl(id) {
 
 function clearSettingsPageAnimClasses(el) {
   if (!el) return;
-  el.classList.remove('is-on', 'is-prep-left', 'is-prep-right', 'is-out-left', 'is-out-right');
+  el.classList.remove(
+    'is-on',
+    'is-prep-left', 'is-prep-right', 'is-out-left', 'is-out-right',
+    'is-prep-top', 'is-prep-bottom', 'is-out-top', 'is-out-bottom'
+  );
 }
 
 function showSettingsPage(next, opts = {}) {
   const page = SETTINGS_PAGES[next] ? next : 'home';
   const instant = Boolean(opts.instant);
-  const dir = opts.dir === 'back' ? 'back' : 'forward';
+  const rawDir = String(opts.dir || 'forward');
+  const vertical = rawDir === 'up' || rawDir === 'down' || opts.axis === 'y';
+  const dir = rawDir === 'back' || rawDir === 'down' ? 'back' : 'forward';
   const to = settingsPageEl(page);
   if (!to) return;
 
@@ -7638,13 +7674,19 @@ function showSettingsPage(next, opts = {}) {
   });
 
   clearSettingsPageAnimClasses(to);
-  to.classList.add(dir === 'forward' ? 'is-prep-right' : 'is-prep-left');
+  const prep = vertical
+    ? (dir === 'forward' ? 'is-prep-bottom' : 'is-prep-top')
+    : (dir === 'forward' ? 'is-prep-right' : 'is-prep-left');
+  const leave = vertical
+    ? (dir === 'forward' ? 'is-out-top' : 'is-out-bottom')
+    : (dir === 'forward' ? 'is-out-left' : 'is-out-right');
+  to.classList.add(prep);
   void to.offsetWidth;
   if (from) {
-    from.classList.remove('is-on', 'is-prep-left', 'is-prep-right');
-    from.classList.add(dir === 'forward' ? 'is-out-left' : 'is-out-right');
+    from.classList.remove('is-on', 'is-prep-left', 'is-prep-right', 'is-prep-top', 'is-prep-bottom');
+    from.classList.add(leave);
   }
-  to.classList.remove('is-prep-left', 'is-prep-right');
+  to.classList.remove('is-prep-left', 'is-prep-right', 'is-prep-top', 'is-prep-bottom');
   to.classList.add('is-on');
   settingsPage = page;
 
@@ -7715,6 +7757,18 @@ const BG_THEMES = [
     thumb: '/img/bg/acciaio-incassato.png',
     image: '/img/bg/acciaio-incassato.png',
     skin: 'acciaio'
+  },
+  {
+    id: 'soggiorno-chiaro',
+    name: 'Soggiorno chiaro',
+    thumb: '/img/bg/soggiorno-chiaro.png',
+    image: '/img/bg/soggiorno-chiaro.png'
+  },
+  {
+    id: 'banco-falegname',
+    name: 'Banco falegname',
+    thumb: '/img/bg/banco-falegname.jpg',
+    image: '/img/bg/banco-falegname.jpg'
   }
 ];
 let bgThemeId = '';
@@ -7775,7 +7829,7 @@ function applySceneBg() {
   radio.classList.toggle('is-fit-fullscreen', fitFs);
   /* Skin radio (colore/materiale chassis) opzionale per tema */
   [...radio.classList].forEach((cls) => {
-    if (cls.startsWith('skin-')) radio.classList.remove(cls);
+    if (cls.startsWith('skin-') && cls !== 'skin-vintage50') radio.classList.remove(cls);
   });
   if (theme?.skin) radio.classList.add(`skin-${theme.skin}`);
   if (has) radio.style.setProperty('--scene-bg', `url("${theme.image}?v=${APP_VERSION}")`);
@@ -7841,6 +7895,70 @@ function openBgPane(on, opts = {}) {
   }
   scheduleRemoteState();
 }
+
+const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
+let radioSkinId = '';
+
+function readRadioSkinId() {
+  try {
+    const id = String(localStorage.getItem(RADIO_SKIN_KEY) || '');
+    return id === 'vintage50' ? id : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function applyRadioSkin() {
+  if (!radio) return;
+  radio.classList.toggle('skin-vintage50', radioSkinId === 'vintage50');
+}
+
+function paintRadioSkinList() {
+  document.querySelectorAll('#monitorRadiosBody .monitor-set-ico-btn').forEach((btn) => {
+    const on = (btn.dataset.radio || '') === radioSkinId;
+    btn.classList.toggle('is-selected', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+function selectRadioSkin(id) {
+  radioSkinId = id === 'vintage50' ? 'vintage50' : '';
+  try { localStorage.setItem(RADIO_SKIN_KEY, radioSkinId); } catch (e) { /* ignore */ }
+  applyRadioSkin();
+  paintRadioSkinList();
+  flash(radioSkinId === 'vintage50' ? 'VINTAGE 50' : 'CLASSIC 70/80', true);
+  scheduleRemoteState();
+}
+
+function openHome2Pane(on, opts = {}) {
+  const pane = document.getElementById('monitorHome2Body');
+  if (!pane) return;
+  if (on) {
+    showSettingsPage('home2', { dir: opts.dir || 'up', instant: opts.instant });
+    paintSettingsFocus();
+  } else {
+    showSettingsPage('home', { dir: opts.dir || 'down', instant: opts.instant });
+    paintSettingsFocus();
+  }
+  scheduleRemoteState();
+}
+
+function openRadiosPane(on, opts = {}) {
+  const pane = document.getElementById('monitorRadiosBody');
+  if (!pane) return;
+  if (on) {
+    paintRadioSkinList();
+    showSettingsPage('radios', { dir: opts.dir || 'forward', instant: opts.instant });
+    paintSettingsFocus();
+  } else {
+    showSettingsPage('home2', { dir: opts.dir || 'back', instant: opts.instant });
+    paintSettingsFocus();
+  }
+  scheduleRemoteState();
+}
+
+radioSkinId = readRadioSkinId();
+applyRadioSkin();
 
 bgThemeId = readBgThemeId();
 applySceneBg();
@@ -9054,6 +9172,9 @@ function settingsNav(dir) {
 
 function settingsNeighbor(dir) {
   const forward = dir === 'forward';
+  /* home2 ↔ home solo verticale (nudgeHomeIcons), non swipe orizzontale */
+  if (settingsPage === 'home2') return null;
+  if (settingsPage === 'radios') return forward ? null : 'home2';
   if (forward) {
     if (settingsPage === 'home') return 'user';
     if (settingsPage === 'user') return 'alarm';
@@ -9118,9 +9239,7 @@ function prepareSettingsPeek(id) {
     paintClockThemeList();
     return;
   }
-  if (id === 'bg') {
-    paintBgThemeList();
-  }
+  if (id === 'bg') paintBgThemeList();
 }
 
 function settingsForward(opts = {}) {
@@ -9234,6 +9353,14 @@ function settingsBack(opts = {}) {
     openBgPane(false, { dir: 'back', instant });
     return;
   }
+  if (settingsPage === 'radios') {
+    openRadiosPane(false, { dir: 'back', instant });
+    return;
+  }
+  if (settingsPage === 'home2') {
+    openHome2Pane(false, { dir: 'down', instant });
+    return;
+  }
   openMonitorSettings(false);
 }
 
@@ -9292,6 +9419,8 @@ function settingsEnter() {
   else if (btn.dataset.set === 'standby') openStandbyEditor(true);
   else if (btn.dataset.set === 'clock') openClockPane(true);
   else if (btn.dataset.set === 'bg') openBgPane(true);
+  else if (btn.dataset.set === 'radio') openRadiosPane(true);
+  else if (btn.dataset.radio !== undefined) selectRadioSkin(btn.dataset.radio || '');
 }
 
 /* Swipe pagine interattivo: la prossima schermata segue il dito, poi scatta al rilascio */
@@ -9454,6 +9583,21 @@ function settingsEnter() {
     }, 290);
   }
 
+  function nudgeHomeIcons(dy) {
+    if (Math.abs(dy) < 36) return;
+    /* Home → swipe su: seconda home con RADIO */
+    if (settingsPage === 'home' && dy < 0) {
+      settingsTrail = false;
+      openHome2Pane(true, { dir: 'up' });
+      return;
+    }
+    /* Home2 → swipe giù: torna alle 6 icone */
+    if (settingsPage === 'home2' && dy > 0) {
+      settingsTrail = false;
+      openHome2Pane(false, { dir: 'down' });
+    }
+  }
+
   function pickAxis(dx, dy) {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return null;
     /* Preferisci orizzontale: su CLOCK/SFONDI le liste scrollano in verticale */
@@ -9568,6 +9712,7 @@ function settingsEnter() {
     const wasDragging = dragging;
     tracking = false;
     if (!wasDragging) {
+      if (axis === 'y') nudgeHomeIcons((t ? t.clientY - startY : 0));
       settingsSwipeLock = false;
       axis = null;
       return;
@@ -9594,6 +9739,7 @@ function settingsEnter() {
     const velocity = Number(panel.dataset.vx || 0);
     delete panel.dataset.vx;
     if (!dragging) {
+      if (axis === 'y') nudgeHomeIcons(event.clientY - startY);
       settingsSwipeLock = false;
       axis = null;
       return;

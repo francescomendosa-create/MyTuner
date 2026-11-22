@@ -730,6 +730,32 @@ button {
   z-index: 1;
   transform: translate3d(100%, 0, 0);
 }
+.monitor-settings > .settings-page.is-prep-bottom {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 3;
+  transition: none;
+  transform: translate3d(0, 100%, 0);
+}
+.monitor-settings > .settings-page.is-prep-top {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 3;
+  transition: none;
+  transform: translate3d(0, -100%, 0);
+}
+.monitor-settings > .settings-page.is-out-top {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 1;
+  transform: translate3d(0, -100%, 0);
+}
+.monitor-settings > .settings-page.is-out-bottom {
+  pointer-events: none;
+  visibility: visible;
+  z-index: 1;
+  transform: translate3d(0, 100%, 0);
+}
 .monitor-settings.is-finger-drag {
   touch-action: none;
 }
@@ -746,6 +772,7 @@ button {
 }
 /* Icone impostazioni: riga UTENTE/SVEGLIA/STAZIONI, sotto STANDBY — blocco centrato */
 .monitor-settings-icons {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: auto auto;
@@ -790,6 +817,15 @@ button {
   grid-column: 3;
   grid-row: 2;
   justify-self: start;
+}
+/* Seconda home: una sola icona RADIO centrata */
+#monitorHome2Body {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+#monitorRadiosBody {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: center;
 }
 
 /* Sfondi scena dietro al chassis */
@@ -5030,7 +5066,7 @@ button {
 }
 .digital-clock-secs {
   position: absolute;
-  right: 0;
+  right: -3px;
   bottom: 0;
   z-index: 2;
   font-family: var(--casio);
@@ -5699,6 +5735,15 @@ button {
 }
 
 .knob.is-grab { cursor: grabbing; }
+
+/* Volume: ruota solo la manopola; la scala resta ferma */
+.knob.vol .knob-spin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
 
 /* Volume: zigrinatura fine metallica */
 .knob.vol .knurl {
@@ -7380,4 +7425,468 @@ audio {
 
 @media (prefers-reduced-motion: reduce) {
   .glass.flick { animation: none; }
+}
+
+/* Anteprime radio: miniature quadrate ben visibili */
+.monitor-radios-page {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-content: center;
+  gap: clamp(14px, 4cqw, 28px) clamp(12px, 3.5cqw, 22px);
+}
+.monitor-radio-card {
+  width: min(100%, 9.5em) !important;
+  max-width: 9.5em !important;
+}
+.radio-mini-thumb {
+  width: min(92px, 34cqw);
+  height: min(92px, 34cqw);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  background-color: #1a1a1a;
+  background-size: cover;
+  background-position: center;
+  box-shadow:
+    0 0 0 1px rgba(232, 215, 168, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.monitor-radio-card.is-selected .radio-mini-thumb,
+.monitor-radio-card:focus-visible .radio-mini-thumb {
+  box-shadow:
+    0 0 0 2px #e8d7a8,
+    0 0 14px rgba(232, 215, 168, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+/* Cassa Vintage 50 (al posto dello spettro) */
+.speaker-grille {
+  display: none;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  background: #2a2218;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.65),
+    inset 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.speaker-grille-cloth {
+  background:
+    url("/img/skins/vintage-50-speaker.jpg") left center / cover no-repeat,
+    repeating-linear-gradient(90deg, #c4a574 0 2px, #a88858 2px 4px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 4px);
+}
+.speaker-grille-metal {
+  background:
+    repeating-linear-gradient(90deg,
+      #9a9a9a 0 3px,
+      #6e6e6e 3px 5px,
+      #b0b0b0 5px 6px),
+    linear-gradient(180deg, #8a8a8a, #4a4a4a);
+  box-shadow: inset 2px 0 6px rgba(0, 0, 0, 0.45);
+}
+.speaker-grille-leds {
+  position: absolute;
+  right: 8%;
+  top: 42%;
+  display: grid;
+  gap: 10px;
+}
+.speaker-grille-leds i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #9dff9a, #1f8a28 55%, #06380c);
+  box-shadow: 0 0 6px rgba(80, 220, 90, 0.55);
+  opacity: 0.35;
+}
+.radio.is-on .speaker-grille-leds i {
+  opacity: 1;
+}
+
+/* Vintage 50: la faccia è la foto HD. I controlli veri sono aree invisibili sopra i pezzi della foto. */
+.radio.skin-vintage50 .chassis,
+.radio.skin-vintage50.is-fit-fullscreen .chassis,
+.radio.skin-vintage50.is-fit-fullscreen.has-scene-bg .chassis {
+  width: min(96vw, 1280px, calc(88dvh * 1.925)) !important;
+  height: auto !important;
+  max-width: 1280px !important;
+  max-height: none !important;
+  aspect-ratio: 978 / 508 !important;
+  border-radius: 16px;
+  background-color: #140e0a !important;
+  background-image: url("/img/skins/vintage-50-face.jpg?v=227") !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+}
+.radio.skin-vintage50 .metal,
+.radio.skin-vintage50 .sheen,
+.radio.skin-vintage50 .vignette,
+.radio.skin-vintage50 .bezel-lip,
+.radio.skin-vintage50 .speaker-grille {
+  display: none !important;
+}
+.radio.skin-vintage50 .panel {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  gap: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.radio.skin-vintage50 .bezel {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  pointer-events: none;
+}
+.radio.skin-vintage50 .glass:not(.is-video) {
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none;
+  z-index: 6;
+}
+.radio.skin-vintage50 .glass:not(.is-video) > :not(.monitor-settings):not(.monitor-cast) {
+  display: none !important;
+}
+.radio.skin-vintage50 .monitor-settings:not(.is-hidden),
+.radio.skin-vintage50 .monitor-cast:not(.is-hidden) {
+  pointer-events: auto;
+}
+.vintage-needle-rail { display: none; }
+.radio.skin-vintage50 .vintage-needle-rail {
+  display: block;
+  position: absolute;
+  left: 10.7%;
+  top: 12.6%;
+  width: 44.4%;
+  height: 42.3%;
+  z-index: 4;
+  pointer-events: none;
+}
+.radio.skin-vintage50 #vintageNeedle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #ffb4a8 0%, #ff3a30 16%, #c01018 78%, #ff5c4e 100%);
+  box-shadow: 0 0 5px rgba(180, 0, 0, 0.85);
+}
+.radio.skin-vintage50 .glass.is-video {
+  display: grid !important;
+  position: absolute;
+  left: 5.5%;
+  top: 9%;
+  width: 56%;
+  height: 36%;
+  z-index: 4;
+  pointer-events: auto;
+}
+.radio.skin-vintage50 .settings-btn,
+.radio.skin-vintage50 .view-btn {
+  pointer-events: auto;
+  z-index: 6;
+  top: 2.2%;
+  width: 4.2%;
+  height: 8%;
+  opacity: 0.72;
+}
+.radio.skin-vintage50 .settings-btn { right: 2.2%; }
+.radio.skin-vintage50 .view-btn { right: 7.2%; }
+.radio.skin-vintage50 .controls {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+.radio.skin-vintage50 .controls .group,
+.radio.skin-vintage50 .controls .ctrl,
+.radio.skin-vintage50 .controls .mode,
+.radio.skin-vintage50 .controls .mode-main,
+.radio.skin-vintage50 .controls .mode-extra,
+.radio.skin-vintage50 .vol-wrap,
+.radio.skin-vintage50 .knob-slot,
+.radio.skin-vintage50 .knob-well {
+  position: static !important;
+  display: block;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+.radio.skin-vintage50 .lbl,
+.radio.skin-vintage50 .lbl-row,
+.radio.skin-vintage50 .vol-ticks,
+.radio.skin-vintage50 .vol-nums,
+.radio.skin-vintage50 .tune-ticks,
+.radio.skin-vintage50 .tune-nums,
+.radio.skin-vintage50 .tune-ring,
+.radio.skin-vintage50 .knob-sheen,
+.radio.skin-vintage50 .meter-group {
+  display: none !important;
+}
+.radio.skin-vintage50 .speaker,
+.radio.skin-vintage50 .tune-bridge {
+  display: none !important;
+}
+.radio.skin-vintage50 .lamp,
+.radio.skin-vintage50 .knob,
+.radio.skin-vintage50 .key-well {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: auto;
+  z-index: 5;
+  aspect-ratio: auto;
+  box-sizing: border-box;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.radio.skin-vintage50 .key-well .key,
+.radio.skin-vintage50 .key-well .preset-led {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0;
+  opacity: 0;
+}
+.radio.skin-vintage50 #btnPower {
+  left: 6.1%;
+  top: 63%;
+  width: 5.7%;
+  height: 9.8%;
+  opacity: 1;
+  border-radius: 6px;
+  background: url("/img/skins/vintage-50-power.png?v=227") center / 100% 100% no-repeat !important;
+  transition: background-image 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+.radio.skin-vintage50.is-on #btnPower {
+  background-image: url("/img/skins/vintage-50-power-on.png?v=227") !important;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 5px rgba(40, 24, 8, 0.35);
+}
+.radio.skin-vintage50 #btnStop {
+  left: 5.7%;
+  top: 83.5%;
+  width: 5.9%;
+  height: 11%;
+  opacity: 1;
+  border-radius: 6px;
+  background: url("/img/skins/vintage-50-pause.png?v=227") center / 100% 100% no-repeat !important;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+}
+.radio.skin-vintage50 #btnPower .lamp-face,
+.radio.skin-vintage50 #btnStop .lamp-face { display: none !important; }
+.radio.skin-vintage50.is-stopped #btnStop,
+.radio.skin-vintage50 #btnStop:active {
+  transform: translateY(4px) scale(0.96);
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.7);
+  filter: brightness(0.78);
+}
+.radio.skin-vintage50 #volKnob {
+  left: 13.29%;
+  top: 59.25%;
+  width: 20.45%;
+  height: 39.37%;
+  opacity: 1;
+  overflow: visible;
+  background: url("/img/skins/vintage-50-vol-crown.png?v=222") center / 100% 100% no-repeat !important;
+}
+.radio.skin-vintage50 #volSpin {
+  background: url("/img/skins/vintage-50-vol-spin.png?v=222") center / 100% 100% no-repeat !important;
+  box-shadow: none !important;
+}
+.radio.skin-vintage50 #volSpin * { display: none !important; }
+.radio.skin-vintage50 #tuneKnob {
+  left: 53.48%;
+  top: 61.42%;
+  width: 19.02%;
+  height: 36.61%;
+  opacity: 1;
+  overflow: visible;
+  background: url("/img/skins/vintage-50-crown.png?v=227") center / 100% 100% no-repeat !important;
+  filter: drop-shadow(0 10px 8px rgba(40, 24, 8, 0.35));
+}
+.radio.skin-vintage50 #tuneKnob > *:not(#tuneSpin) { display: none !important; }
+.radio.skin-vintage50 #tuneSpin {
+  background: url("/img/skins/vintage-50-spin.png?v=227") center / 100% 100% no-repeat !important;
+  box-shadow: none !important;
+}
+.radio.skin-vintage50 #tuneSpin * { display: none !important; }
+/* —— Pannello comandi destro: FM/AM, Mono, Auto, Preset, CH±, CAST —— */
+.radio.skin-vintage50 .key-well:has(#btnBand),
+.radio.skin-vintage50 .key-well:has(#btnPreset) {
+  opacity: 1;
+  background: transparent !important;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand)::after,
+.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand) {
+  left: 77.5%;
+  top: 60.6%;
+  width: 4.5%;
+  height: 8.7%;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand)::after {
+  background-image: url("/img/skins/vintage-50-fm-up.png?v=227");
+  opacity: 1;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand.is-right)::after {
+  background-image: url("/img/skins/vintage-50-fm-down.png?v=227");
+}
+.radio.skin-vintage50 .key-well:has(#btnPreset) {
+  left: 86.5%;
+  top: 72.8%;
+  width: 4.5%;
+  height: 9.1%;
+}
+.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
+  background-image: url("/img/skins/vintage-50-preset-up.png?v=227");
+  opacity: 1;
+}
+.radio.skin-vintage50 .key-well:has(#btnPreset.is-down)::after {
+  background-image: url("/img/skins/vintage-50-preset-down.png?v=227");
+}
+.radio.skin-vintage50 .key-well:has(#btnMono),
+.radio.skin-vintage50 .key-well:has(#btnAuto) {
+  opacity: 1;
+  overflow: hidden;
+  background: transparent !important;
+  border-radius: 999px;
+}
+.radio.skin-vintage50 .key-well:has(#btnMono)::after,
+.radio.skin-vintage50 .key-well:has(#btnAuto)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  pointer-events: none;
+  transition: transform 0.16s ease;
+}
+.radio.skin-vintage50 .key-well:has(#btnMono) {
+  left: 84.7%;
+  top: 61%;
+  width: 9.6%;
+  height: 7.9%;
+}
+.radio.skin-vintage50 .key-well:has(#btnAuto) {
+  left: 76.2%;
+  top: 73.2%;
+  width: 9.6%;
+  height: 7.9%;
+}
+/* Mono: foto con pin a destra; mono = mirror */
+.radio.skin-vintage50 .key-well:has(#btnMono)::after {
+  background-image: url("/img/skins/vintage-50-mono-right.png?v=227");
+  transform: scaleX(-1);
+}
+.radio.skin-vintage50 .key-well:has(#btnMono.is-right)::after {
+  transform: none;
+}
+/* Auto: foto con pin a sinistra; manuale = mirror */
+.radio.skin-vintage50 .key-well:has(#btnAuto)::after {
+  background-image: url("/img/skins/vintage-50-auto-left.png?v=227");
+  transform: none;
+}
+.radio.skin-vintage50 .key-well:has(#btnAuto.is-right)::after {
+  transform: scaleX(-1);
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown),
+.radio.skin-vintage50 .key-well:has(#btnChUp),
+.radio.skin-vintage50 .key-well:has(#btnCast) {
+  opacity: 1;
+  background: transparent !important;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown)::after,
+.radio.skin-vintage50 .key-well:has(#btnChUp)::after,
+.radio.skin-vintage50 .key-well:has(#btnCast)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  pointer-events: none;
+  transition: filter 0.18s ease, opacity 0.18s ease;
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown) {
+  left: 78.05%;
+  top: 87.15%;
+  width: 3.5%;
+  height: 6.7%;
+}
+.radio.skin-vintage50 .key-well:has(#btnChUp) {
+  left: 83.7%;
+  top: 87.05%;
+  width: 3.5%;
+  height: 6.7%;
+}
+.radio.skin-vintage50 .key-well:has(#btnCast) {
+  left: 89.35%;
+  top: 87.2%;
+  width: 3.5%;
+  height: 6.7%;
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown)::after {
+  background-image: url("/img/skins/vintage-50-chdown-off.png?v=227");
+}
+.radio.skin-vintage50 .key-well:has(#btnChUp)::after {
+  background-image: url("/img/skins/vintage-50-chup-off.png?v=227");
+}
+.radio.skin-vintage50 .key-well:has(#btnCast)::after {
+  background-image: url("/img/skins/vintage-50-cast-off.png?v=227");
+}
+.radio.skin-vintage50.is-on .key-well:has(#btnChDown)::after {
+  background-image: url("/img/skins/vintage-50-chdown-on.png?v=227");
+  filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
+}
+.radio.skin-vintage50.is-on .key-well:has(#btnChUp)::after {
+  background-image: url("/img/skins/vintage-50-chup-on.png?v=227");
+  filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
+}
+.radio.skin-vintage50.is-on .key-well:has(#btnCast)::after {
+  background-image: url("/img/skins/vintage-50-cast-on.png?v=227");
+  filter: drop-shadow(0 0 4px rgba(50, 120, 255, 0.7));
 }

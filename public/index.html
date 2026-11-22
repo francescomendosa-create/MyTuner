@@ -13,7 +13,7 @@
 <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="application-name" content="MyTuner">
-<link rel="stylesheet" href="css/radio.css?v=209">
+<link rel="stylesheet" href="css/radio.css?v=227">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
 window.__onGCastApiAvailable = function (isAvailable) {
@@ -44,6 +44,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
 
 <div class="radio" id="radio">
   <div class="chassis">
+    <div class="vintage-needle-rail" id="vintageNeedleRail" aria-hidden="true"><i id="vintageNeedle"></i></div>
     <div class="metal" aria-hidden="true"></div>
     <div class="sheen" aria-hidden="true"></div>
 
@@ -201,6 +202,13 @@ window.__onGCastApiAvailable = function (isAvailable) {
               <div class="spec-labels" id="specLabels"></div>
             </div>
           </div>
+          <div class="speaker-grille" id="speakerGrille" aria-hidden="true">
+            <div class="speaker-grille-cloth" aria-hidden="true"></div>
+            <div class="speaker-grille-metal" aria-hidden="true"></div>
+            <span class="speaker-grille-leds" aria-hidden="true">
+              <i></i><i></i>
+            </span>
+          </div>
           <div class="video-panel" id="videoPanel" hidden>
             <div class="video-title">TV</div>
             <div class="video-well">
@@ -281,6 +289,28 @@ window.__onGCastApiAvailable = function (isAvailable) {
                   </svg>
                 </span>
                 <span class="monitor-set-lab">SFONDI</span>
+              </button>
+            </div>
+            <div class="monitor-settings-icons settings-page" id="monitorHome2Body" role="listbox" aria-label="Altre voci">
+              <button type="button" class="monitor-set-ico-btn" id="btnRadioModels" data-set="radio" role="option" aria-label="Radio">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <rect x="8" y="16" width="48" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M14 28h22M14 36h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+                    <circle cx="46" cy="34" r="6" fill="none" stroke="currentColor" stroke-width="2.6"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">RADIO</span>
+              </button>
+            </div>
+            <div class="monitor-settings-icons settings-page monitor-radios-page" id="monitorRadiosBody" role="listbox" aria-label="Modelli radio">
+              <button type="button" class="monitor-set-ico-btn monitor-radio-card" id="btnRadioClassic" data-radio="" role="option" aria-label="Classic 70/80">
+                <span class="radio-mini-thumb" aria-hidden="true" style="background-image:url('img/skins/classic-7080-thumb.jpg')"></span>
+                <span class="monitor-set-lab">CLASSIC 70/80</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn monitor-radio-card" id="btnRadioVintage50" data-radio="vintage50" role="option" aria-label="Vintage 50">
+                <span class="radio-mini-thumb" aria-hidden="true" style="background-image:url('img/skins/vintage-50-thumb.jpg')"></span>
+                <span class="monitor-set-lab">VINTAGE 50</span>
               </button>
             </div>
             <div class="monitor-clock-pane settings-page" id="monitorClockPane" aria-label="Clock">
@@ -464,11 +494,13 @@ window.__onGCastApiAvailable = function (isAvailable) {
             <div class="vol-nums" id="volNums"></div>
             <div class="knob-well vol-well">
               <div class="knob vol" id="volKnob" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5" tabindex="0">
-                <div class="knurl"></div>
-                <div class="rim"></div>
-                <div class="face">
-                  <i class="brush" aria-hidden="true"></i>
-                  <i class="mark"></i>
+                <div class="knob-spin" id="volSpin" aria-hidden="true">
+                  <div class="knurl"></div>
+                  <div class="rim"></div>
+                  <div class="face">
+                    <i class="brush" aria-hidden="true"></i>
+                    <i class="mark"></i>
+                  </div>
                 </div>
               </div>
               <div class="knob-sheen vol-sheen" aria-hidden="true"></div>
@@ -651,6 +683,6 @@ window.__onGCastApiAvailable = function (isAvailable) {
   </button>
 </div>
 <script src="js/native-bridge.js"></script>
-<script type="module" src="js/main.js?v=209"></script>
+<script type="module" src="js/main.js?v=227"></script>
 </body>
 </html>
