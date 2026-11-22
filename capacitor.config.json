@@ -3,15 +3,26 @@
   "appName": "MyTuner",
   "webDir": "public",
   "server": {
-    "url": "https://mytuner.mytunerfr.workers.dev",
-    "cleartext": false,
+    "androidScheme": "https",
+    "hostname": "localhost",
     "allowNavigation": [
       "mytuner.mytunerfr.workers.dev",
-      "*.workers.dev"
+      "*.workers.dev",
+      "*.mediaset.net",
+      "*.msvdn.net",
+      "*.unitedradio.it",
+      "*.fluidstream.net",
+      "*.rds.radio",
+      "*.rdstv.radio",
+      "*.rcast.net",
+      "*.xdevel.com",
+      "*.studiocentrale.it",
+      "*.akamaized.net",
+      "*.streamlock.net"
     ]
   },
   "android": {
-    "allowMixedContent": false,
+    "allowMixedContent": true,
     "backgroundColor": "#0c0c0c",
     "webContentsDebuggingEnabled": false
   },

@@ -1,11 +1,14 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v132';
+const CACHE = 'mytuner-fs-v208';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/radio.css',
+  '/css/radio.css?v=208',
   '/js/main.js',
+  '/js/main.js?v=200',
   '/js/native-bridge.js',
+  '/js/vendor/hls.min.js',
   '/fonts/DSEG7Classic-Bold.woff2',
   '/fonts/DSEG7Classic-Bold.woff',
   '/manifest.webmanifest',
@@ -27,7 +30,11 @@ const WAKE_URL = '/?pwa=fullscreen-v8&wake=1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then(async (cache) => {
+      await Promise.all(
+        ASSETS.map((url) => cache.add(url).catch(() => null))
+      );
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -49,11 +56,21 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(req)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match('/index.html')))
+      .catch(async () => {
+        const hit = await caches.match(req, { ignoreSearch: true });
+        if (hit) return hit;
+        if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+          return (await caches.match('/index.html', { ignoreSearch: true }))
+            || (await caches.match('/'));
+        }
+        return hit;
+      })
   );
 });
 
@@ -234,6 +251,11 @@ async function focusOrOpenClient(cmd) {
 }
 
 async function deliverRemoteCmd(action, value) {
+  /* Chiusura app: inoltra solo a finestre già aperte, mai focus/apertura */
+  if (action === 'exit') {
+    await notifyClients({ action, value });
+    return;
+  }
   /* Accende via client già aperto — niente heads-up. Notifica solo se zero finestre. */
   const n = await notifyClients({ action, value });
   await focusOrOpenClient({ action, value });

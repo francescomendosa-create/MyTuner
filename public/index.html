@@ -13,19 +13,26 @@
 <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="application-name" content="MyTuner">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500&family=Great+Vibes&family=Share+Tech+Mono&display=swap">
-<link rel="stylesheet" href="css/radio.css">
+<link rel="stylesheet" href="css/radio.css?v=208">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
 window.__onGCastApiAvailable = function (isAvailable) {
   window.__castApiAvailable = Boolean(isAvailable);
   window.dispatchEvent(new Event('cast-api'));
 };
+/* Font Google solo online: offline la radio resta con fallback di sistema */
+(function () {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  var l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500&family=Great+Vibes&family=Share+Tech+Mono&display=swap';
+  l.media = 'print';
+  l.onload = function () { l.media = 'all'; };
+  document.head.appendChild(l);
+})();
 </script>
-<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script src="js/vendor/hls.min.js"></script>
+<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" defer></script>
 </head>
 <body>
 <svg class="filters" aria-hidden="true">
@@ -88,6 +95,9 @@ window.__onGCastApiAvailable = function (isAvailable) {
                   <div class="wx-cond" id="wxCond"></div>
                   <div class="wx-date" id="wxDate"></div>
                 </div>
+              </aside>
+              <aside class="dial-offline" id="dialOffline" hidden aria-live="polite">
+                <span class="dial-offline-lab">RADIO OFFLINE</span>
               </aside>
               <div class="band is-active" id="bandFm" data-band="fm">
                 <div class="band-body" data-band="fm">
@@ -178,6 +188,15 @@ window.__onGCastApiAvailable = function (isAvailable) {
                   <span class="spec-pause-ch" data-i="3">S</span>
                   <span class="spec-pause-ch" data-i="4">A</span>
                 </div>
+                <div class="spec-farewell is-hidden" id="specFarewell" aria-hidden="true">
+                  <span class="spec-farewell-ch">B</span>
+                  <span class="spec-farewell-ch">Y</span>
+                  <span class="spec-farewell-ch">E</span>
+                  <span class="spec-farewell-gap" aria-hidden="true"></span>
+                  <span class="spec-farewell-ch">B</span>
+                  <span class="spec-farewell-ch">Y</span>
+                  <span class="spec-farewell-ch">E</span>
+                </div>
               </div>
               <div class="spec-labels" id="specLabels"></div>
             </div>
@@ -244,6 +263,15 @@ window.__onGCastApiAvailable = function (isAvailable) {
                 </span>
                 <span class="monitor-set-lab">STANDBY</span>
               </button>
+              <button type="button" class="monitor-set-ico-btn monitor-set-ico-clock" id="btnClockSettings" data-set="clock" role="option" aria-selected="false" aria-label="Clock">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <circle cx="32" cy="32" r="18" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                    <path d="M32 20v14l10 6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">CLOCK</span>
+              </button>
               <button type="button" class="monitor-set-ico-btn monitor-set-ico-bg" id="btnBgSettings" data-set="bg" role="option" aria-selected="false" aria-label="Sfondi">
                 <span class="monitor-set-ico" aria-hidden="true">
                   <svg viewBox="0 0 64 64" focusable="false">
@@ -255,30 +283,53 @@ window.__onGCastApiAvailable = function (isAvailable) {
                 <span class="monitor-set-lab">SFONDI</span>
               </button>
             </div>
+            <div class="monitor-clock-pane settings-page" id="monitorClockPane" aria-label="Clock">
+              <div class="clock-theme-list" id="clockThemeList" role="listbox"></div>
+            </div>
             <div class="monitor-bg-pane settings-page" id="monitorBgPane" aria-label="Sfondi">
               <div class="bg-theme-list" id="bgThemeList" role="listbox"></div>
             </div>
             <form class="monitor-standby-editor settings-page" id="monitorStandbyEditor">
-              <div class="standby-field">
-                <div class="standby-lab-row">
-                  <span class="standby-lab" id="idleDimLab">Schermo scuro</span>
-                  <span class="standby-countdown" id="idleDimCountdown" aria-live="polite">—</span>
+              <div class="standby-mode-block" data-idle-mode="on">
+                <div class="standby-mode-title">Radio accesa</div>
+                <div class="standby-field">
+                  <div class="standby-lab-row">
+                    <span class="standby-lab" id="idleDimOnLab">Schermo scuro</span>
+                    <span class="standby-countdown" id="idleDimCountdown" aria-live="polite">—</span>
+                  </div>
+                  <button type="button" class="standby-value-btn" id="btnIdleDim" data-idle-field="onDim" aria-labelledby="idleDimOnLab">2 minuti</button>
                 </div>
-                <button type="button" class="standby-value-btn" id="btnIdleDim" aria-labelledby="idleDimLab">2 minuti</button>
+                <div class="standby-field">
+                  <div class="standby-lab-row">
+                    <span class="standby-lab" id="idleStandbyOnLab">Standby</span>
+                    <span class="standby-countdown" id="idleStandbyCountdown" aria-live="polite">—</span>
+                  </div>
+                  <button type="button" class="standby-value-btn" id="btnIdleStandby" data-idle-field="onStandby" aria-labelledby="idleStandbyOnLab">5 minuti</button>
+                </div>
               </div>
-              <div class="standby-field">
-                <div class="standby-lab-row">
-                  <span class="standby-lab" id="idleStandbyLab">Standby</span>
-                  <span class="standby-countdown" id="idleStandbyCountdown" aria-live="polite">—</span>
+              <div class="standby-mode-block" data-idle-mode="off">
+                <div class="standby-mode-title">Radio spenta</div>
+                <div class="standby-field">
+                  <div class="standby-lab-row">
+                    <span class="standby-lab" id="idleDimOffLab">Schermo scuro</span>
+                    <span class="standby-countdown" id="idleDimOffCountdown" aria-live="polite">—</span>
+                  </div>
+                  <button type="button" class="standby-value-btn" id="btnIdleDimOff" data-idle-field="offDim" aria-labelledby="idleDimOffLab">1 minuto</button>
                 </div>
-                <button type="button" class="standby-value-btn" id="btnIdleStandby" aria-labelledby="idleStandbyLab">5 minuti</button>
+                <div class="standby-field">
+                  <div class="standby-lab-row">
+                    <span class="standby-lab" id="idleStandbyOffLab">Standby</span>
+                    <span class="standby-countdown" id="idleStandbyOffCountdown" aria-live="polite">—</span>
+                  </div>
+                  <button type="button" class="standby-value-btn" id="btnIdleStandbyOff" data-idle-field="offStandby" aria-labelledby="idleStandbyOffLab">5 minuti</button>
+                </div>
               </div>
             </form>
             <div class="monitor-standby-mins settings-page" id="monitorStandbyMinsPane" aria-label="Minuti">
               <div class="standby-mins-list" id="standbyMinsList" role="listbox"></div>
             </div>
             <form class="monitor-name-editor settings-page" id="monitorNameEditor" autocomplete="off">
-              <div class="monitor-name-lab" id="deviceNameLab">Nome dispositivo</div>
+              <div class="monitor-name-lab" id="deviceNameLab">Nome dispositivo <span class="device-ver" id="deviceVersionLab"></span></div>
               <input class="monitor-name-input" id="deviceNameInput" name="deviceName" maxlength="48" autocomplete="off" readonly inputmode="none" tabindex="-1" enterkeyhint="done" aria-labelledby="deviceNameLab" aria-label="Nome dispositivo" />
               <div class="monitor-name-actions">
                 <button type="button" class="monitor-name-btn ghost" id="btnDeviceNameCancel">Annulla</button>
@@ -444,20 +495,69 @@ window.__onGCastApiAvailable = function (isAvailable) {
               </div>
             </div>
           </div>
-          <div class="casio-clock" id="casioClock" aria-label="Orologio">
-            <div class="casio-clock-bezel">
-              <div class="casio-clock-well">
-                <div class="casio-clock-face">
-                  <div class="casio-clock-lcd">
-                    <span class="casio-clock-ghost" aria-hidden="true">88<span class="casio-clock-colon is-ghost" aria-hidden="true"><i></i><i></i></span>88</span>
-                    <span class="casio-clock-time" id="casioClockTime">
-                      <span id="clockHours">00</span>
-                      <span class="casio-clock-colon" aria-hidden="true"><i></i><i></i></span>
-                      <span id="clockMins">00</span>
+          <div class="radio-clock-slot" id="radioClockSlot" data-clock="casio">
+            <div class="casio-clock clock-skin is-active" id="casioClock" data-clock="casio" aria-label="Orologio Casio">
+              <div class="casio-clock-bezel">
+                <div class="casio-clock-well">
+                  <div class="casio-clock-face">
+                    <div class="casio-clock-lcd">
+                      <span class="casio-clock-ghost" aria-hidden="true">88<span class="casio-clock-colon is-ghost" aria-hidden="true"><i></i><i></i></span>88</span>
+                      <span class="casio-clock-time" id="casioClockTime">
+                        <span id="clockHours">00</span>
+                        <span class="casio-clock-colon" aria-hidden="true"><i></i><i></i></span>
+                        <span id="clockMins">00</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="casio-clock-glass" aria-hidden="true"></div>
+                </div>
+              </div>
+            </div>
+            <div class="digital-clock clock-skin" id="digitalClock" data-clock="digital" aria-label="Digital clock" hidden>
+              <div class="digital-clock-bezel">
+                <div class="digital-clock-panel">
+                  <div class="digital-clock-lcd">
+                    <span class="digital-clock-ghost" aria-hidden="true">88<span class="digital-clock-colon is-ghost" aria-hidden="true"><i></i><i></i></span>88</span>
+                    <span class="digital-clock-time" id="digitalClockTime">
+                      <span id="digitalHours">00</span>
+                      <span class="digital-clock-colon" aria-hidden="true"><i></i><i></i></span>
+                      <span id="digitalMins">00</span>
+                    </span>
+                    <span class="digital-clock-secs" id="digitalSecs">00</span>
+                  </div>
+                  <div class="digital-clock-meta">
+                    <span class="digital-slot digital-alarm-tag" id="digitalAlarmTag">ALARM</span>
+                    <span class="digital-slot digital-date-slot" id="digitalClockDate">— ——</span>
+                    <span class="digital-slot digital-city-tag" id="digitalClockCity">——</span>
+                    <span class="digital-slot digital-temp-tag">
+                      <span class="digital-temp-lab-wrap" aria-hidden="true">
+                        <span class="digital-temp-lab-ghost">TEMP</span>
+                        <span class="digital-temp-lab">TEMP</span>
+                      </span>
+                      <span class="digital-temp-lcd">
+                        <span class="digital-temp-ghost" aria-hidden="true">-88</span>
+                        <span class="digital-temp-value" id="digitalTemp"> --</span>
+                      </span>
+                      <span class="digital-temp-unit">°C</span>
                     </span>
                   </div>
+                  <div class="digital-clock-gloss" aria-hidden="true"></div>
                 </div>
-                <div class="casio-clock-glass" aria-hidden="true"></div>
+              </div>
+            </div>
+            <div class="corona-clock clock-skin" id="coronaClock" data-clock="corona" aria-label="Orologio corona" hidden>
+              <div class="corona-clock-bezel">
+                <div class="corona-clock-panel">
+                  <svg class="corona-arc" viewBox="0 0 200 70" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <g class="corona-crown" id="coronaCrown"></g>
+                  </svg>
+                  <div class="corona-readout">
+                    <div class="corona-time" id="coronaClockTime">
+                      <span id="coronaHours">00</span><span class="corona-colon">:</span><span id="coronaMins">00</span><span class="corona-colon">:</span><span id="coronaSecs">00</span>
+                    </div>
+                    <div class="corona-date" id="coronaClockDate">—</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -551,6 +651,6 @@ window.__onGCastApiAvailable = function (isAvailable) {
   </button>
 </div>
 <script src="js/native-bridge.js"></script>
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=200"></script>
 </body>
 </html>

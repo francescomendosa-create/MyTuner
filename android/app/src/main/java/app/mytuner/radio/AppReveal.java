@@ -67,6 +67,19 @@ public final class AppReveal {
         return intent;
     }
 
+    /** True se c’è almeno un task dell’app (anche in background / recenti). */
+    public static boolean hasOwnTasks(Context ctx) {
+        if (ctx == null) return false;
+        try {
+            ActivityManager am = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am == null) return false;
+            List<ActivityManager.AppTask> tasks = am.getAppTasks();
+            return tasks != null && !tasks.isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /** Riporta in primo piano i task di questa app (funziona con processo ancora in RAM). */
     public static void moveOwnTasksToFront(Context ctx) {
         if (ctx == null) return;
@@ -99,6 +112,8 @@ public final class AppReveal {
             try { RemoteWakePlugin.applyWake(activity); } catch (Exception ignored) { }
         }
 
+        boolean coldStart = !hasOwnTasks(ctx);
+
         /* 1) Task già in recent: portalo avanti (schermo acceso / home) */
         moveOwnTasksToFront(ctx);
 
@@ -107,6 +122,17 @@ public final class AppReveal {
             if (activity != null) activity.startActivity(intent);
             else ctx.startActivity(intent);
         } catch (Exception ignored) { }
+
+        /* Cold start: PendingIntent.send spesso passa dove startActivity da FCM è bloccato */
+        if (coldStart) {
+            try {
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
+                PendingIntent.getActivity(ctx, 91, intent, flags).send();
+            } catch (Exception ignored) { }
+        }
 
         Handler h = new Handler(Looper.getMainLooper());
         h.postDelayed(() -> moveOwnTasksToFront(ctx), 100);
@@ -120,13 +146,20 @@ public final class AppReveal {
         h.postDelayed(() -> moveOwnTasksToFront(ctx), 800);
 
         /*
-         * Full-screen intent solo a schermo spento.
-         * A schermo acceso Android 14+ la trasforma in heads-up (notifica sopra) senza aprire l’app.
+         * Full-screen / notifica silenziosa:
+         * - schermo spento (come prima)
+         * - cold start (app chiusa davvero): serve anche a schermo acceso, altrimenti
+         *   Android blocca l’avvio da background e il Power del telecomando non riapre.
          */
         boolean screenOn = isScreenInteractive(ctx);
-        if (!screenOn || (forceNotify && !screenOn)) {
+        if (!screenOn || forceNotify || coldStart) {
             postSilentFullScreen(ctx, intent, alarmReveal);
         }
+    }
+
+    private static long coldStartTimeoutMs() {
+        /* Un filo più lunga: dà tempo al full-screen / content intent sul cold start */
+        return 1200;
     }
 
     private static void postSilentFullScreen(Context ctx, Intent intent, boolean alarmReveal) {
@@ -166,7 +199,7 @@ public final class AppReveal {
             .setOnlyAlertOnce(true)
             .setLocalOnly(true)
             .setShowWhen(false)
-            .setTimeoutAfter(400)
+            .setTimeoutAfter(coldStartTimeoutMs())
             .setContentIntent(fullScreen)
             .setFullScreenIntent(fullScreen, true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

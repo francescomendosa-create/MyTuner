@@ -31,13 +31,15 @@ public class RemoteMessagingService extends FirebaseMessagingService {
         boolean powerOn = "power".equals(action)
             && ("on".equals(v) || "1".equals(v) || "true".equals(v) || v.isEmpty());
         boolean screenOff = !AppReveal.isScreenInteractive(this);
+        /* App chiusa (niente task): forza il percorso notifica anche a schermo acceso */
+        boolean cold = !AppReveal.hasOwnTasks(this);
         AppReveal.bringToFront(
             this,
             null,
             powerOn ? "power" : "wake",
             powerOn ? "on" : "display",
             false,
-            screenOff
+            screenOff || cold
         );
     }
 

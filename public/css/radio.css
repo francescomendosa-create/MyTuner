@@ -1,8 +1,8 @@
 @font-face {
   font-family: "DSEG7 Classic";
   src:
-    url("/fonts/DSEG7Classic-Bold.woff2") format("woff2"),
-    url("/fonts/DSEG7Classic-Bold.woff") format("woff");
+    url("../fonts/DSEG7Classic-Bold.woff2") format("woff2"),
+    url("../fonts/DSEG7Classic-Bold.woff") format("woff");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -191,6 +191,56 @@ button {
 
 .tv-zoom-dock[hidden] {
   display: none !important;
+}
+
+/* HUD zoom universale (tutte le skin): volume / frequenza a sinistra */
+.zoom-hud {
+  position: fixed;
+  z-index: 57;
+  left: 0;
+  top: 0;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.28em;
+  color: rgba(236, 228, 210, 0.94);
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.9),
+    0 2px 8px rgba(0, 0, 0, 0.55);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+}
+.zoom-hud.is-on {
+  opacity: 1;
+}
+.zoom-hud[hidden] {
+  display: none !important;
+}
+.zoom-hud-val {
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: clamp(28px, 4.6vw, 52px);
+  line-height: 1;
+}
+.zoom-hud-unit {
+  font-family: var(--label);
+  font-weight: 600;
+  font-size: clamp(11px, 1.5vw, 16px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  transform: translateY(-0.12em);
+}
+.zoom-hud[data-kind="vol"] .zoom-hud-unit {
+  display: none;
 }
 
 .tv-zoom-keys {
@@ -681,7 +731,7 @@ button {
   transform: translate3d(100%, 0, 0);
 }
 .monitor-settings.is-finger-drag {
-  touch-action: pan-y;
+  touch-action: none;
 }
 .monitor-settings.is-finger-drag > .settings-page {
   transition: none !important;
@@ -731,6 +781,11 @@ button {
   grid-row: 2;
   justify-self: end;
 }
+.monitor-set-ico-clock {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
+}
 .monitor-set-ico-bg {
   grid-column: 3;
   grid-row: 2;
@@ -745,6 +800,226 @@ button {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+/* SFONDI → Schermo intero: contenuto + cornice metallica continua */
+.radio.is-fit-fullscreen {
+  --fs-metal-base: #1a1c1e;
+  --fs-metal-hi: #2e3236;
+  --fs-metal-mid: #222528;
+  --fs-metal-lo: #121416;
+  --fs-metal-brush:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.055) 0px,
+      rgba(255, 255, 255, 0.018) 0.5px,
+      rgba(0, 0, 0, 0.28) 1px,
+      transparent 1.5px,
+      transparent 3.2px
+    ),
+    linear-gradient(180deg, var(--fs-metal-hi) 0%, var(--fs-metal-mid) 42%, var(--fs-metal-lo) 100%);
+  padding: max(var(--fit-pad, 0px), env(safe-area-inset-top, 0px))
+    max(var(--fit-pad, 0px), env(safe-area-inset-right, 0px))
+    max(var(--fit-pad, 0px), env(safe-area-inset-bottom, 0px))
+    max(var(--fit-pad, 0px), env(safe-area-inset-left, 0px));
+  background: #050505;
+}
+.radio.is-fit-fullscreen .chassis,
+.radio.is-fit-fullscreen.has-scene-bg .chassis,
+.is-ios .radio.is-fit-fullscreen .chassis {
+  width: var(--fit-w, 100%) !important;
+  height: var(--fit-h, 100%) !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border-radius: 0;
+  /* Cornice laterale/sopra/sotto: stesso brushed metal del pannello comandi */
+  background-color: var(--fs-metal-base);
+  background-image: var(--fs-metal-brush);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.45),
+    inset 3px 0 6px rgba(0, 0, 0, 0.25),
+    inset -3px 0 6px rgba(0, 0, 0, 0.25);
+}
+.radio.is-fit-fullscreen .metal,
+.radio.is-fit-fullscreen .sheen,
+.radio.is-fit-fullscreen .vignette,
+.radio.is-fit-fullscreen .speaker {
+  display: none !important;
+}
+.radio.is-fit-fullscreen .panel {
+  /* Comandi un po’ più alti rispetto agli schermi */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: 1.6%;
+  /* Padding = cornice metallica visibile intorno; top +1mm circa */
+  padding: clamp(14px, 2.1vh, 22px) clamp(10px, 1.35vw, 16px) clamp(8px, 1.2vh, 12px);
+  background: transparent;
+}
+.radio.is-fit-fullscreen .bezel {
+  border-radius: 5px;
+  padding: clamp(2px, 0.28vw, 5px);
+  padding-right: clamp(18px, 2.2vw, 30px);
+  background: #0a0a0a;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.radio.is-fit-fullscreen .bezel-lip {
+  display: none;
+}
+.radio.is-on.is-fit-fullscreen .bezel {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.radio.is-fit-fullscreen .controls {
+  padding: 1.2% 1.4% 1%;
+  /* Continua la cornice: stessi metallo, angoli che fondono coi lati */
+  border-radius: 6px 6px 4px 4px;
+  overflow: hidden;
+  min-width: 0;
+  background-color: var(--fs-metal-base);
+  background-image: var(--fs-metal-brush);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -3px 10px rgba(0, 0, 0, 0.5),
+    inset 2px 0 5px rgba(0, 0, 0, 0.2),
+    inset -2px 0 5px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+/* Ingrandisci knobs/tasti in proporzione, senza uscire dai confini laterali */
+.radio.is-fit-fullscreen .controls .group,
+.radio.is-fit-fullscreen .controls .modes {
+  max-width: 100%;
+  min-width: 0;
+}
+.radio.is-fit-fullscreen .lamp {
+  --lamp-size: clamp(62px, 7.6vw, 92px);
+}
+.radio.is-fit-fullscreen .knob-slot,
+.radio.is-fit-fullscreen .vol-wrap {
+  width: min(30vh, 20vw, 248px);
+  max-width: 100%;
+}
+.radio.is-fit-fullscreen .meter-group {
+  width: min(28vh, 20.5vw, 212px);
+  max-width: 100%;
+}
+.radio.is-fit-fullscreen .key-well {
+  width: clamp(42px, 4.9vw, 56px);
+  max-width: 100%;
+}
+.radio.is-fit-fullscreen .key {
+  width: clamp(26px, 3.2vw, 38px);
+}
+.radio.is-fit-fullscreen .controls .lbl {
+  font-size: clamp(11px, 1.05vw, 14px);
+}
+.radio.is-fit-fullscreen .mode .lbl.compact {
+  font-size: clamp(9px, 0.9vw, 12px);
+}
+/* Meteo a destra anche su Schermo intero (non tagliato dal vetro) */
+.radio.is-fit-fullscreen .locale-wx {
+  left: auto;
+  right: 0.2em;
+  top: 0;
+  transform: translateY(-36%);
+  z-index: 14;
+  max-width: min(42%, 12.5em);
+}
+.radio.is-fit-fullscreen .dial {
+  overflow: visible;
+}
+.radio.is-fit-fullscreen .glass {
+  /* serve clip per zoom/TV, ma il meteo resta dentro il dial con translate ridotto */
+  overflow: hidden;
+}
+
+/* TV nello slot: riempie il pozzo (niente letterbox 16:9 strano) */
+.radio.is-fit-fullscreen .video-title {
+  display: none;
+}
+.radio.is-fit-fullscreen .glass.is-video .video-panel {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  gap: 0;
+}
+.radio.is-fit-fullscreen .glass.is-video .video-well {
+  place-items: stretch;
+  border-radius: 4px;
+}
+.radio.is-fit-fullscreen .glass.is-video .crt {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+.radio.is-fit-fullscreen .glass.is-video .crt-bezel {
+  border-radius: 4px;
+  padding: clamp(3px, 0.45vh, 6px) clamp(4px, 0.55vw, 8px);
+}
+.radio.is-fit-fullscreen .glass.is-video .crt-bezel::before,
+.radio.is-fit-fullscreen .glass.is-video .crt-bezel::after {
+  border-radius: 3px;
+}
+
+/* Zoom individuale su Schermo intero: bordo a filo, TV vera full */
+.radio.is-fit-fullscreen .dial.is-panel-zoom,
+.radio.is-fit-fullscreen .spec.is-panel-zoom,
+.radio.is-fit-fullscreen .video-well.is-panel-zoom {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* Zoom VIDEO Schermo intero: telaio unico = stesso brushed metal chassis (fixed = continuo) */
+.radio.is-fit-fullscreen.is-tv-zoom {
+  --tv-frame-chrome: var(--fs-metal-brush);
+}
+.radio.is-fit-fullscreen.is-panel-zooming.is-tv-zoom .panel-zoom-backdrop {
+  background-color: var(--fs-metal-base);
+  background-image: var(--tv-frame-chrome);
+  background-attachment: fixed;
+  background-repeat: repeat;
+  opacity: 1;
+}
+.radio.is-fit-fullscreen .tv-zoom-dock.is-frame-unified {
+  border-radius: 0;
+  /* Stesso pezzo dei laterali: stesso colore/texture viewport-fixed */
+  background-color: var(--fs-metal-base);
+  background-image: var(--tv-frame-chrome);
+  background-attachment: fixed;
+  background-repeat: repeat;
+  box-shadow: none;
+  border-top: 0;
+  /* Mentoniera più bassa: padding ridotto, tasti restano centrati */
+  padding: 5px 12px 6px;
+}
+.radio.is-fit-fullscreen .video-well.is-panel-zoom {
+  background: #000 !important;
+  place-items: stretch;
+}
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+}
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt-bezel {
+  border-radius: 0;
+  padding: 0;
+  background: #000;
+  box-shadow: none;
+}
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt-bezel::before,
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt-bezel::after {
+  display: none;
+}
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt-tube,
+.radio.is-fit-fullscreen .video-well.is-panel-zoom .crt-screen {
+  border-radius: 0;
+  padding: 0;
 }
 .radio.has-scene-bg::before {
   content: "";
@@ -906,14 +1181,31 @@ button {
 
 .monitor-standby-editor {
   display: grid;
-  grid-template-rows: auto auto;
-  gap: clamp(14px, 3cqw, 22px);
-  align-content: center;
+  grid-template-rows: none;
+  gap: clamp(12px, 2.6cqw, 18px);
+  align-content: start;
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: clamp(8px, 1.8cqw, 14px) clamp(8px, 2cqw, 16px);
   box-sizing: border-box;
+}
+.standby-mode-block {
+  display: grid;
+  gap: clamp(8px, 1.8cqw, 12px);
+}
+.standby-mode-title {
+  font-family: var(--label);
+  letter-spacing: 0.14em;
+  font-size: clamp(0.62rem, 2cqw, 0.78rem);
+  color: rgba(180, 198, 210, 0.78);
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+.standby-mode-block[data-idle-mode="on"].is-active .standby-mode-title,
+.standby-mode-block[data-idle-mode="off"].is-active .standby-mode-title {
+  color: #b8fff6;
 }
 .standby-field {
   display: grid;
@@ -1017,6 +1309,7 @@ button {
   overflow: hidden;
   padding: clamp(6px, 1.4cqw, 12px);
   box-sizing: border-box;
+  touch-action: pan-y;
 }
 .bg-theme-list {
   display: grid;
@@ -1026,6 +1319,7 @@ button {
   height: 100%;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 .bg-theme-item {
   appearance: none;
@@ -1063,6 +1357,33 @@ button {
   background:
     linear-gradient(135deg, #222 25%, #111 25%, #111 50%, #222 50%, #222 75%, #111 75%);
   background-size: 10px 10px;
+}
+.bg-theme-thumb.is-fullscreen {
+  position: relative;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px rgba(240, 215, 138, 0.28);
+}
+.bg-theme-thumb.is-fullscreen::before {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 8%;
+  height: 42%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #1a2a2c 0%, #0a1214 100%);
+  box-shadow: inset 0 0 0 1px rgba(140, 210, 200, 0.25);
+}
+.bg-theme-thumb.is-fullscreen::after {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 8%;
+  height: 28%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #222 0%, #111 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .bg-theme-name {
   font-family: var(--label);
@@ -1579,6 +1900,13 @@ button {
   text-align: center;
   text-transform: uppercase;
   justify-self: center;
+}
+.monitor-name-lab .device-ver {
+  margin-left: 0.45em;
+  letter-spacing: 0.08em;
+  color: rgba(240, 215, 138, 0.7);
+  text-transform: none;
+  font-weight: 600;
 }
 .monitor-name-input {
   width: 100%;
@@ -2168,18 +2496,20 @@ button {
   z-index: 1;
 }
 
-/* Città + meteo a destra del Casio FM */
+/* Città + meteo in alto a destra del Casio FM */
 .locale-wx {
   position: absolute;
   top: 0;
   right: 0.2em;
-  z-index: 9;
+  left: auto;
+  z-index: 12;
   display: flex;
   align-items: center;
   gap: 0.55em;
   max-width: min(42%, 12.5em);
   padding: 0.2em 0.25em;
-  transform: translateY(-58%);
+  /* Meno aggressivo di -58%: evita taglio dal vetro, resta a destra */
+  transform: translateY(-42%);
   pointer-events: none;
   opacity: 0.96;
   overflow: visible;
@@ -2290,6 +2620,45 @@ button {
 .radio:not(.is-on) .locale-wx {
   opacity: 0.22;
   filter: grayscale(0.4);
+}
+
+/* Avviso rete: in alto a destra sul display (stesso lato del meteo) */
+.dial-offline {
+  position: absolute;
+  top: 0;
+  right: 0.2em;
+  z-index: 13;
+  display: flex;
+  align-items: center;
+  max-width: min(46%, 13em);
+  padding: 0.28em 0.45em;
+  transform: translateY(-42%);
+  pointer-events: none;
+  border-radius: 3px;
+  background: rgba(8, 10, 12, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 90, 70, 0.35),
+    0 0 8px rgba(255, 60, 40, 0.18);
+}
+.dial-offline[hidden] {
+  display: none !important;
+}
+.dial-offline-lab {
+  font-family: var(--label);
+  font-size: clamp(9px, 0.85em, 12px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ff6b5c;
+  text-shadow: 0 0 6px rgba(255, 70, 50, 0.45);
+  white-space: nowrap;
+}
+.radio.is-offline .locale-wx {
+  opacity: 0.2;
+}
+.radio.is-on.is-offline .dial-offline-lab {
+  color: #ff8a7a;
+  text-shadow: 0 0 8px rgba(255, 80, 60, 0.55);
 }
 
 .band {
@@ -3550,6 +3919,64 @@ button {
   will-change: bottom, left;
 }
 
+/* Saluto LED in uscita (long-press Power a radio spenta) */
+.spec-farewell {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12em;
+  pointer-events: none;
+  overflow: hidden;
+}
+.spec-farewell.is-hidden {
+  display: none !important;
+}
+.spec-farewell-ch,
+.spec-farewell-gap {
+  font-family: "Barlow Condensed", "Share Tech Mono", sans-serif;
+  font-weight: 650;
+  font-size: clamp(1.15rem, 4.2cqw, 1.85rem);
+  line-height: 1;
+  color: #b8fff6;
+  text-shadow:
+    0 0 4px rgba(50, 255, 230, 1),
+    0 0 12px rgba(40, 220, 200, 0.75),
+    0 0 20px rgba(30, 180, 170, 0.45);
+  -webkit-mask-image: repeating-linear-gradient(
+    180deg,
+    #000 0 3px,
+    transparent 3px 5px
+  );
+  mask-image: repeating-linear-gradient(
+    180deg,
+    #000 0 3px,
+    transparent 3px 5px
+  );
+  opacity: 0;
+  transform: translateY(-10%);
+  animation: specFarewellIn 420ms ease-out forwards;
+}
+.spec-farewell-gap {
+  width: 0.45em;
+  animation: none;
+  opacity: 0;
+}
+.spec-farewell-ch:nth-child(1) { animation-delay: 40ms; }
+.spec-farewell-ch:nth-child(2) { animation-delay: 90ms; }
+.spec-farewell-ch:nth-child(3) { animation-delay: 140ms; }
+.spec-farewell-ch:nth-child(5) { animation-delay: 220ms; }
+.spec-farewell-ch:nth-child(6) { animation-delay: 270ms; }
+.spec-farewell-ch:nth-child(7) { animation-delay: 320ms; }
+@keyframes specFarewellIn {
+  to {
+    opacity: 0.98;
+    transform: translateY(0);
+  }
+}
+
 .bar {
   position: relative;
   flex: 1 1 0;
@@ -3949,48 +4376,161 @@ button {
 }
 
 .smeter,
-.casio-clock {
+.radio-clock-slot,
+.casio-clock,
+.corona-clock {
   width: 100%;
   max-width: 100%;
 }
 
-/* Cornice SIGNAL: fine, quasi in tinta con la carcassa */
-.smeter-bezel {
+.radio-clock-slot {
   position: relative;
-  padding: clamp(1.5px, 0.22vw, 2.5px);
-  border-radius: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.radio-clock-slot .clock-skin[hidden] {
+  display: none !important;
+}
+/* SIGNAL + orologi: baia affossata nel piano della carcassa */
+.smeter,
+.radio-clock-slot {
+  position: relative;
+  padding: clamp(3px, 0.55vw, 6px);
+  border-radius: 6px;
   background:
-    linear-gradient(180deg,
-      #1a1a1a 0%,
-      #101010 48%,
-      #141414 100%);
+    linear-gradient(165deg,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(18, 18, 18, 0.35) 42%,
+      rgba(0, 0, 0, 0.62) 100%);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.92),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    inset 0 3px 5px rgba(0, 0, 0, 0.85),
+    inset 0 8px 14px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 rgba(0, 0, 0, 0.35),
+    inset -1px 0 0 rgba(255, 255, 255, 0.03),
+    0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.smeter-bezel::before {
+.smeter::before,
+.radio-clock-slot::before {
   content: "";
   position: absolute;
   inset: 1px;
-  border-radius: 2px;
+  border-radius: 5px;
   pointer-events: none;
-  background: transparent;
-  opacity: 1;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Cornice SIGNAL / orologi: labbro rialzato, vetro più in basso */
+.smeter-bezel,
+.casio-clock-bezel,
+.digital-clock-bezel,
+.corona-clock-bezel {
+  position: relative;
+  z-index: 1;
+  padding: clamp(2px, 0.32vw, 3.5px);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg,
+      #2a2a2a 0%,
+      #141414 38%,
+      #0c0c0c 72%,
+      #181818 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.95),
+    0 2px 3px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.smeter-bezel::before,
+.casio-clock-bezel::before,
+.digital-clock-bezel::before,
+.corona-clock-bezel::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.7),
+    inset 0 3px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* SIGNAL: highlight di alti livelli (specchiature), niente velo appannato */
+.smeter-bezel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(118deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.1) 7%,
+      transparent 16%),
+    linear-gradient(298deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      transparent 14%),
+    radial-gradient(42% 30% at 14% 10%,
+      rgba(255, 255, 255, 0.38) 0%,
+      transparent 72%),
+    radial-gradient(36% 26% at 88% 88%,
+      rgba(255, 255, 255, 0.12) 0%,
+      transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+/* Orologio: luce bianca quadrata su tutto il riquadro orologio */
+.casio-clock-bezel::after,
+.digital-clock-bezel::after,
+.corona-clock-bezel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    radial-gradient(120% 90% at 50% 35%,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.12) 38%,
+      rgba(255, 255, 255, 0.04) 68%,
+      transparent 100%),
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.05) 45%,
+      rgba(255, 255, 255, 0.02) 100%);
+  box-shadow:
+    inset 0 0 10px rgba(255, 255, 255, 0.18),
+    inset 0 0 22px rgba(255, 255, 255, 0.08),
+    0 0 14px rgba(255, 255, 255, 0.16);
+  opacity: 0;
+  transition: opacity 220ms ease;
 }
 
 .smeter-well {
   position: relative;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
   aspect-ratio: 1.72 / 1;
-  background: #05090b;
+  background: #030608;
+  transform: translateZ(0);
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
-    inset 0 0 0 1px rgba(190, 230, 230, 0.08),
-    inset 0 10px 16px rgba(0, 0, 0, 0.75),
-    inset 0 2px 3px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.05),
+    inset 0 14px 22px rgba(0, 0, 0, 0.92),
+    inset 0 4px 8px rgba(0, 0, 0, 0.98),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.45),
+    inset 0 0 18px rgba(0, 0, 0, 0.55);
 }
 
 /* Stesso fondo del display (scala FM/AM) */
@@ -4110,49 +4650,30 @@ button {
   pointer-events: none;
   background:
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.22) 0%,
-      rgba(255, 255, 255, 0.05) 22%,
-      transparent 44%,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.03) 18%,
+      transparent 40%,
       rgba(0, 0, 0, 0.06) 100%);
   box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+  transition: background 220ms ease, opacity 220ms ease;
 }
 
 /* Orologio Casio sotto SIGNAL — LCD centrato, HH:MM intero */
-.casio-clock-bezel {
-  position: relative;
-  padding: clamp(1.5px, 0.22vw, 2.5px);
-  border-radius: 3px;
-  background:
-    linear-gradient(180deg,
-      #1a1a1a 0%,
-      #101010 48%,
-      #141414 100%);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.92),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.casio-clock-bezel::before {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: 2px;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
-}
-
 .casio-clock-well {
   position: relative;
   container-type: inline-size;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
   height: clamp(36px, 5.2vh, 52px);
-  background: #05090b;
+  background: #030608;
+  transform: translateZ(0);
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
-    inset 0 0 0 1px rgba(190, 230, 230, 0.08),
-    inset 0 8px 14px rgba(0, 0, 0, 0.75),
-    inset 0 2px 3px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.05),
+    inset 0 10px 16px rgba(0, 0, 0, 0.88),
+    inset 0 3px 6px rgba(0, 0, 0, 0.98),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.4),
+    inset 0 0 14px rgba(0, 0, 0, 0.5);
 }
 
 .casio-clock-face {
@@ -4286,9 +4807,645 @@ button {
   animation: casio-colon-blink 1s steps(1, end) infinite;
 }
 
+/* Tint orologio: tap sullo slot → ciano / bianco / rosso */
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .casio-clock-time,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .casio-clock-colon:not(.is-ghost),
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-clock-time,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-clock-colon:not(.is-ghost),
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .corona-time {
+  color: #f4f4f4;
+  text-shadow:
+    0 0 4px rgba(255, 255, 255, 0.55),
+    0 0 10px rgba(220, 220, 220, 0.28);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .casio-clock-time,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .casio-clock-colon:not(.is-ghost),
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-clock-time,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-clock-colon:not(.is-ghost),
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .corona-time {
+  color: #ff3b30;
+  text-shadow:
+    0 0 4px rgba(255, 60, 48, 0.75),
+    0 0 12px rgba(220, 30, 20, 0.45);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .casio-clock-face,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-clock-panel {
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(220, 220, 220, 0.14), transparent 55%),
+    linear-gradient(180deg, #121212 0%, #080808 48%, #030303 100%);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .casio-clock-face,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-clock-panel {
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(255, 50, 40, 0.16), transparent 55%),
+    linear-gradient(180deg, #140808 0%, #0a0404 48%, #050202 100%);
+}
+
 @keyframes casio-colon-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0.1; }
+}
+
+/* Orologio corona — stesso slot compatto degli altri (mezza corona + spettro) */
+.corona-clock {
+  position: relative;
+  width: 100%;
+}
+.corona-clock-panel {
+  position: relative;
+  container-type: inline-size;
+  height: clamp(36px, 5.2vh, 52px);
+  border-radius: 3px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #161616 0%, #0a0a0a 55%, #050505 100%);
+  transform: translateZ(0);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.04),
+    inset 0 10px 16px rgba(0, 0, 0, 0.88),
+    inset 0 3px 6px rgba(0, 0, 0, 0.98),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.4);
+}
+.corona-arc {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 0;
+  width: 92%;
+  height: 78%;
+  pointer-events: none;
+  overflow: visible;
+}
+.corona-crown .seg {
+  fill: rgba(70, 70, 70, 0.55);
+}
+.corona-readout {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6%;
+  display: grid;
+  gap: 0.1em;
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+.corona-time {
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: clamp(11px, 15cqw, 18px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(80, 50, 20, 0.45);
+  white-space: nowrap;
+}
+.corona-time .corona-colon {
+  margin: 0 0.02em;
+  opacity: 0.85;
+}
+.corona-date {
+  font-family: var(--label);
+  font-size: clamp(4px, 2cqw, 7px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(220, 220, 220, 0.28);
+  line-height: 1.1;
+  max-width: 94%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.radio.is-on .corona-time {
+  color: #ff9a2e;
+  text-shadow:
+    0 0 5px rgba(255, 140, 40, 0.8),
+    0 0 10px rgba(255, 110, 20, 0.4);
+}
+.radio.is-on .corona-date {
+  color: rgba(245, 245, 245, 0.82);
+}
+
+/* Digital clock — Casio LCD (888 fantasma + LED + due punti), meta sotto */
+.digital-clock {
+  width: 100%;
+}
+.digital-clock-panel {
+  position: relative;
+  container-type: inline-size;
+  height: clamp(62px, 9.6vh, 92px);
+  border-radius: 3px;
+  overflow: hidden;
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(70, 190, 195, 0.12), transparent 55%),
+    linear-gradient(180deg, #0d181c 0%, #071014 48%, #030608 100%);
+  transform: translateZ(0);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(190, 230, 230, 0.05),
+    inset 0 10px 16px rgba(0, 0, 0, 0.88),
+    inset 0 3px 6px rgba(0, 0, 0, 0.98),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.4),
+    inset 0 0 14px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+  justify-items: stretch;
+  padding: 5% 5% 4%;
+  row-gap: clamp(8px, 3cqw, 14px);
+}
+.digital-clock-lcd {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: center;
+  min-height: 0;
+  width: 100%;
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: clamp(16px, 24cqw, 32px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.digital-clock-ghost,
+.digital-clock-time {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08em;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+.digital-clock-ghost {
+  color: rgba(48, 72, 68, 0.48);
+  text-shadow: none;
+  user-select: none;
+  pointer-events: none;
+}
+.digital-clock-time {
+  position: relative;
+  z-index: 1;
+  color: rgba(40, 58, 55, 0.5);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+#digitalHours,
+#digitalMins {
+  display: inline-block;
+  min-width: 1.55em;
+  text-align: center;
+}
+.digital-clock-colon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.26em;
+  width: 0.42em;
+  flex: 0 0 auto;
+  opacity: 0.4;
+  color: inherit;
+}
+.digital-clock-colon i {
+  display: block;
+  width: 0.2em;
+  height: 0.2em;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 0 0 3px rgba(60, 255, 235, 0.35);
+}
+.digital-clock-colon.is-ghost {
+  opacity: 1;
+  color: inherit;
+}
+.digital-clock-colon.is-ghost i {
+  box-shadow: none;
+  background: currentColor;
+}
+.digital-clock-secs {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  font-family: var(--casio);
+  font-size: clamp(8px, 4cqw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: rgba(48, 72, 68, 0.42);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+.digital-clock-meta {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  /* alarm | date | city | spacer | TEMP — larghezze fisse, niente salti */
+  grid-template-columns:
+    3.4em
+    4.6em
+    2.1em
+    minmax(0.2em, 1fr)
+    auto;
+  align-items: baseline;
+  column-gap: 0.28em;
+  padding: 0 1%;
+  margin-top: 0;
+  font-family: var(--label);
+  font-size: clamp(7px, 3.1cqw, 10px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.digital-slot {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  box-sizing: border-box;
+}
+.digital-alarm-tag {
+  grid-column: 1;
+  font-size: clamp(7px, 3cqw, 10px);
+}
+.digital-date-slot {
+  grid-column: 2;
+  font-size: clamp(8px, 3.6cqw, 11px);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: rgba(48, 72, 68, 0.42);
+  font-variant-numeric: tabular-nums;
+}
+.digital-city-tag {
+  grid-column: 3;
+  font-size: clamp(9px, 4cqw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgba(48, 72, 68, 0.42);
+}
+.digital-city-tag.is-empty {
+  opacity: 0.35;
+}
+.digital-clock-meta .digital-temp-tag {
+  grid-column: 5;
+  justify-self: end;
+}
+.radio.is-on .digital-date-slot,
+.radio.is-on .digital-city-tag {
+  color: #5fe8de;
+  text-shadow:
+    0 0 3px rgba(60, 255, 235, 0.55),
+    0 0 8px rgba(0, 180, 165, 0.28);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-date-slot,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-city-tag {
+  color: #f4f4f4;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.5),
+    0 0 8px rgba(220, 220, 220, 0.25);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-date-slot,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-city-tag {
+  color: #ff3b30;
+  text-shadow:
+    0 0 3px rgba(255, 60, 48, 0.7),
+    0 0 8px rgba(220, 30, 20, 0.4);
+}
+.digital-temp-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+  font-size: clamp(12px, 6.5cqw, 18px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: inherit;
+}
+.digital-temp-lab-wrap {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: start;
+  font-family: var(--label);
+  font-size: 0.72em;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.digital-temp-lab-ghost,
+.digital-temp-lab {
+  grid-area: 1 / 1;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.digital-temp-lab-ghost {
+  color: rgba(48, 72, 68, 0.48);
+  text-shadow: none;
+  user-select: none;
+}
+.digital-temp-lab {
+  position: relative;
+  z-index: 1;
+  color: rgba(40, 58, 55, 0.45);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+.digital-temp-lcd {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  justify-items: end;
+  min-width: 2.4em;
+  font-family: var(--casio);
+  font-weight: 500;
+  font-size: 1em;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.digital-temp-ghost,
+.digital-temp-value {
+  grid-area: 1 / 1;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+.digital-temp-ghost {
+  color: rgba(48, 72, 68, 0.55);
+  text-shadow: none;
+  user-select: none;
+  pointer-events: none;
+}
+.digital-temp-value {
+  position: relative;
+  z-index: 1;
+  color: rgba(40, 58, 55, 0.55);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+.digital-temp-unit {
+  font-family: var(--label);
+  font-size: 0.62em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(48, 72, 68, 0.48);
+  transform: translateY(-0.05em);
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+.digital-clock-tag {
+  color: rgba(48, 72, 68, 0.42);
+  text-shadow: none;
+  transition: color 180ms ease, text-shadow 180ms ease, filter 180ms ease;
+}
+.digital-clock-tag i {
+  font-style: normal;
+}
+.digital-alarm-tag.is-armed {
+  color: var(--gold-hot, #e8d7a8);
+  text-shadow:
+    0 0 5px rgba(232, 215, 168, 0.65),
+    0 0 10px rgba(200, 170, 90, 0.4);
+  filter: drop-shadow(0 0 2px rgba(232, 215, 168, 0.35));
+}
+.digital-clock-gloss {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.05) 22%,
+      transparent 44%,
+      rgba(0, 0, 0, 0.08) 100%);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+}
+.radio.is-on .digital-clock-panel {
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(70, 190, 195, 0.18), transparent 55%),
+    linear-gradient(180deg, #0d181c 0%, #071014 48%, #030608 100%);
+}
+.radio.is-on .digital-clock-time {
+  color: #5fe8de;
+  text-shadow:
+    0 0 4px rgba(60, 255, 235, 0.7),
+    0 0 10px rgba(0, 180, 165, 0.4);
+}
+.radio.is-on .digital-clock-colon:not(.is-ghost) {
+  opacity: 1;
+  color: #5fe8de;
+  animation: casio-colon-blink 1s steps(1, end) infinite;
+}
+.radio.is-on .digital-clock-band {
+  color: var(--gold-hot, #e8d7a8);
+  text-shadow:
+    0 0 5px rgba(232, 215, 168, 0.55),
+    0 0 10px rgba(200, 170, 90, 0.3);
+}
+.radio.is-on .digital-clock-secs {
+  color: #5fe8de;
+  text-shadow:
+    0 0 3px rgba(60, 255, 235, 0.55),
+    0 0 8px rgba(0, 180, 165, 0.3);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-clock-secs {
+  color: #f4f4f4;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.5),
+    0 0 8px rgba(220, 220, 220, 0.25);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-clock-secs {
+  color: #ff3b30;
+  text-shadow:
+    0 0 3px rgba(255, 60, 48, 0.7),
+    0 0 8px rgba(220, 30, 20, 0.4);
+}
+.radio.is-on .digital-temp-lab,
+.radio.is-on .digital-temp-value,
+.radio.is-on .digital-temp-unit {
+  color: #5fe8de;
+  text-shadow:
+    0 0 4px rgba(60, 255, 235, 0.7),
+    0 0 10px rgba(0, 180, 165, 0.35);
+}
+.radio.is-on .digital-alarm-tag:not(.is-armed) {
+  color: rgba(48, 72, 68, 0.42);
+  text-shadow: none;
+  filter: none;
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-temp-lab,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-temp-value,
+.radio.is-on .radio-clock-slot[data-clock-tint="white"] .digital-temp-unit {
+  color: #f4f4f4;
+  text-shadow:
+    0 0 4px rgba(255, 255, 255, 0.55),
+    0 0 10px rgba(220, 220, 220, 0.28);
+}
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-temp-lab,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-temp-value,
+.radio.is-on .radio-clock-slot[data-clock-tint="red"] .digital-temp-unit {
+  color: #ff3b30;
+  text-shadow:
+    0 0 4px rgba(255, 60, 48, 0.75),
+    0 0 12px rgba(220, 30, 20, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .radio.is-on .digital-clock-colon:not(.is-ghost) {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* CLOCK settings list + anteprime */
+.monitor-clock-pane {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(6px, 1.4cqw, 12px);
+  box-sizing: border-box;
+  touch-action: pan-y;
+}
+.clock-theme-list {
+  display: grid;
+  align-content: start;
+  gap: clamp(8px, 1.6cqw, 12px);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.clock-theme-item {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(10px, 2cqw, 14px);
+  text-align: left;
+  cursor: pointer;
+  padding: clamp(8px, 1.6cqw, 12px);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(201, 165, 90, 0.22);
+  color: rgba(240, 215, 138, 0.88);
+}
+.clock-theme-item.is-active {
+  color: #f0d78a;
+  background: rgba(240, 215, 138, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(240, 215, 138, 0.65);
+}
+.clock-theme-item.is-focus {
+  box-shadow: inset 0 0 0 2px #f0d78a;
+}
+.clock-theme-preview {
+  width: 72px;
+  height: 48px;
+  border-radius: 6px;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+.clock-theme-preview.is-casio {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(70, 190, 195, 0.18), transparent 55%),
+    linear-gradient(180deg, #0d181c 0%, #071014 48%, #030608 100%);
+}
+.clock-theme-preview.is-casio .pv-lcd {
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: 16px;
+  color: #5fe8de;
+  text-shadow: 0 0 4px rgba(60, 255, 235, 0.7);
+  letter-spacing: 0.04em;
+}
+.clock-theme-preview.is-corona {
+  display: grid;
+  place-items: center;
+  background: #0a0a0a;
+}
+.clock-theme-preview.is-corona .pv-corona-half {
+  position: relative;
+  width: 58px;
+  height: 34px;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 2px;
+}
+.clock-theme-preview.is-corona .pv-arc {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 2px;
+  height: 22px;
+  border: 2px solid rgba(80, 80, 80, 0.7);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -2px 6px rgba(255, 140, 40, 0.35);
+  border-top-color: #ff9a2e;
+  border-left-color: rgba(255, 154, 46, 0.55);
+  border-right-color: rgba(255, 154, 46, 0.25);
+}
+.clock-theme-preview.is-corona b {
+  position: relative;
+  z-index: 1;
+  font-family: var(--casio);
+  font-size: 11px;
+  color: #ff9a2e;
+  text-shadow: 0 0 4px rgba(255, 140, 40, 0.75);
+}
+.clock-theme-preview.is-digital {
+  display: grid;
+  place-items: center;
+  background: #050505;
+}
+.clock-theme-preview.is-digital .pv-digital {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  color: #f4f4f4;
+  font-family: var(--casio);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.clock-theme-preview.is-digital .pv-digital i {
+  font-style: normal;
+  font-family: var(--label);
+  font-size: 7px;
+  color: #9ad0ff;
+  margin-bottom: 1px;
+}
+.clock-theme-name {
+  font-family: var(--label);
+  letter-spacing: 0.06em;
+  font-size: clamp(0.78rem, 2.4cqw, 0.98rem);
+  text-transform: none;
+  line-height: 1.25;
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4335,12 +5492,134 @@ button {
   fill: #e8d7a8;
 }
 
+.radio.is-on .smeter {
+  box-shadow:
+    inset 0 3px 5px rgba(0, 0, 0, 0.8),
+    inset 0 8px 14px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 rgba(0, 0, 0, 0.35),
+    inset -1px 0 0 rgba(255, 255, 255, 0.03),
+    0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 8px rgba(255, 255, 255, 0.06);
+}
+
+.radio.is-on .smeter-bezel {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.95),
+    0 2px 3px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+    inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.radio.is-on .smeter-bezel::after {
+  opacity: 0.9;
+}
+
 .radio.is-on .smeter-well {
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 1px rgba(190, 230, 230, 0.1),
-    inset 0 8px 14px rgba(0, 0, 0, 0.55),
-    0 0 10px rgba(70, 190, 195, 0.1);
+    inset 0 0 0 1px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 14px 22px rgba(0, 0, 0, 0.88),
+    inset 0 4px 8px rgba(0, 0, 0, 0.95),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.4),
+    inset 0 0 16px rgba(0, 0, 0, 0.5);
+}
+
+.radio:not(.is-on) .smeter-glass {
+  opacity: 0.45;
+}
+
+.radio.is-on .smeter-glass {
+  opacity: 1;
+  background:
+    linear-gradient(118deg,
+      rgba(255, 255, 255, 0.36) 0%,
+      rgba(255, 255, 255, 0.08) 9%,
+      transparent 20%),
+    linear-gradient(300deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      transparent 15%),
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      transparent 28%,
+      rgba(0, 0, 0, 0.05) 100%);
+}
+
+/* Orologio acceso: luce quadrata + alone sullo slot */
+.radio.is-on .radio-clock-slot {
+  box-shadow:
+    inset 0 3px 5px rgba(0, 0, 0, 0.8),
+    inset 0 8px 14px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    inset 1px 0 0 rgba(0, 0, 0, 0.35),
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 10px rgba(255, 255, 255, 0.14),
+    0 0 22px rgba(255, 255, 255, 0.08);
+}
+
+.radio.is-on .casio-clock-bezel,
+.radio.is-on .digital-clock-bezel,
+.radio.is-on .corona-clock-bezel {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.95),
+    0 2px 3px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(255, 255, 255, 0.18);
+}
+
+.radio.is-on .casio-clock-bezel::after,
+.radio.is-on .digital-clock-bezel::after,
+.radio.is-on .corona-clock-bezel::after {
+  opacity: 1;
+}
+
+.radio.is-on .casio-clock-well,
+.radio.is-on .digital-clock-panel,
+.radio.is-on .corona-clock-panel {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 14px 22px rgba(0, 0, 0, 0.88),
+    inset 0 4px 8px rgba(0, 0, 0, 0.95),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.4),
+    inset 0 0 16px rgba(0, 0, 0, 0.5),
+    0 0 12px rgba(255, 255, 255, 0.12);
+}
+
+.casio-clock-glass,
+.digital-clock-gloss {
+  transition: background 220ms ease, opacity 220ms ease;
+}
+
+.radio:not(.is-on) .casio-clock-glass,
+.radio:not(.is-on) .digital-clock-gloss {
+  opacity: 0.28;
+  background:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      transparent 30%,
+      rgba(0, 0, 0, 0.08) 100%);
+}
+
+.radio.is-on .casio-clock-glass,
+.radio.is-on .digital-clock-gloss {
+  opacity: 1;
+  background:
+    radial-gradient(85% 75% at 50% 40%,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.08) 42%,
+      transparent 72%),
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.08) 22%,
+      transparent 48%,
+      rgba(0, 0, 0, 0.05) 100%);
 }
 
 .radio:not(.is-on) .smeter-face {
@@ -5162,6 +6441,11 @@ button {
 }
 
 /* Idle dim: su APK = luminosità di sistema; CSS solo fallback web (leggero) */
+/* Idle standby schermo: radio resta ON, solo marker di stato */
+.radio.is-idle-standby {
+  cursor: none;
+}
+
 .radio.is-on.is-idle-dim:not(.is-idle-dim-sys) .chassis {
   filter: brightness(0.55) saturate(0.7);
   transition: filter 1.2s ease;
@@ -5378,10 +6662,32 @@ audio {
 
 @media (orientation: portrait) {
   .radio { padding: clamp(8px, 2vw, 16px); }
+  .radio.is-fit-fullscreen { padding: max(var(--fit-pad, 0px), env(safe-area-inset-top, 0px)) max(var(--fit-pad, 0px), env(safe-area-inset-right, 0px)) max(var(--fit-pad, 0px), env(safe-area-inset-bottom, 0px)) max(var(--fit-pad, 0px), env(safe-area-inset-left, 0px)); }
   .chassis {
     width: min(96vw, calc(94dvh * 0.62));
     height: min(94dvh, calc(96vw / 0.62));
     max-height: none;
+  }
+  .radio.is-fit-fullscreen .chassis {
+    width: var(--fit-w, 100%) !important;
+    height: var(--fit-h, 100%) !important;
+  }
+  .radio.is-fit-fullscreen .panel {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.08fr);
+    padding: clamp(14px, 2vh, 20px) clamp(10px, 2.2vw, 16px) clamp(8px, 1.2vh, 12px);
+    gap: 1.6%;
+  }
+  .radio.is-fit-fullscreen .power-stack .lamp {
+    --lamp-size: clamp(56px, 13.5vw, 78px);
+  }
+  .radio.is-fit-fullscreen .knob-slot,
+  .radio.is-fit-fullscreen .vol-wrap {
+    width: min(26vw, 20vh, 148px);
+    max-width: 100%;
+  }
+  .radio.is-fit-fullscreen .meter-group {
+    width: min(26vw, 22vh, 168px);
+    max-width: 100%;
   }
   .panel {
     grid-template-rows: minmax(0, 1.42fr) minmax(0, 1fr) minmax(0, 0.65fr);
@@ -5779,9 +7085,10 @@ audio {
   }
   .locale-wx {
     right: 0.15em;
+    left: auto;
     max-width: min(40%, 11em);
     gap: 0.42em;
-    transform: translateY(-52%);
+    transform: translateY(-42%);
   }
   .wx-glyph {
     width: clamp(22px, 6.2vw, 32px);

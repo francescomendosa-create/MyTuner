@@ -18,6 +18,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class RemoteWakePlugin extends Plugin {
 
     private PowerManager.WakeLock wakeLock;
+    /* Soft-standby schermo: CPU lock non va rilasciato da keepAwake(false) */
+    private boolean softStandbyCpu = false;
     private static boolean brightnessDimmed = false;
     private static float savedBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
 
@@ -111,15 +113,18 @@ public class RemoteWakePlugin extends Plugin {
         activity.runOnUiThread(() -> {
             try {
                 if (on) {
+                    softStandbyCpu = false;
                     activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     acquireCpuLock(activity.getApplicationContext(), 10 * 60 * 1000L);
                 } else {
                     clearKeepFlags(activity);
-                    releaseCpuLock();
+                    /* Non toccare PARTIAL_WAKE_LOCK se siamo in soft-standby audio */
+                    if (!softStandbyCpu) releaseCpuLock();
                 }
                 JSObject ret = new JSObject();
                 ret.put("ok", true);
                 ret.put("on", on);
+                ret.put("softStandbyCpu", softStandbyCpu);
                 call.resolve(ret);
             } catch (Exception e) {
                 call.reject(e.getMessage());
@@ -128,8 +133,9 @@ public class RemoteWakePlugin extends Plugin {
     }
 
     /**
-     * Dopo POWER off: togli wake-lock e manda l'app in background
-     * così il tablet può andare in standby. Il telecomando la riprende via FCM.
+     * Spegnimento schermo (togli FLAG_KEEP_SCREEN_ON).
+     * keepCpu=true: idle soft-standby con audio ancora in play (PARTIAL_WAKE_LOCK).
+     * keepCpu=false: power off / standby pieno (rilascia anche CPU).
      */
     @PluginMethod
     public void allowStandby(PluginCall call) {
@@ -139,11 +145,29 @@ public class RemoteWakePlugin extends Plugin {
             return;
         }
         boolean goBackground = call.getBoolean("background", false);
+        boolean keepCpu = call.getBoolean("keepCpu", false);
         activity.runOnUiThread(() -> {
             try {
-                restoreBrightnessNow(activity);
+                /* NON ripristinare luminosità: altrimenti lo schermo “si riaccende”
+                   proprio quando dovrebbe andare in standby. Porta a nero e togli keep-on. */
+                try {
+                    WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+                    if (!brightnessDimmed) {
+                        savedBrightness = lp.screenBrightness;
+                        brightnessDimmed = true;
+                    }
+                    lp.screenBrightness = 0.01f;
+                    activity.getWindow().setAttributes(lp);
+                } catch (Exception ignored) { }
                 clearKeepFlags(activity);
-                releaseCpuLock();
+                if (keepCpu) {
+                    /* Schermo può spegnersi, CPU resta per stream audio / handoff TV→radio */
+                    softStandbyCpu = true;
+                    acquireCpuLock(activity.getApplicationContext(), 6 * 60 * 60 * 1000L);
+                } else {
+                    softStandbyCpu = false;
+                    releaseCpuLock();
+                }
                 /* Default: NON uscire dall'app — solo permettere lo spegnimento schermo */
                 if (goBackground) {
                     try { activity.moveTaskToBack(true); } catch (Exception ignored) { }
@@ -151,6 +175,7 @@ public class RemoteWakePlugin extends Plugin {
                 JSObject ret = new JSObject();
                 ret.put("ok", true);
                 ret.put("standby", true);
+                ret.put("keepCpu", keepCpu);
                 call.resolve(ret);
             } catch (Exception e) {
                 call.reject(e.getMessage());
@@ -229,6 +254,44 @@ public class RemoteWakePlugin extends Plugin {
             activity.setTurnScreenOn(false);
             activity.setShowWhenLocked(false);
         }
+    }
+
+    /**
+     * Chiude davvero l’app (long-press Power): toglie il task dalle recenti e
+     * ferma il processo → niente consumo in background. La riapertura resta
+     * via FCM + AppReveal (cold start), non serve restare in background.
+     */
+    @PluginMethod
+    public void exitApp(PluginCall call) {
+        Activity activity = getActivity();
+        if (activity == null) {
+            call.reject("Nessuna activity");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            softStandbyCpu = false;
+            releaseCpuLock();
+            try { clearKeepFlags(activity); } catch (Exception ignored) { }
+            try { restoreBrightnessNow(activity); } catch (Exception ignored) { }
+            JSObject ret = new JSObject();
+            ret.put("ok", true);
+            call.resolve(ret);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    activity.finishAndRemoveTask();
+                } else {
+                    activity.finishAffinity();
+                }
+            } catch (Exception e) {
+                try { activity.finish(); } catch (Exception ignored) { }
+            }
+            /* Assicura che non resti un processo idle in RAM */
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                    android.os.Process.killProcess(android.os.Process.myPid());
+                } catch (Exception ignored) { }
+            }, 320);
+        });
     }
 
     @PluginMethod

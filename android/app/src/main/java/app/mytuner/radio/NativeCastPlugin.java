@@ -141,6 +141,7 @@ public class NativeCastPlugin extends Plugin {
                 item.put("description", desc != null ? desc : "");
                 item.put("selected", selected != null && selected.getId().equals(r.getId()));
                 item.put("connecting", r.isConnecting());
+                try { item.put("group", r.isGroup()); } catch (Exception ignored) { item.put("group", false); }
                 arr.put(item);
             }
         } catch (Exception ignored) { }

@@ -193,6 +193,8 @@ export class RemoteHub {
     const v = String(value ?? '').toLowerCase();
     if (!a) return false;
     if (a === 'unlink' || a === 'disconnect' || a === 'select' || a === 'reconnect') return false;
+    /* Chiusura app: mai push di sveglia (riaprirebbe l’app appena chiusa) */
+    if (a === 'exit') return false;
     if (v === 'off' || v === '0' || v === 'false' || v === 'nag' || v === 'select' || v === 'reconnect') {
       return false;
     }
@@ -401,6 +403,32 @@ export class RemoteHub {
         this.broadcastRadios();
         try { server.send(JSON.stringify({ type: 'ok' })); } catch (e) { /* ignore */ }
         this.flushPending(id);
+        return;
+      }
+      /* Elenco stazioni: una tantum ai telecomandi, mai salvato nello snapshot */
+      if (data.type === 'stations') {
+        const msg = JSON.stringify({
+          type: 'stations',
+          id,
+          radio: Array.isArray(data.radio) ? data.radio.slice(0, 120) : [],
+          tv: Array.isArray(data.tv) ? data.tv.slice(0, 60) : []
+        });
+        for (const c of this.controls.values()) {
+          if (c.target && c.target !== id) continue;
+          try { c.ws.send(msg); } catch (e) { /* ignore */ }
+        }
+        return;
+      }
+      /* Impostazioni: come le stazioni, una tantum e mai salvate nello snapshot */
+      if (data.type === 'settings') {
+        const settings = data.settings && typeof data.settings === 'object' ? data.settings : null;
+        if (!settings) return;
+        const msg = JSON.stringify({ type: 'settings', id, settings });
+        if (msg.length > 64000) return;
+        for (const c of this.controls.values()) {
+          if (c.target && c.target !== id) continue;
+          try { c.ws.send(msg); } catch (e) { /* ignore */ }
+        }
         return;
       }
       if (data.type === 'state') {

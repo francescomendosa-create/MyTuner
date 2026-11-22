@@ -1,3 +1,24 @@
+const APP_VERSION = 'v200';
+
+/* Hub remoto: in APK/offline gli asset sono locali (Capacitor), API/stream restano sul worker */
+const HUB_ORIGIN = (() => {
+  try {
+    const h = String(location.hostname || '').toLowerCase();
+    if (h === 'mytuner.mytunerfr.workers.dev' || h.endsWith('.mytunerfr.workers.dev')) {
+      return location.origin;
+    }
+  } catch (e) { /* ignore */ }
+  return 'https://mytuner.mytunerfr.workers.dev';
+})();
+
+function hubUrl(path) {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  try {
+    if (location.origin === HUB_ORIGIN) return p;
+  } catch (e) { /* ignore */ }
+  return HUB_ORIGIN + p;
+}
+
 const FM = { min: 87.5, max: 108, win: 0.34, turn: 6 };
 const AM = { min: 520, max: 1620, win: 18, turn: 170 };
 
@@ -306,6 +327,7 @@ function wxFromCode(code, isDay) {
 
 let localeWxTimer = 0;
 let localeWxCoords = null;
+let localeWxTempC = null;
 let wxFlairTimer = 0;
 let wxFlairClearTimer = 0;
 
@@ -367,6 +389,46 @@ function scheduleWxFlair(afterMs) {
   }, wait);
 }
 
+const CITY_ABBR = {
+  siracusa: 'SR',
+  augusta: 'AG',
+  melilli: 'ME',
+  'priolo gargallo': 'PG',
+  priolo: 'PG',
+  catania: 'CT',
+  milano: 'MI'
+};
+
+function abbreviateCityName(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  const key = n.toLowerCase().replace(/\s+/g, ' ');
+  if (CITY_ABBR[key]) return CITY_ABBR[key];
+  const parts = key.split(' ').filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return n.slice(0, 2).toUpperCase();
+}
+
+function syncDigitalClockCity(name) {
+  const el = document.getElementById('digitalClockCity');
+  if (!el) return;
+  const full = String(name || '').trim();
+  const abbr = abbreviateCityName(full);
+  /* Slot fisso: se manca la città resta il placeholder, non si compatta la riga */
+  el.textContent = abbr || '——';
+  el.title = full || '';
+  el.hidden = false;
+  el.classList.toggle('is-empty', !abbr);
+}
+
+function syncDigitalClockDate(now = new Date()) {
+  const el = document.getElementById('digitalClockDate');
+  if (!el) return;
+  el.textContent = formatDigitalClockDate(now);
+}
+
 function paintLocaleWx(city, icon, label) {
   const root = document.getElementById('localeWx');
   const glyph = document.getElementById('wxGlyph');
@@ -377,15 +439,23 @@ function paintLocaleWx(city, icon, label) {
   const name = String(city || '').trim();
   if (!name) {
     root.hidden = true;
+    syncDigitalClockCity('');
     return;
   }
   cityEl.textContent = name;
+  syncDigitalClockCity(name);
   condEl.textContent = String(label || '').trim();
   if (dateEl) dateEl.textContent = localeDateLabel();
   glyph.classList.remove('is-bob');
   cityEl.classList.remove('is-drift');
   glyph.innerHTML = WX_SVG[icon] || WX_SVG.cloud;
   root.hidden = false;
+  try {
+    const el = document.getElementById('digitalTemp');
+    if (el && Number.isFinite(localeWxTempC)) {
+      el.textContent = formatDigitalTemp(localeWxTempC);
+    }
+  } catch (e) { /* ignore */ }
 }
 
 /* Comuni locali: la zona dial “siracusa” serve alle MHz, non al nome meteo */
@@ -442,14 +512,24 @@ async function resolvePlaceName(lat, lon) {
 }
 
 async function fetchOpenMeteo(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=weather_code,is_day&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=weather_code,is_day,temperature_2m&timezone=auto`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(String(res.status));
   const data = await res.json();
   return {
     code: data?.current?.weather_code,
-    isDay: data?.current?.is_day === 1
+    isDay: data?.current?.is_day === 1,
+    tempC: Number(data?.current?.temperature_2m)
   };
+}
+
+function localeFallbackPlace(lat, lon, cityHint) {
+  const hint = String(cityHint || '').trim();
+  if (hint) return hint;
+  const near = nearestTownName(lat, lon, 80);
+  if (near) return near;
+  const z = ZONE_CENTERS.find((row) => row.id === activeZoneId) || ZONE_CENTERS[0];
+  return String(z?.label || LOCALE_TOWNS[0]?.name || '').trim();
 }
 
 async function refreshLocaleWeather(lat, lon, cityHint) {
@@ -459,16 +539,22 @@ async function refreshLocaleWeather(lat, lon, cityHint) {
   localeWxTimer = window.setTimeout(() => {
     if (localeWxCoords) refreshLocaleWeather(localeWxCoords.lat, localeWxCoords.lon);
   }, 30 * 60 * 1000);
+  /* Mostra subito un placeholder così non resta nascosto se l’API è lenta/fail */
+  const early = localeFallbackPlace(lat, lon, cityHint);
+  if (early) paintLocaleWx(early, 'cloud', '…');
   try {
     const [city, wx] = await Promise.all([
       cityHint ? Promise.resolve(cityHint) : resolvePlaceName(lat, lon),
       fetchOpenMeteo(lat, lon)
     ]);
     const mapped = wxFromCode(wx.code, wx.isDay);
-    const place = city || nearestTownName(lat, lon, 40) || '';
+    const place = localeFallbackPlace(lat, lon, city || cityHint);
+    localeWxTempC = Number.isFinite(wx.tempC) ? wx.tempC : null;
+    window.__mytunerWxTempC = localeWxTempC;
     paintLocaleWx(place, mapped.icon, mapped.label);
+    try { tickRadioClock(); } catch (e2) { /* ignore */ }
   } catch (e) {
-    const place = cityHint || nearestTownName(lat, lon, 40) || '';
+    const place = localeFallbackPlace(lat, lon, cityHint);
     if (place) paintLocaleWx(place, 'cloud', '');
   }
 }
@@ -477,7 +563,7 @@ function refreshLocaleFromZone() {
   const z = ZONE_CENTERS.find((row) => row.id === activeZoneId) || ZONE_CENTERS[0];
   if (!z) return;
   /* Niente etichetta zona forzata: aspetta GPS o comune più vicino alle coord */
-  refreshLocaleWeather(z.lat, z.lon);
+  refreshLocaleWeather(z.lat, z.lon, z.label);
 }
 
 const FALLBACK = {
@@ -707,7 +793,11 @@ try { audio.crossOrigin = 'anonymous'; } catch (e) { /* ignore */ }
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  /* APK: shell già in assets locali — niente SW che maschera il bundle */
+  try {
+    if (window.Capacitor?.isNativePlatform?.()) return;
+  } catch (e) { /* ignore */ }
+  navigator.serviceWorker.register('/sw.js?v=200', { scope: '/' }).catch(() => {});
 }
 
 const castUi = {
@@ -942,7 +1032,7 @@ async function lookupArtworkUrl(query, signal) {
   const q = String(query || '').trim().slice(0, 100);
   if (!q) return '';
   try {
-    const res = await fetch(`/api/artwork?q=${encodeURIComponent(q)}`, {
+    const res = await fetch(hubUrl(`/api/artwork?q=${encodeURIComponent(q)}`), {
       signal,
       cache: 'default'
     });
@@ -1399,7 +1489,7 @@ async function pollNowPlaying() {
     try { trackPollAbort.abort(); } catch (e) { /* ignore */ }
   }, 4500);
   try {
-    const res = await fetch(`/api/nowplaying?u=${encodeURIComponent(station.url)}`, {
+    const res = await fetch(hubUrl(`/api/nowplaying?u=${encodeURIComponent(station.url)}`), {
       cache: 'no-store',
       signal: trackPollAbort.signal
     });
@@ -1426,7 +1516,7 @@ async function pollNowPlaying() {
 }
 
 function iosStreamSrc(url) {
-  return `/stream?u=${encodeURIComponent(url)}`;
+  return hubUrl(`/stream?u=${encodeURIComponent(url)}`);
 }
 
 function isHlsAudioUrl(url) {
@@ -1546,6 +1636,12 @@ let seekToken = 0;
 let dwellTimer = 0;
 let dwellTarget = null;
 let flashTimer = 0;
+/* Telecomando: stazione che stai lasciando (niente risucchio finché giri dalla stessa parte) */
+let remoteTuneLeave = null; /* { key, sign, origin } */
+let remoteTuneSettleTimer = 0;
+let remoteTuneTarget = null; /* { band, station, at } */
+let remoteStateTimer = 0;
+let remoteExitGuardUntil = 0; /* dopo exit: blocca power-on fantasma */
 
 const fills = [];
 const caps = [];
@@ -1813,7 +1909,7 @@ function createEngine(media) {
 
   async function pumpIosSpectrum(url, token) {
     try {
-      const res = await fetch(`/stream?u=${encodeURIComponent(url)}`, {
+      const res = await fetch(hubUrl(`/stream?u=${encodeURIComponent(url)}`), {
         signal: iosAbort.signal,
         cache: 'no-store',
         credentials: 'omit',
@@ -1919,7 +2015,7 @@ function createEngine(media) {
         eng.currentUrl = url;
         media.muted = true;
         media.volume = 0;
-        media.src = `/stream?u=${encodeURIComponent(url)}`;
+        media.src = hubUrl(`/stream?u=${encodeURIComponent(url)}`);
         const pending = media.play();
         if (pending) {
           pending.then(() => {
@@ -1974,7 +2070,7 @@ function createEngine(media) {
           || (media.readyState === 0 && media.paused);
         if (broken) {
           try { media.removeAttribute('src'); media.load(); } catch (e) { /* ignore */ }
-          media.src = `/stream?u=${encodeURIComponent(url)}`;
+          media.src = hubUrl(`/stream?u=${encodeURIComponent(url)}`);
         }
         if (media.paused || broken) {
           const pending = media.play();
@@ -1985,7 +2081,7 @@ function createEngine(media) {
       eng.currentUrl = url;
       media.muted = false;
       media.volume = 1;
-      media.src = `/stream?u=${encodeURIComponent(url)}`;
+      media.src = hubUrl(`/stream?u=${encodeURIComponent(url)}`);
       const pending = media.play();
       if (pending) {
         pending.then(() => {
@@ -2219,11 +2315,41 @@ function nearest() {
   return { station, dist };
 }
 
+function remoteLeavingKey(key) {
+  return Boolean(key && remoteTuneLeave && remoteTuneLeave.key === key);
+}
+
+function remoteLeavingStation(station) {
+  return Boolean(station && remoteLeavingKey(stationKeyOf(station)));
+}
+
+/* Fuori da questa distanza la calamita non può più risucchiare la stazione lasciata */
+function remoteLeaveEscapeDist() {
+  return state.band === 'fm' ? bandSpec().win : 16;
+}
+
+function remoteLeaveClearedByDistance() {
+  const leave = remoteTuneLeave;
+  if (!leave) return false;
+  const origin = Number(leave.origin);
+  if (!Number.isFinite(origin)) return false;
+  const dist = Math.abs(currentFreq() - origin);
+  const travel = Number(leave.travel) || 0;
+  /* Sgancio solo quando sei fuori finestra magnetica, o hai accumulato abbastanza micro-step */
+  if (dist >= remoteLeaveEscapeDist() || travel >= remoteLeaveEscapeDist()) {
+    remoteTuneLeave = null;
+    return true;
+  }
+  return false;
+}
+
 /* Tiene l’aggancio se sei ancora vicino: evita che Zeta/RSC saltino a una vicina */
 function nearestSticky() {
   const near = nearest();
   if (!state.locked) return near;
   const lockedKey = stationKeyOf(state.locked);
+  /* Telecomando in uscita: non restare calamitati sulla stazione che stai lasciando */
+  if (remoteLeavingKey(lockedKey)) return near;
   const still = (stations[state.band] || []).find((s) => stationKeyOf(s) === lockedKey) || state.locked;
   const lockedDist = Math.abs(Number(still.freq) - currentFreq());
   const stick = state.band === 'fm' ? 0.2 : 9;
@@ -2873,6 +2999,7 @@ function paintDial() {
   tuneKnob.setAttribute('aria-valuemax', String(spec.max));
   paintTuneIndicated();
   paintStation();
+  scheduleRemoteState();
 }
 
 function paintTuneIndicated() {
@@ -2944,6 +3071,7 @@ function paintVolume(opts = {}) {
   const animate = opts.animate !== false;
   const target = -150 + (state.volume / 10) * 300;
   volKnob.setAttribute('aria-valuenow', state.volume.toFixed(1));
+  if (panelZoomMode) showZoomHudVol();
   if (!animate) {
     if (volAnim) cancelAnimationFrame(volAnim);
     volAnim = 0;
@@ -2994,6 +3122,7 @@ function paintModes() {
   radio.classList.toggle('band-am', state.band === 'am');
   radio.classList.toggle('is-stereo', Boolean(state.stereo));
   syncDialLamp();
+  try { syncDigitalClockBand(); } catch (e) { /* ignore */ }
 }
 
 function cancelAfc() {
@@ -3024,8 +3153,9 @@ function stationAtFreq(freq) {
   return best;
 }
 
-/* Salto stazione / AUTO: scan Casio sul dial (anche in TV), poi lock */
-function seekFreqTo(target) {
+/* Salto stazione / AUTO: scan Casio sul dial (anche in TV), poi lock.
+   opts.pace = 'remote' → scorrimento più lento/leggibile (telecomando). */
+function seekFreqTo(target, opts = {}) {
   const spec = bandSpec();
   const to = clamp(target, spec.min, spec.max);
   const from = currentFreq();
@@ -3034,6 +3164,7 @@ function seekFreqTo(target) {
   cancelAfc();
   const token = ++seekToken;
   const targetStation = stationAtFreq(to);
+  const remotePace = opts.pace === 'remote';
 
   /* Solo salti cortissimi: latch diretto (TV inclusa nell’animazione sotto) */
   if (dist <= fine) {
@@ -3041,6 +3172,7 @@ function seekFreqTo(target) {
     if (state.band === 'fm') state.fm = targetStation ? targetStation.freq : to;
     else state.am = targetStation ? targetStation.freq : to;
     paintDial();
+    if (panelZoomMode) showZoomHudFreq();
     /* Audio prima del poll ICY (paintStation) */
     if (state.power && !state.stopped && targetStation) catchStation(targetStation);
     else {
@@ -3051,9 +3183,11 @@ function seekFreqTo(target) {
     return;
   }
 
-  /* Velocità tipo scan: FM ~22 MHz/s, AM ~1200 kHz/s, durata clampata */
-  const speed = state.band === 'fm' ? 22 : 1200;
-  const dur = clamp((dist / speed) * 1000, 240, 1200);
+  /* Velocità tipo scan; remote più lento così i MHz scorrono leggibili */
+  const speed = remotePace
+    ? (state.band === 'fm' ? 9 : 480)
+    : (state.band === 'fm' ? 22 : 1200);
+  const dur = clamp((dist / speed) * 1000, remotePace ? 380 : 240, remotePace ? 1600 : 1200);
   const t0 = performance.now();
   seekActive = true;
   state.locked = null;
@@ -3076,6 +3210,7 @@ function seekFreqTo(target) {
     if (state.band === 'fm') state.fm = freq;
     else state.am = freq;
     paintDial();
+    if (panelZoomMode) showZoomHudFreq();
     if (!isTvMode() && engine.ready && state.power && !state.stopped && !castUi.casting) {
       engine.flutter(now);
       /* Durante lo scan: apri già lo stream sotto al rumore → all’arrivo è bufferizzato */
@@ -3116,6 +3251,7 @@ function setFreq(value, opts = {}) {
   const freq = clamp(value, spec.min, spec.max);
   if (opts.jump) {
     seekFreqTo(freq);
+    if (panelZoomMode) showZoomHudFreq();
     return;
   }
   seekToken += 1;
@@ -3123,6 +3259,7 @@ function setFreq(value, opts = {}) {
   else state.am = freq;
   paintDial();
   followTune(Boolean(opts.drag));
+  if (panelZoomMode) showZoomHudFreq();
 }
 
 function followTune(dragging) {
@@ -3136,7 +3273,7 @@ function followTune(dragging) {
     muteTabletAudio(true);
     const { station, dist } = nearestSticky();
     const lock = station ? lockOf(dist) : 0;
-    state.locked = lock > 0.72 ? station : null;
+    state.locked = lock > 0.72 && !remoteLeavingStation(station) ? station : null;
     paintStation();
     return;
   }
@@ -3149,7 +3286,7 @@ function followTune(dragging) {
     dwellTimer = 0;
     dwellTarget = null;
     engine.silence();
-    if (station && lock > 0.55) {
+    if (station && lock > 0.55 && !remoteLeavingStation(station)) {
       const prevUrl = stationVideoUrl(state.locked) || holdVideoUrl;
       const nextUrl = stationVideoUrl(station);
       state.locked = station;
@@ -3174,7 +3311,7 @@ function followTune(dragging) {
   const loaded = station && engine.currentUrl === station.url;
 
   /* Pallino verde = segnale: avvia subito lo stream (soglia più bassa = ricezione più snella) */
-  if (station && lock > 0.55) {
+  if (station && lock > 0.55 && !remoteLeavingStation(station)) {
     state.locked = station;
     window.clearTimeout(dwellTimer);
     dwellTimer = 0;
@@ -3186,7 +3323,10 @@ function followTune(dragging) {
     return;
   }
 
-  if (!(state.locked && station && stationKeyOf(state.locked) === stationKeyOf(station) && lock > 0.28)) {
+  if (
+    remoteLeavingStation(station)
+    || !(state.locked && station && stationKeyOf(state.locked) === stationKeyOf(station) && lock > 0.28)
+  ) {
     state.locked = null;
     paintStation();
   }
@@ -3261,7 +3401,7 @@ function catchStation(station) {
 }
 
 function streamAbsolute(url) {
-  return `${window.location.origin}/stream?u=${encodeURIComponent(url)}`;
+  return hubUrl(`/stream?u=${encodeURIComponent(url)}`);
 }
 
 /* Cast: URL diretto alla cassa (niente hop Worker = più veloce). Proxy solo se URL non valido. */
@@ -3631,6 +3771,32 @@ async function castPickerEnter() {
     flash('NO DEVICE', true);
     return;
   }
+  await castPickerSelectRoute(route);
+}
+
+async function castPickerSelectById(id) {
+  const want = String(id || '');
+  if (!want) {
+    flash('NO DEVICE', true);
+    return;
+  }
+  if (!isCastPickerOpen()) openCastPicker(true);
+  const idx = castUi.routes.findIndex((r) => String(r?.id || '') === want);
+  if (idx < 0) {
+    flash('NO DEVICE', true);
+    scheduleRemoteState();
+    return;
+  }
+  castUi.focus = idx;
+  paintCastFocus();
+  await castPickerSelectRoute(castUi.routes[idx]);
+}
+
+async function castPickerSelectRoute(route) {
+  if (!route?.id) {
+    flash('NO DEVICE', true);
+    return;
+  }
   castUi.pending = true;
   castUi.arming = false;
   paintCast();
@@ -3803,13 +3969,136 @@ async function toggleCast() {
   }
 }
 
+/* Telecomando: ogni scatto del rullo = stazione successiva (mai micro-step 0.1 che
+   lo settle risucchia sulla stessa). Catena lunga per giri lenti. */
+const REMOTE_TUNE_CHAIN_MS = 4500;
+const REMOTE_TUNE_LATCH_MS = 220;
+
+function remoteTuneStep(dir) {
+  if (!state.power) setPower(true);
+  if (state.stopped) toggleStop();
+  const sign = dir < 0 ? -1 : 1;
+  const now = performance.now();
+  const chain = remoteTuneTarget
+    && remoteTuneTarget.band === state.band
+    && now - remoteTuneTarget.at < REMOTE_TUNE_CHAIN_MS;
+  const locked = state.locked;
+  const baseFreq = chain
+    ? Number(remoteTuneTarget.station.freq)
+    : Number(locked?.freq ?? currentFreq());
+  const next = nextStationFromFreq(sign, baseFreq);
+  if (!next) return;
+  if (locked && stationKeyOf(next) === stationKeyOf(locked) && !chain) {
+    /* Già agganciati: salta comunque alla successiva nel senso di marcia */
+    const again = nextStationFromFreq(sign, Number(next.freq));
+    if (!again || stationKeyOf(again) === stationKeyOf(next)) return;
+    return remoteTuneStepApply(sign, again, now);
+  }
+  remoteTuneStepApply(sign, next, now);
+}
+
+function remoteTuneStepApply(sign, next, now) {
+  cancelAfc();
+  const left = state.locked || remoteTuneTarget?.station;
+  if (left && stationKeyOf(left) !== stationKeyOf(next)) {
+    remoteTuneLeave = {
+      key: stationKeyOf(left),
+      sign,
+      origin: Number(left.freq),
+      travel: 0
+    };
+  } else {
+    remoteTuneLeave = null;
+  }
+  window.clearTimeout(dwellTimer);
+  dwellTimer = 0;
+  dwellTarget = null;
+  remoteTuneTarget = { band: state.band, station: next, at: now || performance.now() };
+
+  /* Frequenza progressiva sul dial (niente salto); all’arrivo catchStation */
+  window.clearTimeout(remoteTuneSettleTimer);
+  remoteTuneSettleTimer = 0;
+  state.locked = null;
+  paintStation();
+  seekFreqTo(next.freq, { pace: 'remote' });
+  /* Al termine dello scroll, sblocca leave e aggiorna catena */
+  window.clearTimeout(remoteTuneSettleTimer);
+  remoteTuneSettleTimer = window.setTimeout(() => {
+    remoteTuneSettleTimer = 0;
+    if (!remoteTuneTarget || stationKeyOf(remoteTuneTarget.station) !== stationKeyOf(next)) return;
+    remoteTuneLeave = null;
+    remoteTuneTarget.at = performance.now();
+  }, 1700);
+}
+
+/*
+  Rullo continuo del telecomando: ogni grado sposta la frequenza (come il dial a mano).
+  Al rilascio: stazione dentro la finestra di ricezione → aggancio, altrimenti
+  scorre fino alla prossima nel senso di marcia (senza fare il giro della banda).
+*/
+const REMOTE_DRAG_FM_PER_DEG = 0.02;
+const REMOTE_DRAG_AM_PER_DEG = 1;
+let remoteDragActive = false;
+let remoteDragLastDir = 1;
+let remoteDragSafetyTimer = 0;
+
+function remoteTuneDrag(deg) {
+  const d = Number(deg);
+  if (!Number.isFinite(d) || !d) return;
+  if (!state.power) setPower(true);
+  if (state.stopped) toggleStop();
+  if (!remoteDragActive) {
+    remoteDragActive = true;
+    cancelAfc();
+    window.clearTimeout(remoteTuneSettleTimer);
+    remoteTuneSettleTimer = 0;
+    remoteTuneTarget = null;
+    remoteTuneLeave = null;
+  }
+  remoteDragLastDir = d > 0 ? 1 : -1;
+  const per = state.band === 'fm' ? REMOTE_DRAG_FM_PER_DEG : REMOTE_DRAG_AM_PER_DEG;
+  setFreq(currentFreq() + d * per, { drag: true });
+  /* Rilascio perso (rete): aggancia comunque */
+  window.clearTimeout(remoteDragSafetyTimer);
+  remoteDragSafetyTimer = window.setTimeout(() => remoteTuneRelease(remoteDragLastDir), 1200);
+}
+
+function remoteTuneRelease(dir) {
+  window.clearTimeout(remoteDragSafetyTimer);
+  remoteDragSafetyTimer = 0;
+  if (!remoteDragActive) return;
+  remoteDragActive = false;
+  const sign = Number(dir) < 0 ? -1 : 1;
+  const freq = currentFreq();
+  const list = (stations[state.band] || []).slice().sort((a, b) => a.freq - b.freq);
+  if (!list.length) {
+    settleTune();
+    return;
+  }
+  const near = stationAtFreq(freq);
+  let target = near && Math.abs(near.freq - freq) <= bandSpec().win ? near : null;
+  if (!target) {
+    target = sign > 0
+      ? list.find((s) => s.freq > freq)
+      : list.slice().reverse().find((s) => s.freq < freq);
+  }
+  if (!target) target = near;
+  if (!target) {
+    settleTune();
+    return;
+  }
+  remoteTuneTarget = { band: state.band, station: target, at: performance.now() };
+  seekFreqTo(target.freq, { pace: 'remote' });
+}
+
 function settleTune() {
   if (!state.power || state.stopped) return;
   if (castUi.casting) {
     muteTabletAudio(true);
     const { station, dist } = nearest();
     const lock = station ? lockOf(dist) : 0;
-    state.locked = station && lock > 0.48 ? station : state.locked;
+    state.locked = station && lock > 0.48 && !remoteLeavingStation(station) ? station : state.locked;
+    if (remoteLeavingStation(station)) state.locked = null;
     paintStation();
     syncCastMedia(false);
     persistFace();
@@ -3817,9 +4106,19 @@ function settleTune() {
   }
   const { station, dist } = nearestSticky();
   const lock = station ? lockOf(dist) : 0;
+  /* Telecomando: mentre leave è attivo non risucchiare MAI sulla stazione lasciata */
+  if (remoteLeavingStation(station)) {
+    state.locked = null;
+    paintStation();
+    engine.pause();
+    engine.setMix(0, 1);
+    remoteLeaveClearedByDistance();
+    persistFace();
+    return;
+  }
   /* TV: se c’è un canale nel dial, vai subito sulla sua frequenza e agganci l’HLS */
   if (isTvMode()) {
-    if (station && lock > 0.12) {
+    if (station && lock > 0.12 && !remoteLeavingStation(station)) {
       snapToStation(station);
       return;
     }
@@ -3829,9 +4128,9 @@ function settleTune() {
     persistFace();
     return;
   }
-  if (station && lock > 0.22) {
+  if (station && lock > 0.18 && !remoteLeavingStation(station)) {
     /* Vicino: snap sulla frequenza reale e musica senza riavvii inutili */
-    if (lock > 0.45 || Math.abs(currentFreq() - station.freq) < (state.band === 'fm' ? 0.14 : 4)) {
+    if (lock > 0.38 || Math.abs(currentFreq() - station.freq) < (state.band === 'fm' ? 0.18 : 5)) {
       state.locked = station;
       if (state.band === 'fm') state.fm = station.freq;
       else state.am = station.freq;
@@ -3853,6 +4152,7 @@ function settleTune() {
 }
 
 function pullTo(station) {
+  if (!station || remoteLeavingStation(station)) return;
   const from = currentFreq();
   const to = station.freq;
   /* TV: nessun AFC animato — latch diretto */
@@ -3951,6 +4251,7 @@ function startChannelFastSeek(dir) {
     if (state.band === 'fm') state.fm = freq;
     else state.am = freq;
     paintDial();
+    if (panelZoomMode) showZoomHudFreq();
     if (!isTvMode() && engine.ready && state.power && !state.stopped && !castUi.casting) {
       engine.flutter(now);
     }
@@ -4111,6 +4412,87 @@ function playPowerOffPop() {
 
 function playSwitchClick() {
   playKeyClick();
+}
+
+/* Bip soft in uscita (radio già spenta): one-shot su destination, non tocca il grafo stream */
+function playExitBeep() {
+  try {
+    engine.start();
+    const ac = engine.ctx;
+    if (!ac) return;
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+    const t0 = ac.currentTime;
+    const tones = [
+      { f: 880, at: 0, dur: 0.09 },
+      { f: 660, at: 0.11, dur: 0.12 }
+    ];
+    for (const tone of tones) {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = tone.f;
+      const a = t0 + tone.at;
+      gain.gain.setValueAtTime(0.0001, a);
+      gain.gain.exponentialRampToValueAtTime(0.085, a + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, a + tone.dur);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(a);
+      osc.stop(a + tone.dur + 0.02);
+    }
+  } catch (e) { /* bip non essenziale */ }
+}
+
+function showSpecFarewell() {
+  const el = document.getElementById('specFarewell');
+  if (!el) return;
+  /* Mostra il pannello LED a destra anche se eri in TV */
+  if (specPanel) specPanel.hidden = false;
+  const videoPanel = document.getElementById('videoPanel');
+  if (videoPanel) videoPanel.hidden = true;
+  el.classList.remove('is-hidden');
+  el.setAttribute('aria-hidden', 'false');
+  /* Riavvia l’animazione lettere */
+  el.querySelectorAll('.spec-farewell-ch').forEach((ch) => {
+    ch.style.animation = 'none';
+    void ch.offsetWidth;
+    ch.style.animation = '';
+  });
+}
+
+function hideSpecFarewell() {
+  const el = document.getElementById('specFarewell');
+  if (!el) return;
+  el.classList.add('is-hidden');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+/* Long-press Power: saluto LED, poi chiude l’app. Se già spenta → bip, niente rumore cassa. */
+function beginRemoteExit() {
+  remoteExitGuardUntil = performance.now() + 4000;
+  pendingDisplayWake = false;
+  idleStandbyActive = false;
+  idleStandbyWasPlaying = false;
+  stopWakeNag();
+  remoteLinked = true;
+  const wasOn = Boolean(state.power);
+  if (wasOn) {
+    try { setPower(false); } catch (e) { /* ignore */ }
+  } else {
+    /* Già spenta: niente playPowerOffPop / hiss */
+    try { engine.silence(); } catch (e) { /* ignore */ }
+    try { engine.pause(); } catch (e) { /* ignore */ }
+    playExitBeep();
+  }
+  showSpecFarewell();
+  releaseScreenAwake();
+  try { window.MyTunerNative?.keepAwake?.(false); } catch (e) { /* ignore */ }
+  publishRemoteState();
+  startRemoteGuard();
+  window.setTimeout(() => {
+    hideSpecFarewell();
+    try { window.MyTunerNative?.exitApp?.(); } catch (e) { /* ignore */ }
+  }, wasOn ? 900 : 1100);
 }
 
 let lastRatchetAt = 0;
@@ -4293,6 +4675,12 @@ function setPower(on, opts = {}) {
   syncDialLamp();
   cancelAfc();
   if (!on) {
+    /* Spegnimento esplicito: esci da idle-standby, poi timer “radio spenta” */
+    idleStandbyActive = false;
+    idleStandbyWasPlaying = false;
+    idleStandbyVideoHandoff = false;
+    stopIdleStandbyAudioKeepAlive();
+    radio?.classList.remove('is-idle-standby');
     if (!quiet) playPowerOffPop();
     try { openMonitorSettings(false); } catch (e) { /* ignore */ }
     try { openCastPicker(false); } catch (e) { /* ignore */ }
@@ -4311,20 +4699,24 @@ function setPower(on, opts = {}) {
       try { cast.framework.CastContext.getInstance().endCurrentSession(true); } catch (e) { /* ignore */ }
     }
     releaseScreenAwake();
-    try { window.MyTunerNative?.keepAwake?.(false); } catch (e) { /* ignore */ }
     clearIdlePowerTimers();
     clearIdleDimUi();
     paintDial();
     paintTransport();
     updateMediaSession();
     persistFace();
-    /* Socket al SW solo quando lo schermo diventa nascosto (vedi visibilitychange) */
+    bumpIdleActivity();
+    scheduleRemoteState();
     return;
   }
+  idleStandbyActive = false;
+  idleStandbyWasPlaying = false;
+  stopIdleStandbyAudioKeepAlive();
+  radio?.classList.remove('is-idle-standby');
   if (!fromAlarm) dismissAlarm();
   askRemoteNotifyPermission();
   stopRemoteGuard();
-  try { window.MyTunerNative?.keepAwake?.(true); } catch (e) { /* ignore */ }
+  syncNativeKeepAwake();
   engine.start();
   armMediaPlaybackSession();
   if (engine.ctx?.state === 'suspended') engine.ctx.resume().catch(() => {});
@@ -4366,6 +4758,8 @@ let tvZoomDock = null;
 let tvZoomDockTimer = 0;
 let zoomVolHoldTimer = 0;
 let zoomVolHoldDir = 0;
+let zoomHud = null;
+let zoomHudTimer = 0;
 
 function paintZoomDockPause() {
   const btn = tvZoomDock?.querySelector('[data-act="pause"]');
@@ -4675,25 +5069,336 @@ let sMeterSmooth = 0;
 
 const clockHoursEl = document.getElementById('clockHours');
 const clockMinsEl = document.getElementById('clockMins');
+const coronaHoursEl = document.getElementById('coronaHours');
+const coronaMinsEl = document.getElementById('coronaMins');
+const coronaSecsEl = document.getElementById('coronaSecs');
+const coronaDateEl = document.getElementById('coronaClockDate');
+const coronaCrownEl = document.getElementById('coronaCrown');
+const digitalHoursEl = document.getElementById('digitalHours');
+const digitalMinsEl = document.getElementById('digitalMins');
+const digitalSecsEl = document.getElementById('digitalSecs');
+const digitalAmPmEl = document.getElementById('digitalAmPm');
+const digitalTempEl = document.getElementById('digitalTemp');
+const radioClockSlot = document.getElementById('radioClockSlot');
 let clockTimer = 0;
+let coronaRaf = 0;
+let coronaSegs = [];
+
+const CLOCK_THEME_KEY = 'mytuner-clock-theme-v1';
+const CLOCK_TINT_KEY = 'mytuner-clock-tint-v1';
+const CLOCK_THEMES = [
+  { id: 'casio', name: 'Casio LCD', preview: 'casio' },
+  { id: 'digital', name: 'Digital clock', preview: 'digital' },
+  { id: 'corona', name: 'Corona spettro', preview: 'corona' }
+];
+const CLOCK_TINTS = [
+  { id: 'cyan', name: 'CIANO' },
+  { id: 'white', name: 'BIANCO' },
+  { id: 'red', name: 'ROSSO' }
+];
+let clockThemeId = 'casio';
+let clockThemeFocus = 0;
+let clockTintId = 'cyan';
+
+const IT_DAYS = ['DOMENICA', 'LUNEDÌ', 'MARTEDÌ', 'MERCOLEDÌ', 'GIOVEDÌ', 'VENERDÌ', 'SABATO'];
+const IT_DAYS_SHORT = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+const IT_MONTHS = ['GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE'];
 
 function pad2(n) {
   return n < 10 ? `0${n}` : String(n);
 }
 
-function tickCasioClock() {
-  if (!clockHoursEl || !clockMinsEl) return;
+function formatDigitalClockDate(now = new Date()) {
+  const dow = IT_DAYS_SHORT[now.getDay()] || '——';
+  return `${dow} ${pad2(now.getDate())}`;
+}
+
+/* Allinea al fantasma Casio "-88": spazio al posto del meno se positiva */
+function formatDigitalTemp(t) {
+  if (!(typeof t === 'number' && Number.isFinite(t))) return ' --';
+  const n = Math.round(t);
+  const abs = Math.min(99, Math.abs(n));
+  const digits = abs < 10 ? ` ${abs}` : String(abs);
+  return `${n < 0 ? '-' : ' '}${digits}`;
+}
+
+function readClockThemeId() {
+  try {
+    const id = String(localStorage.getItem(CLOCK_THEME_KEY) || 'casio');
+    return CLOCK_THEMES.some((t) => t.id === id) ? id : 'casio';
+  } catch (e) {
+    return 'casio';
+  }
+}
+
+function persistClockThemeId() {
+  try {
+    localStorage.setItem(CLOCK_THEME_KEY, clockThemeId);
+  } catch (e) { /* ignore */ }
+}
+
+function readClockTintId() {
+  try {
+    const id = String(localStorage.getItem(CLOCK_TINT_KEY) || 'cyan');
+    return CLOCK_TINTS.some((t) => t.id === id) ? id : 'cyan';
+  } catch (e) {
+    return 'cyan';
+  }
+}
+
+function persistClockTintId() {
+  try {
+    localStorage.setItem(CLOCK_TINT_KEY, clockTintId);
+  } catch (e) { /* ignore */ }
+}
+
+function applyClockTint() {
+  const tint = CLOCK_TINTS.find((t) => t.id === clockTintId) || CLOCK_TINTS[0];
+  clockTintId = tint.id;
+  if (radioClockSlot) radioClockSlot.dataset.clockTint = clockTintId;
+}
+
+function cycleClockTint() {
+  const i = CLOCK_TINTS.findIndex((t) => t.id === clockTintId);
+  const next = CLOCK_TINTS[(i + 1 + CLOCK_TINTS.length) % CLOCK_TINTS.length] || CLOCK_TINTS[0];
+  clockTintId = next.id;
+  persistClockTintId();
+  applyClockTint();
+  flash(next.name, true);
+  scheduleRemoteState();
+}
+
+function ensureCoronaCrown() {
+  if (!coronaCrownEl) return;
+  if (coronaSegs.length && coronaCrownEl.querySelector('path.seg')) return;
+  coronaCrownEl.innerHTML = '';
+  coronaSegs = [];
+  const n = 36;
+  const ns = 'http://www.w3.org/2000/svg';
+  const cx = 100;
+  const cy = 58;
+  const r0 = 46;
+  const r1 = 54;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i += 1) {
+    /* Mezza corona superiore: π → 0 */
+    const t0 = i / n;
+    const t1 = (i + 0.72) / n;
+    const a0 = Math.PI - t0 * Math.PI;
+    const a1 = Math.PI - t1 * Math.PI;
+    const x0o = cx + Math.cos(a0) * r1;
+    const y0o = cy - Math.sin(a0) * r1;
+    const x1o = cx + Math.cos(a1) * r1;
+    const y1o = cy - Math.sin(a1) * r1;
+    const x1i = cx + Math.cos(a1) * r0;
+    const y1i = cy - Math.sin(a1) * r0;
+    const x0i = cx + Math.cos(a0) * r0;
+    const y0i = cy - Math.sin(a0) * r0;
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('class', 'seg');
+    path.setAttribute(
+      'd',
+      `M${x0o.toFixed(2)} ${y0o.toFixed(2)} L${x1o.toFixed(2)} ${y1o.toFixed(2)} L${x1i.toFixed(2)} ${y1i.toFixed(2)} L${x0i.toFixed(2)} ${y0i.toFixed(2)} Z`
+    );
+    frag.appendChild(path);
+  }
+  coronaCrownEl.appendChild(frag);
+  coronaSegs = [...coronaCrownEl.querySelectorAll('.seg')];
+}
+
+function paintCoronaCrown(now) {
+  if (!coronaSegs.length) ensureCoronaCrown();
+  if (!coronaSegs.length) return;
+  const n = coronaSegs.length;
+  const powered = Boolean(state?.power);
+  const sec = now.getSeconds() + now.getMilliseconds() / 1000;
+  const head = (sec / 60) * n;
+  const trail = Math.max(6, Math.round(n * 0.38));
+  for (let i = 0; i < n; i += 1) {
+    const d = (head - i + n) % n;
+    const bright = d < trail ? 1 - d / trail : 0;
+    const el = coronaSegs[i];
+    const lit = powered && bright > 0.05;
+    el.classList.toggle('is-lit', lit);
+    el.style.fill = lit
+      ? `rgba(255, ${Math.round(110 + 50 * bright)}, ${Math.round(20 + 20 * bright)}, ${0.35 + bright * 0.65})`
+      : 'rgba(70,70,70,0.55)';
+    el.style.filter = lit ? `drop-shadow(0 0 ${2 + bright * 3}px rgba(255,140,40,${0.35 + bright * 0.55}))` : 'none';
+  }
+}
+
+function tickRadioClock() {
   const now = new Date();
-  clockHoursEl.textContent = pad2(now.getHours());
-  clockMinsEl.textContent = pad2(now.getMinutes());
+  if (clockHoursEl && clockMinsEl) {
+    clockHoursEl.textContent = pad2(now.getHours());
+    clockMinsEl.textContent = pad2(now.getMinutes());
+  }
+  if (coronaHoursEl) coronaHoursEl.textContent = pad2(now.getHours());
+  if (coronaMinsEl) coronaMinsEl.textContent = pad2(now.getMinutes());
+  if (coronaSecsEl) coronaSecsEl.textContent = pad2(now.getSeconds());
+  if (coronaDateEl) {
+    coronaDateEl.textContent = `${IT_DAYS[now.getDay()]}, ${now.getDate()} ${IT_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  }
+  if (digitalHoursEl && digitalMinsEl) {
+    digitalHoursEl.textContent = pad2(now.getHours());
+    digitalMinsEl.textContent = pad2(now.getMinutes());
+  }
+  if (digitalSecsEl) digitalSecsEl.textContent = pad2(now.getSeconds());
+  syncDigitalClockDate(now);
+  syncDigitalClockBand();
+  if (digitalTempEl) {
+    const t = Number.isFinite(localeWxTempC) ? localeWxTempC : window.__mytunerWxTempC;
+    digitalTempEl.textContent = formatDigitalTemp(t);
+  }
+  if (clockThemeId === 'corona') paintCoronaCrown(now);
+}
+
+function syncDigitalClockBand() {
+  if (!digitalAmPmEl) return;
+  const band = (typeof state !== 'undefined' && state?.band === 'am') ? 'AM' : 'FM';
+  digitalAmPmEl.textContent = band;
+  digitalAmPmEl.classList.toggle('is-am', band === 'AM');
+  digitalAmPmEl.classList.toggle('is-fm', band === 'FM');
+}
+
+function stopCoronaAnim() {
+  if (coronaRaf) {
+    cancelAnimationFrame(coronaRaf);
+    coronaRaf = 0;
+  }
+}
+
+function startCoronaAnim() {
+  stopCoronaAnim();
+  if (clockThemeId !== 'corona') return;
+  const loop = () => {
+    paintCoronaCrown(new Date());
+    coronaRaf = requestAnimationFrame(loop);
+  };
+  coronaRaf = requestAnimationFrame(loop);
+}
+
+function applyClockTheme() {
+  const theme = CLOCK_THEMES.find((t) => t.id === clockThemeId) || CLOCK_THEMES[0];
+  clockThemeId = theme.id;
+  if (radioClockSlot) radioClockSlot.dataset.clock = clockThemeId;
+  document.querySelectorAll('.radio-clock-slot .clock-skin').forEach((el) => {
+    const on = el.dataset.clock === clockThemeId;
+    el.classList.toggle('is-active', on);
+    if (on) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+  });
+  if (clockThemeId === 'corona') {
+    ensureCoronaCrown();
+    startCoronaAnim();
+  } else {
+    stopCoronaAnim();
+  }
+  tickRadioClock();
+}
+
+function paintClockThemeList() {
+  const list = document.getElementById('clockThemeList');
+  if (!list) return;
+  list.innerHTML = '';
+  CLOCK_THEMES.forEach((theme, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'clock-theme-item';
+    btn.dataset.id = theme.id;
+    btn.setAttribute('role', 'option');
+    if (theme.id === clockThemeId) {
+      btn.classList.add('is-active');
+      clockThemeFocus = idx;
+    }
+    const prev = document.createElement('span');
+    prev.className = `clock-theme-preview is-${theme.preview}`;
+    prev.setAttribute('aria-hidden', 'true');
+    if (theme.preview === 'casio') {
+      prev.innerHTML = '<span class="pv-lcd">12:45</span>';
+    } else if (theme.preview === 'digital') {
+      prev.innerHTML = '<span class="pv-digital"><b>10:09</b><i>FM</i></span>';
+    } else {
+      prev.innerHTML = '<span class="pv-corona-half"><i class="pv-arc"></i><b>15:42</b></span>';
+    }
+    const name = document.createElement('span');
+    name.className = 'clock-theme-name';
+    name.textContent = theme.name;
+    btn.append(prev, name);
+    list.append(btn);
+  });
+  paintClockThemeFocus();
+}
+
+function paintClockThemeFocus() {
+  const items = [...document.querySelectorAll('#clockThemeList .clock-theme-item')];
+  items.forEach((el, i) => {
+    el.classList.toggle('is-focus', i === clockThemeFocus);
+    el.setAttribute('aria-selected', String(i === clockThemeFocus));
+  });
+  items[clockThemeFocus]?.scrollIntoView?.({ block: 'nearest' });
+}
+
+function selectClockTheme(id) {
+  const next = CLOCK_THEMES.some((t) => t.id === id) ? id : 'casio';
+  clockThemeId = next;
+  persistClockThemeId();
+  applyClockTheme();
+  paintClockThemeList();
+  flash(CLOCK_THEMES.find((t) => t.id === next)?.name || 'CLOCK', true);
+  scheduleRemoteState();
+}
+
+function openClockPane(on, opts = {}) {
+  const pane = document.getElementById('monitorClockPane');
+  if (!pane) return;
+  if (on) {
+    paintClockThemeList();
+    showSettingsPage('clock', { dir: opts.dir || 'forward', instant: opts.instant });
+  } else {
+    showSettingsPage('home', { dir: opts.dir || 'back', instant: opts.instant });
+  }
+  scheduleRemoteState();
+}
+
+function isClockPaneOpen() {
+  return isMonitorSettingsOpen() && settingsPage === 'clock';
+}
+
+function tickCasioClock() {
+  tickRadioClock();
 }
 
 function initCasioClock() {
-  if (!clockHoursEl || !clockMinsEl) return;
-  tickCasioClock();
-  window.clearInterval(clockTimer);
-  /* Allinea al cambio minuto + refresh ogni secondo per i due punti */
-  clockTimer = window.setInterval(tickCasioClock, 1000);
+  try {
+    clockThemeId = readClockThemeId();
+    clockTintId = readClockTintId();
+    ensureCoronaCrown();
+    applyClockTheme();
+    applyClockTint();
+    window.clearInterval(clockTimer);
+    clockTimer = window.setInterval(() => {
+      try { tickRadioClock(); } catch (e) { /* ignore */ }
+    }, 1000);
+    if (radioClockSlot && !radioClockSlot.dataset.tintBound) {
+      radioClockSlot.dataset.tintBound = '1';
+      radioClockSlot.setAttribute('role', 'button');
+      radioClockSlot.setAttribute('tabindex', '0');
+      radioClockSlot.setAttribute('aria-label', 'Cambia colore orologio');
+      radioClockSlot.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        try { cycleClockTint(); } catch (e) { /* ignore */ }
+      });
+      radioClockSlot.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        try { cycleClockTint(); } catch (e) { /* ignore */ }
+      });
+    }
+  } catch (e) {
+    console.warn('initCasioClock', e);
+  }
 }
 
 function buildSMeterScale() {
@@ -5158,7 +5863,7 @@ function showLockedName() {
 
 async function loadStations() {
   try {
-    const response = await fetch('/api/stations');
+    const response = await fetch(hubUrl('/api/stations'));
     if (!response.ok) throw new Error(String(response.status));
     const data = await response.json();
     const fm = Array.isArray(data.fm) ? data.fm : [];
@@ -5181,10 +5886,41 @@ async function loadStations() {
   } catch (e) { /* ignore */ }
   /* Dopo il primo paint: evita splash PWA bloccata su HLS/audio all’avvio */
   window.setTimeout(() => {
-    if (state.power && !state.stopped) settleTune();
-    syncVideoView();
-    requestZoneFromGps();
+    paintOnlineStatus();
+    if (navigator.onLine) {
+      if (state.power && !state.stopped) settleTune();
+      syncVideoView();
+      requestZoneFromGps();
+    } else if (state.power && !state.stopped) {
+      /* Offline: UI ok, niente stream — resta sulla stazione/catalogo locale */
+      try { showLockedName(); } catch (e) { /* ignore */ }
+    }
   }, 0);
+}
+
+let wasOnline = typeof navigator.onLine === 'boolean' ? navigator.onLine : true;
+
+function paintOnlineStatus() {
+  const online = typeof navigator.onLine === 'boolean' ? navigator.onLine : true;
+  radio?.classList.toggle('is-offline', !online);
+  const badge = document.getElementById('dialOffline');
+  if (badge) badge.hidden = online;
+  if (!online && wasOnline) {
+    try { flash('RADIO OFFLINE', true); } catch (e) { /* ignore */ }
+  }
+  wasOnline = online;
+}
+
+function onNetworkOnline() {
+  paintOnlineStatus();
+  try { onTabletResume(); } catch (e) { /* ignore */ }
+  if (state.power && !state.stopped) {
+    try { settleTune(); } catch (e) { /* ignore */ }
+  }
+}
+
+function onNetworkOffline() {
+  paintOnlineStatus();
 }
 
 document.addEventListener('pointerdown', (event) => {
@@ -5247,11 +5983,13 @@ window.addEventListener('pageshow', () => {
 
 bindKnob(tuneKnob, (delta) => {
   /* Continuo + fruscio; sensibilità ridotta per centrare meglio le stazioni */
+  remoteTuneLeave = null;
   const spec = bandSpec();
   const full = (300 * Math.PI) / 180;
   const span = spec.max - spec.min;
   setFreq(currentFreq() + (delta / full) * span * 0.16, { drag: true });
 }, () => {
+  remoteTuneLeave = null;
   settleTune();
 });
 
@@ -5310,6 +6048,70 @@ function bumpZoomVolume(dir, step = 0.06) {
   persistFace();
 }
 
+function ensureZoomHud() {
+  if (zoomHud) return zoomHud;
+  zoomHud = document.createElement('div');
+  zoomHud.className = 'zoom-hud';
+  zoomHud.hidden = true;
+  zoomHud.setAttribute('aria-live', 'polite');
+  zoomHud.innerHTML = '<span class="zoom-hud-val"></span><span class="zoom-hud-unit"></span>';
+  document.body.appendChild(zoomHud);
+  return zoomHud;
+}
+
+function placeZoomHud() {
+  if (!zoomHud || !panelZoomMode) return;
+  const panel = zoomTargetEl(panelZoomMode);
+  if (!panel) return;
+  const r = panel.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return;
+  const x = Math.round(r.left + Math.max(12, Math.min(36, r.width * 0.035)));
+  const y = Math.round(r.top + r.height * 0.45);
+  zoomHud.style.left = `${x}px`;
+  zoomHud.style.top = `${y}px`;
+}
+
+function hideZoomHud() {
+  window.clearTimeout(zoomHudTimer);
+  zoomHudTimer = 0;
+  if (!zoomHud) return;
+  zoomHud.classList.remove('is-on');
+  zoomHud.hidden = true;
+}
+
+function showZoomHud(kind, valueText, unitText = '') {
+  if (!panelZoomMode) return;
+  const el = ensureZoomHud();
+  placeZoomHud();
+  el.dataset.kind = kind;
+  const val = el.querySelector('.zoom-hud-val');
+  const unit = el.querySelector('.zoom-hud-unit');
+  if (val) val.textContent = valueText;
+  if (unit) unit.textContent = unitText;
+  el.hidden = false;
+  el.classList.add('is-on');
+  window.clearTimeout(zoomHudTimer);
+  zoomHudTimer = window.setTimeout(() => {
+    el.classList.remove('is-on');
+    zoomHudTimer = window.setTimeout(() => {
+      if (!el.classList.contains('is-on')) el.hidden = true;
+      zoomHudTimer = 0;
+    }, 200);
+  }, 1000);
+}
+
+function showZoomHudVol() {
+  const n = Math.round(state.volume * 10) / 10;
+  const text = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  showZoomHud('vol', text, '');
+}
+
+function showZoomHudFreq() {
+  const f = currentFreq();
+  if (state.band === 'am') showZoomHud('freq', String(Math.round(f)), 'kHz');
+  else showZoomHud('freq', Number(f).toFixed(1), 'MHz');
+}
+
 function stopZoomVolHold() {
   window.clearTimeout(zoomVolHoldTimer);
   zoomVolHoldTimer = 0;
@@ -5335,8 +6137,9 @@ function hideTvZoomDock() {
   window.clearTimeout(tvZoomDockTimer);
   tvZoomDockTimer = 0;
   stopZoomVolHold();
+  hideZoomHud();
   if (!tvZoomDock) return;
-  tvZoomDock.classList.remove('is-on');
+  tvZoomDock.classList.remove('is-on', 'is-frame-unified');
   tvZoomDock.hidden = true;
 }
 
@@ -5362,16 +6165,33 @@ function placeTvZoomDock(finalBox) {
     width = r.width;
     height = r.height;
   }
-  /* Stesse dimensioni fisse (viewport) per TV e dial — non dipendono dall’altezza del quadro */
-  const dockH = Math.round(clamp(window.innerHeight * 0.09, 60, 72));
-  const btn = Math.round(clamp(dockH * 0.72, 44, 52));
-  let dockTop = Math.round(top + height - 3);
-  if (dockTop + dockH > window.innerHeight - 4) {
-    dockTop = Math.max(4, window.innerHeight - dockH - 4);
+  const unify = radio?.classList.contains('is-fit-fullscreen') && panelZoomMode === 'tv';
+  /* Mentoniera unificata: un filo più bassa → più video; tasti restano ≥42px */
+  const dockH = unify
+    ? Math.round(clamp(window.innerHeight * 0.072, 52, 60))
+    : Math.round(clamp(window.innerHeight * 0.09, 60, 72));
+  const btn = Math.round(clamp(dockH * (unify ? 0.8 : 0.72), unify ? 42 : 44, unify ? 48 : 52));
+  let dockTop;
+  let dockLeft;
+  let dockW;
+  if (unify) {
+    /* Un pezzo col bordo: mentoniera più bassa di ~1mm (altezza già ridotta) */
+    dockLeft = 0;
+    dockW = window.innerWidth;
+    dockTop = Math.max(0, window.innerHeight - dockH);
+    tvZoomDock.classList.add('is-frame-unified');
+  } else {
+    tvZoomDock.classList.remove('is-frame-unified');
+    dockLeft = left;
+    dockW = width;
+    dockTop = Math.round(top + height - 3);
+    if (dockTop + dockH > window.innerHeight - 4) {
+      dockTop = Math.max(4, window.innerHeight - dockH - 4);
+    }
   }
-  tvZoomDock.style.left = `${Math.round(left)}px`;
+  tvZoomDock.style.left = `${Math.round(dockLeft)}px`;
   tvZoomDock.style.top = `${dockTop}px`;
-  tvZoomDock.style.width = `${Math.round(width)}px`;
+  tvZoomDock.style.width = `${Math.round(dockW)}px`;
   tvZoomDock.style.height = `${dockH}px`;
   tvZoomDock.style.setProperty('--tv-zoom-btn', `${btn}px`);
   tvZoomDock.style.fontSize = `${Math.round(clamp(btn * 0.38, 15, 20))}px`;
@@ -5548,10 +6368,11 @@ function setPanelZoom(mode) {
     /* Niente brillamento sul rientro: spegni filter subito */
     if (wasDial) killDialFlickNow(1200);
     if (cur && panelZoomMotion) {
+      /* Togli backdrop subito: evita flash “radio sparita” durante lo scale-back */
+      radio.classList.remove('is-panel-zooming', 'is-tv-zoom');
       cur.style.transform = 'translate(0px, 0px) scale(1)';
       window.setTimeout(() => {
         restoreAllZoomPanels();
-        radio.classList.remove('is-panel-zooming');
         panelZoomMode = '';
         panelZoomMotion = null;
         panelZoomBusy = false;
@@ -5564,7 +6385,7 @@ function setPanelZoom(mode) {
       return;
     }
     restoreAllZoomPanels();
-    radio.classList.remove('is-panel-zooming');
+    radio.classList.remove('is-panel-zooming', 'is-tv-zoom');
     panelZoomMode = '';
     panelZoomMotion = null;
     panelZoomBusy = false;
@@ -5610,29 +6431,47 @@ function setPanelZoom(mode) {
     gap: cs.gap
   };
 
-  /* TV: quasi tutto schermo; dial/spec: grandezza chassis radio */
+  /* Zoom: su Schermo intero tutto (dial/spec/TV) va a viewport; altrimenti TV/dial full, spec = chassis */
+  const fitFs = radio.classList.contains('is-fit-fullscreen');
   let boxW = host.width;
   let boxH = host.height;
   let boxLeft = host.left;
   let boxTop = host.top;
   let pad = 10;
-  const chin = Math.round(clamp(window.innerHeight * 0.09, 60, 72));
-  if (next === 'tv' || next === 'dial') {
-    /* Stesso riquadro + mentoniera identica (TV e dial) */
+  const mm = Math.max(3, Math.round(96 / 25.4)); /* ≈1mm */
+  /* Mentoniera TV FS più bassa (allineata a placeTvZoomDock unify) */
+  const chin = (fitFs && next === 'tv')
+    ? Math.round(clamp(window.innerHeight * 0.072, 52, 60))
+    : Math.round(clamp(window.innerHeight * 0.09, 60, 72));
+  if (fitFs || next === 'tv' || next === 'dial') {
     boxW = window.innerWidth;
     boxH = window.innerHeight - chin;
     boxLeft = 0;
     boxTop = 0;
-    pad = Math.max(8, Math.round(Math.min(boxW, boxH) * 0.018));
+    pad = fitFs
+      ? Math.max(4, Math.round(Math.min(boxW, boxH) * 0.01))
+      : Math.max(8, Math.round(Math.min(boxW, boxH) * 0.018));
+    /* Solo VIDEO zoom + Schermo intero: 1mm sopra/lati (continua nella mentoniera sotto) */
+    if (fitFs && next === 'tv') {
+      boxLeft = mm;
+      boxTop = mm; /* bordatura sopra */
+      boxW = window.innerWidth - mm * 2;
+      /* mentoniera più bassa → chin minore → più video sotto */
+      boxH = Math.max(1, window.innerHeight - chin - mm);
+      pad = 0;
+    }
   }
-  const scale = Math.min(
-    (boxW - pad * 2) / w,
-    (boxH - pad * 2) / h
-  );
+  /* TV FS: cover quasi pieno (solo ~1mm di telaio fuori) */
+  let scale = (fitFs && next === 'tv')
+    ? Math.max(boxW / w, boxH / h) * 0.99
+    : Math.min((boxW - pad * 2) / w, (boxH - pad * 2) / h);
   const finalW = w * scale;
   const finalH = h * scale;
   const dx = boxLeft + (boxW - finalW) / 2 - left;
-  const dy = boxTop + (boxH - finalH) / 2 - top;
+  /* TV FS: bias verso l’alto così il basso del video non finisce sotto la mentoniera */
+  const dy = (fitFs && next === 'tv' && finalH > boxH)
+    ? boxTop - top + Math.min(0, (boxH - finalH) * 0.22)
+    : boxTop + (boxH - finalH) / 2 - top;
   panelZoomMotion = { dx, dy, scale };
   const finalBox = {
     left: left + dx,
@@ -5673,6 +6512,7 @@ function setPanelZoom(mode) {
   if (next === 'tv') resumeZoomVideo();
 
   radio.classList.add('is-panel-zooming');
+  radio.classList.toggle('is-tv-zoom', next === 'tv');
   panelZoomGesture = null;
   panelZoomSuppressClick = false;
 
@@ -5706,6 +6546,7 @@ function zoomDialDragBy(dxPx, panelWidth) {
   if (!state.power) setPower(true);
   if (state.stopped) toggleStop();
   cancelAfc();
+  remoteTuneLeave = null;
   const w = Math.max(120, panelWidth || 300);
   const spec = bandSpec();
   const span = spec.max - spec.min;
@@ -5847,9 +6688,9 @@ window.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('resize', () => {
-  if (panelZoomMode && tvZoomDock && !tvZoomDock.hidden) {
-    placeTvZoomDock();
-  }
+  if (!panelZoomMode) return;
+  if (tvZoomDock && !tvZoomDock.hidden) placeTvZoomDock();
+  if (zoomHud && !zoomHud.hidden) placeZoomHud();
 });
 
 tuneKnob.addEventListener('wheel', (event) => {
@@ -5858,6 +6699,7 @@ tuneKnob.addEventListener('wheel', (event) => {
   const dir = Math.sign(event.deltaY || event.deltaX);
   if (!dir) return;
   playRatchetClick();
+  remoteTuneLeave = null;
   if (state.auto) stepStation(dir);
   else {
     const step = state.band === 'fm' ? 0.1 : 9;
@@ -5956,11 +6798,26 @@ document.getElementById('btnStandbySettings')?.addEventListener('click', (event)
   paintSettingsFocus();
   openStandbyEditor(true);
 });
-document.getElementById('btnBgSettings')?.addEventListener('click', (event) => {
+document.getElementById('btnClockSettings')?.addEventListener('click', (event) => {
   event.stopPropagation();
   playKeyClick();
   settingsTrail = false;
   settingsFocus = 4;
+  paintSettingsFocus();
+  openClockPane(true);
+});
+document.getElementById('clockThemeList')?.addEventListener('click', (event) => {
+  const btn = event.target.closest('.clock-theme-item');
+  if (!btn) return;
+  event.stopPropagation();
+  playKeyClick();
+  selectClockTheme(btn.dataset.id || 'casio');
+});
+document.getElementById('btnBgSettings')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  settingsTrail = false;
+  settingsFocus = 5;
   paintSettingsFocus();
   openBgPane(true);
 });
@@ -5971,15 +6828,12 @@ document.getElementById('bgThemeList')?.addEventListener('click', (event) => {
   playKeyClick();
   selectBgTheme(btn.dataset.id || '');
 });
-document.getElementById('btnIdleDim')?.addEventListener('click', (event) => {
+document.getElementById('monitorStandbyEditor')?.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-idle-field]');
+  if (!btn) return;
   event.stopPropagation();
   playKeyClick();
-  openStandbyMinsPick('dim');
-});
-document.getElementById('btnIdleStandby')?.addEventListener('click', (event) => {
-  event.stopPropagation();
-  playKeyClick();
-  openStandbyMinsPick('standby');
+  openStandbyMinsPick(btn.getAttribute('data-idle-field') || 'onDim');
 });
 document.getElementById('monitorStandbyEditor')?.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -5989,7 +6843,7 @@ document.getElementById('standbyMinsList')?.addEventListener('click', (event) =>
   if (!btn) return;
   event.stopPropagation();
   playKeyClick();
-  selectStandbyMin(Number(btn.dataset.min));
+  selectStandbyMin(Number(btn.dataset.sec ?? btn.dataset.min));
 });
 document.getElementById('btnDeviceNameCancel')?.addEventListener('click', (event) => {
   event.stopPropagation();
@@ -6260,6 +7114,7 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
     engine.start();
     const dir = event.key === 'ArrowRight' ? 1 : -1;
+    remoteTuneLeave = null;
     if (state.auto) stepStation(dir);
     else {
       setFreq(currentFreq() + dir * (state.band === 'fm' ? 0.1 : 9), { drag: true });
@@ -6469,8 +7324,6 @@ const REMOTE_ID_KEY = 'mytuner-remote-device-id';
 const REMOTE_NAME_KEY = 'mytuner-remote-device-name';
 let remoteWs = null;
 let remoteWsTimer = 0;
-let remoteStateTimer = 0;
-
 function guessDeviceKind() {
   const ua = navigator.userAgent || '';
   if (/iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'tablet';
@@ -6584,9 +7437,160 @@ function findStationByKey(key) {
   return allCatalogStations().find((s) => stationKeyOf(s) === key) || null;
 }
 
+function tvStationsForRemote() {
+  return tvDial().map((s) => ({ ...s, band: 'fm' }));
+}
+
+function findTvStationByKey(key) {
+  if (!key) return null;
+  return tvStationsForRemote().find((s) => stationKeyOf(s) === key) || null;
+}
+
+function stationsPayloadForRemote(list) {
+  return (list || []).slice(0, 80).map((s) => ({
+    key: stationKeyOf(s),
+    name: String(s.name || ''),
+    band: s.band === 'am' ? 'am' : 'fm',
+    freq: Number(s.freq) || 0,
+    logo: logoUrlForStation(s) || ''
+  }));
+}
+
+/* Elenco completo al telecomando solo su richiesta (lo salva in locale) */
+function sendStationsToRemote() {
+  if (!remoteWs || remoteWs.readyState !== WebSocket.OPEN) return;
+  try {
+    remoteWs.send(JSON.stringify({
+      type: 'stations',
+      radio: stationsPayloadForRemote(allCatalogStations()),
+      tv: stationsPayloadForRemote(tvStationsForRemote())
+    }));
+  } catch (e) { /* ignore */ }
+}
+
+/* Impostazioni per il telecomando (landscape destra): solo su richiesta, mai nello stato */
+function settingsPayloadForRemote() {
+  const alarmStation = alarmSettings?.stationKey
+    ? allCatalogStations().find((s) => stationKeyOf(s) === alarmSettings.stationKey)
+    : null;
+  return {
+    version: APP_VERSION,
+    name: guessDeviceName(),
+    alarm: {
+      enabled: Boolean(alarmSettings?.enabled),
+      time: String(alarmSettings?.time || '07:00'),
+      mode: alarmSettings?.mode === 'music' ? 'music' : 'sound',
+      stationKey: String(alarmSettings?.stationKey || ''),
+      stationName: alarmStation?.name || ''
+    },
+    idle: {
+      on: { ...idleSettings.on },
+      off: { ...idleSettings.off }
+    },
+    idleChoices: IDLE_SEC_CHOICES.slice(),
+    clockId: clockThemeId,
+    clockThemes: CLOCK_THEMES.map((t) => ({ id: t.id, name: t.name, preview: t.preview || t.id })),
+    bgId: bgThemeId,
+    bgThemes: BG_THEMES.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || '' }))
+  };
+}
+
+function sendSettingsToRemote() {
+  if (!remoteWs || remoteWs.readyState !== WebSocket.OPEN) return;
+  try {
+    remoteWs.send(JSON.stringify({ type: 'settings', settings: settingsPayloadForRemote() }));
+  } catch (e) { /* ignore */ }
+}
+
+function remoteSetAlarm(v) {
+  const time = /^\d{2}:\d{2}$/.test(String(v?.time || '')) ? String(v.time) : (alarmSettings?.time || '07:00');
+  const [hh, mm] = time.split(':').map(Number);
+  if (!(hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59)) return;
+  const next = {
+    ...alarmSettings,
+    enabled: v?.enabled == null ? Boolean(alarmSettings?.enabled) : Boolean(v.enabled),
+    time,
+    mode: v?.mode === 'music' ? 'music' : (v?.mode === 'sound' ? 'sound' : (alarmSettings?.mode || 'sound')),
+    stationKey: v?.stationKey == null ? String(alarmSettings?.stationKey || '') : String(v.stationKey)
+  };
+  alarmSettings = next;
+  alarmDraft = { ...next };
+  try { localStorage.setItem(ALARM_KEY, JSON.stringify(alarmSettings)); } catch (e) { /* ignore */ }
+  paintDialAlarmIco();
+  syncNativeAlarmClock();
+  flash(alarmSettings.enabled ? `SVEGLIA ${alarmSettings.time}` : 'SVEGLIA OFF', true);
+}
+
+function remoteSetIdle(v) {
+  const field = String(v?.field || '');
+  const sec = Number(v?.sec);
+  if (!IDLE_SEC_CHOICES.includes(sec)) return;
+  const next = { on: { ...idleSettings.on }, off: { ...idleSettings.off } };
+  if (field === 'onDim') next.on.dimSec = sec;
+  else if (field === 'onStandby') next.on.standbySec = sec;
+  else if (field === 'offDim') next.off.dimSec = sec;
+  else if (field === 'offStandby') next.off.standbySec = sec;
+  else return;
+  commitIdleSettings(next, { flash: true });
+}
+
+function remoteApplySetting(value) {
+  const section = String(value?.section || '');
+  if (section === 'user') {
+    const name = String(value?.name || '').trim();
+    if (name) setDeviceName(name);
+  } else if (section === 'alarm') {
+    remoteSetAlarm(value);
+  } else if (section === 'idle') {
+    remoteSetIdle(value);
+  } else if (section === 'clock') {
+    selectClockTheme(String(value?.id || ''));
+  } else if (section === 'bg') {
+    selectBgTheme(String(value?.id ?? ''));
+  }
+  sendSettingsToRemote();
+}
+
+/* Telecomando landscape: tap su stazione radio o canale TV */
+function remotePickStation(value) {
+  let mode = 'radio';
+  let key = '';
+  if (value && typeof value === 'object') {
+    mode = value.mode === 'tv' ? 'tv' : 'radio';
+    key = String(value.key || '');
+  } else {
+    key = String(value || '');
+  }
+  if (!key) return;
+  if (mode === 'tv') {
+    if (!isTvMode()) toggleViewMode();
+    const st = findTvStationByKey(key);
+    if (!st) {
+      flash('NO TV', true);
+      return;
+    }
+    if (!state.power) setPower(true);
+    else if (state.stopped) toggleStop();
+    window.setTimeout(() => {
+      cancelAfc();
+      setFreq(st.freq, { jump: true });
+    }, 120);
+    return;
+  }
+  if (isTvMode()) toggleViewMode();
+  const st = findStationByKey(key);
+  if (!st) {
+    flash('NO STATION', true);
+    return;
+  }
+  tuneToStation(st);
+}
+
 function paintDeviceNameLabel() {
   const input = document.getElementById('deviceNameInput');
   if (input) input.value = guessDeviceName();
+  const verEl = document.getElementById('deviceVersionLab');
+  if (verEl) verEl.textContent = APP_VERSION;
 }
 
 function settingsIconButtons() {
@@ -6600,6 +7604,7 @@ const SETTINGS_PAGES = {
   stations: 'monitorStationsPane',
   standby: 'monitorStandbyEditor',
   standbyMins: 'monitorStandbyMinsPane',
+  clock: 'monitorClockPane',
   bg: 'monitorBgPane'
 };
 let settingsPage = 'home';
@@ -6697,6 +7702,13 @@ const BG_THEME_KEY = 'mytuner-bg-theme-v1';
 const BG_THEMES = [
   { id: '', name: 'Nessuno', thumb: '' },
   {
+    id: 'schermo-intero',
+    name: 'Schermo intero',
+    thumb: '',
+    thumbClass: 'is-fullscreen',
+    fit: 'fullscreen'
+  },
+  {
     id: 'scaffale-legno-noce',
     name: 'Scaffale in legno noce',
     thumb: '/img/bg/scaffale-legno-noce.png',
@@ -6718,6 +7730,7 @@ const BG_THEMES = [
 ];
 let bgThemeId = '';
 let bgThemeFocus = 0;
+let fitLayoutTimer = 0;
 
 function readBgThemeId() {
   try {
@@ -6734,18 +7747,51 @@ function persistBgThemeId() {
   } catch (e) { /* ignore */ }
 }
 
+function viewportFitBox() {
+  const vv = window.visualViewport;
+  const w = Math.max(1, Math.round(vv?.width || window.innerWidth || document.documentElement.clientWidth || 1));
+  const h = Math.max(1, Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight || 1));
+  return { w, h };
+}
+
+function layoutFullscreenFit() {
+  if (!radio) return;
+  if (!radio.classList.contains('is-fit-fullscreen')) {
+    radio.style.removeProperty('--fit-w');
+    radio.style.removeProperty('--fit-h');
+    radio.style.removeProperty('--fit-pad');
+    return;
+  }
+  /* Riempie il viewport: solo schermi + tasti, senza letterbox della cassa */
+  const { w, h } = viewportFitBox();
+  const margin = 0;
+  const aw = Math.max(1, w - margin * 2);
+  const ah = Math.max(1, h - margin * 2);
+  radio.style.setProperty('--fit-pad', `${margin}px`);
+  radio.style.setProperty('--fit-w', `${Math.floor(aw)}px`);
+  radio.style.setProperty('--fit-h', `${Math.floor(ah)}px`);
+}
+
+function scheduleFullscreenFit() {
+  window.clearTimeout(fitLayoutTimer);
+  fitLayoutTimer = window.setTimeout(layoutFullscreenFit, 40);
+}
+
 function applySceneBg() {
   const theme = BG_THEMES.find((t) => t.id === bgThemeId) || BG_THEMES[0];
   const has = Boolean(theme?.image);
+  const fitFs = theme?.fit === 'fullscreen';
   if (!radio) return;
   radio.classList.toggle('has-scene-bg', has);
+  radio.classList.toggle('is-fit-fullscreen', fitFs);
   /* Skin radio (colore/materiale chassis) opzionale per tema */
   [...radio.classList].forEach((cls) => {
     if (cls.startsWith('skin-')) radio.classList.remove(cls);
   });
   if (theme?.skin) radio.classList.add(`skin-${theme.skin}`);
-  if (has) radio.style.setProperty('--scene-bg', `url("${theme.image}")`);
+  if (has) radio.style.setProperty('--scene-bg', `url("${theme.image}?v=${APP_VERSION}")`);
   else radio.style.removeProperty('--scene-bg');
+  layoutFullscreenFit();
 }
 
 function paintBgThemeList() {
@@ -6763,9 +7809,10 @@ function paintBgThemeList() {
       bgThemeFocus = idx;
     }
     const thumb = document.createElement('span');
-    thumb.className = 'bg-theme-thumb' + (theme.thumb ? '' : ' is-none');
+    const thumbExtra = theme.thumbClass ? ` ${theme.thumbClass}` : '';
+    thumb.className = 'bg-theme-thumb' + (theme.thumb || theme.thumbClass ? '' : ' is-none') + thumbExtra;
     thumb.setAttribute('aria-hidden', 'true');
-    if (theme.thumb) thumb.style.backgroundImage = `url("${theme.thumb}")`;
+    if (theme.thumb) thumb.style.backgroundImage = `url("${theme.thumb}?v=${APP_VERSION}")`;
     const name = document.createElement('span');
     name.className = 'bg-theme-name';
     name.textContent = theme.name;
@@ -6808,6 +7855,12 @@ function openBgPane(on, opts = {}) {
 
 bgThemeId = readBgThemeId();
 applySceneBg();
+window.addEventListener('resize', scheduleFullscreenFit, { passive: true });
+window.addEventListener('orientationchange', scheduleFullscreenFit, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', scheduleFullscreenFit, { passive: true });
+  window.visualViewport.addEventListener('scroll', scheduleFullscreenFit, { passive: true });
+}
 
 function hideSettingsSubpanes() {
   showSettingsPage('home', { instant: true });
@@ -7386,16 +8439,24 @@ function saveAlarmFromEditor() {
 
 function paintDialAlarmIco() {
   const ico = document.getElementById('dialAlarmIco');
-  if (!ico) return;
   const armed = Boolean(alarmSettings?.enabled);
-  ico.hidden = false;
-  ico.classList.toggle('is-armed', armed);
-  if (armed) {
-    ico.title = `Sveglia ${alarmSettings.time || ''}`.trim();
-    ico.setAttribute('aria-label', `Sveglia attiva ${alarmSettings.time || ''}`.trim());
-  } else {
-    ico.title = 'Sveglia spenta';
-    ico.setAttribute('aria-label', 'Sveglia spenta');
+  if (ico) {
+    ico.hidden = false;
+    ico.classList.toggle('is-armed', armed);
+    if (armed) {
+      ico.title = `Sveglia ${alarmSettings.time || ''}`.trim();
+      ico.setAttribute('aria-label', `Sveglia attiva ${alarmSettings.time || ''}`.trim());
+    } else {
+      ico.title = 'Sveglia spenta';
+      ico.setAttribute('aria-label', 'Sveglia spenta');
+    }
+  }
+  const alarmTag = document.getElementById('digitalAlarmTag');
+  if (alarmTag) {
+    alarmTag.classList.toggle('is-armed', armed);
+    alarmTag.setAttribute('aria-label', armed
+      ? `Sveglia attiva ${alarmSettings.time || ''}`.trim()
+      : 'Sveglia spenta');
   }
 }
 
@@ -7523,24 +8584,50 @@ function openStationsPane(on, mode = 'browse', opts = {}) {
   scheduleRemoteState();
 }
 
-/* Idle: tempi personalizzabili (default 2 min scuro + 5 min standby) */
-const IDLE_SETTINGS_KEY = 'mytuner-idle-v1';
-const IDLE_MIN_CHOICES = [1, 2, 3, 5, 10, 15, 20, 30];
+/* Idle: tempi on/off separati (anche 30s). Standby = spegne schermo, non lo riaccende. */
+const IDLE_SETTINGS_KEY = 'mytuner-idle-v2';
+const IDLE_SEC_CHOICES = [30, 60, 120, 180, 300, 600, 900, 1200, 1800];
+const IDLE_DEFAULTS = {
+  on: { dimSec: 120, standbySec: 300 },
+  off: { dimSec: 60, standbySec: 300 }
+};
+
+function clampIdleSec(sec, fallback) {
+  const n = Number(sec);
+  return IDLE_SEC_CHOICES.includes(n) ? n : fallback;
+}
+
+function normalizeIdlePair(raw, fallback) {
+  return {
+    dimSec: clampIdleSec(raw?.dimSec ?? (Number(raw?.dimMin) > 0 ? Number(raw.dimMin) * 60 : NaN), fallback.dimSec),
+    standbySec: clampIdleSec(raw?.standbySec ?? (Number(raw?.standbyMin) > 0 ? Number(raw.standbyMin) * 60 : NaN), fallback.standbySec)
+  };
+}
 
 function readIdleSettings() {
-  const base = { dimMin: 2, standbyMin: 5 };
   try {
-    const raw = JSON.parse(localStorage.getItem(IDLE_SETTINGS_KEY) || 'null');
-    if (!raw || typeof raw !== 'object') return base;
-    const dimMin = Number(raw.dimMin);
-    const standbyMin = Number(raw.standbyMin);
-    return {
-      dimMin: IDLE_MIN_CHOICES.includes(dimMin) ? dimMin : base.dimMin,
-      standbyMin: IDLE_MIN_CHOICES.includes(standbyMin) ? standbyMin : base.standbyMin
-    };
-  } catch (e) {
-    return base;
-  }
+    const v2 = JSON.parse(localStorage.getItem(IDLE_SETTINGS_KEY) || 'null');
+    if (v2 && typeof v2 === 'object') {
+      return {
+        on: normalizeIdlePair(v2.on || v2, IDLE_DEFAULTS.on),
+        off: normalizeIdlePair(v2.off || {}, IDLE_DEFAULTS.off)
+      };
+    }
+    const v1 = JSON.parse(localStorage.getItem('mytuner-idle-v1') || 'null');
+    if (v1 && typeof v1 === 'object') {
+      return {
+        on: normalizeIdlePair({
+          dimSec: Number(v1.dimMin) * 60,
+          standbySec: Number(v1.standbyMin) * 60
+        }, IDLE_DEFAULTS.on),
+        off: { ...IDLE_DEFAULTS.off }
+      };
+    }
+  } catch (e) { /* ignore */ }
+  return {
+    on: { ...IDLE_DEFAULTS.on },
+    off: { ...IDLE_DEFAULTS.off }
+  };
 }
 
 function persistIdleSettings() {
@@ -7550,47 +8637,69 @@ function persistIdleSettings() {
 }
 
 let idleSettings = readIdleSettings();
-let standbyPickField = null; /* null | 'dim' | 'standby' */
+/* null | 'onDim' | 'onStandby' | 'offDim' | 'offStandby' */
+let standbyPickField = null;
 let standbyMinsFocus = 0;
 
-function idleMinLabel(min) {
-  const n = Number(min);
-  return n === 1 ? '1 minuto' : `${n} minuti`;
+function idleSecLabel(sec) {
+  const n = Number(sec);
+  if (n < 60) return `${n} secondi`;
+  const m = n / 60;
+  return m === 1 ? '1 minuto' : `${m} minuti`;
+}
+
+function activeIdleProfile() {
+  return state.power ? idleSettings.on : idleSettings.off;
 }
 
 function syncStandbyEditor() {
-  const dimBtn = document.getElementById('btnIdleDim');
-  const stbyBtn = document.getElementById('btnIdleStandby');
-  if (dimBtn) dimBtn.textContent = idleMinLabel(idleSettings.dimMin);
-  if (stbyBtn) stbyBtn.textContent = idleMinLabel(idleSettings.standbyMin);
+  const map = {
+    btnIdleDim: idleSettings.on.dimSec,
+    btnIdleStandby: idleSettings.on.standbySec,
+    btnIdleDimOff: idleSettings.off.dimSec,
+    btnIdleStandbyOff: idleSettings.off.standbySec
+  };
+  Object.entries(map).forEach(([id, sec]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = idleSecLabel(sec);
+  });
+  document.querySelectorAll('.standby-mode-block').forEach((el) => {
+    const mode = el.getAttribute('data-idle-mode');
+    el.classList.toggle('is-active', state.power ? mode === 'on' : mode === 'off');
+  });
   paintIdleCountdowns();
 }
 
 function commitIdleSettings(next, opts = {}) {
-  const dimMin = IDLE_MIN_CHOICES.includes(next?.dimMin) ? next.dimMin : idleSettings.dimMin;
-  const standbyMin = IDLE_MIN_CHOICES.includes(next?.standbyMin) ? next.standbyMin : idleSettings.standbyMin;
-  idleSettings = { dimMin, standbyMin };
+  idleSettings = {
+    on: normalizeIdlePair(next?.on || idleSettings.on, IDLE_DEFAULTS.on),
+    off: normalizeIdlePair(next?.off || idleSettings.off, IDLE_DEFAULTS.off)
+  };
   persistIdleSettings();
   syncStandbyEditor();
   bumpIdleActivity();
   if (opts.flash) {
-    flash(`SCURO ${idleSettings.dimMin}m · STBY ${idleSettings.standbyMin}m`, true);
+    const p = activeIdleProfile();
+    flash(`SCURO ${idleSecLabel(p.dimSec)} · STBY ${idleSecLabel(p.standbySec)}`, true);
   }
 }
 
 function paintStandbyMinsList() {
   const list = document.getElementById('standbyMinsList');
   if (!list) return;
-  const current = standbyPickField === 'standby' ? idleSettings.standbyMin : idleSettings.dimMin;
+  let current = idleSettings.on.dimSec;
+  if (standbyPickField === 'onStandby') current = idleSettings.on.standbySec;
+  else if (standbyPickField === 'offDim') current = idleSettings.off.dimSec;
+  else if (standbyPickField === 'offStandby') current = idleSettings.off.standbySec;
   list.innerHTML = '';
-  IDLE_MIN_CHOICES.forEach((min, idx) => {
+  IDLE_SEC_CHOICES.forEach((sec, idx) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'standby-min-item';
-    btn.dataset.min = String(min);
+    btn.dataset.sec = String(sec);
     btn.setAttribute('role', 'option');
-    btn.textContent = idleMinLabel(min);
-    if (min === current) {
+    btn.textContent = idleSecLabel(sec);
+    if (sec === current) {
       btn.classList.add('is-active');
       standbyMinsFocus = idx;
     }
@@ -7623,20 +8732,28 @@ function openStandbyEditor(on, opts = {}) {
 }
 
 function openStandbyMinsPick(field, opts = {}) {
-  standbyPickField = field === 'standby' ? 'standby' : 'dim';
+  const ok = ['onDim', 'onStandby', 'offDim', 'offStandby'];
+  /* Retrocompat: 'dim' / 'standby' = radio accesa */
+  if (field === 'dim') field = 'onDim';
+  if (field === 'standby') field = 'onStandby';
+  standbyPickField = ok.includes(field) ? field : 'onDim';
   paintStandbyMinsList();
   showSettingsPage('standbyMins', { dir: opts.dir || 'forward', instant: opts.instant });
   scheduleRemoteState();
 }
 
-function selectStandbyMin(min) {
-  const value = Number(min);
-  if (!IDLE_MIN_CHOICES.includes(value)) return;
-  if (standbyPickField === 'standby') {
-    commitIdleSettings({ ...idleSettings, standbyMin: value });
-  } else {
-    commitIdleSettings({ ...idleSettings, dimMin: value });
-  }
+function selectStandbyMin(sec) {
+  const value = Number(sec);
+  if (!IDLE_SEC_CHOICES.includes(value)) return;
+  const next = {
+    on: { ...idleSettings.on },
+    off: { ...idleSettings.off }
+  };
+  if (standbyPickField === 'onStandby') next.on.standbySec = value;
+  else if (standbyPickField === 'offDim') next.off.dimSec = value;
+  else if (standbyPickField === 'offStandby') next.off.standbySec = value;
+  else next.on.dimSec = value;
+  commitIdleSettings(next, { flash: true });
   standbyPickField = null;
   openStandbyEditor(true, { dir: 'back' });
 }
@@ -7897,6 +9014,18 @@ function settingsNav(dir) {
     scheduleRemoteState();
     return;
   }
+  if (isClockPaneOpen()) {
+    const items = [...document.querySelectorAll('#clockThemeList .clock-theme-item')];
+    const n = items.length;
+    if (!n) return;
+    const d = String(dir || '').toLowerCase();
+    if (d === 'up' || d === 'left') clockThemeFocus = (clockThemeFocus - 1 + n) % n;
+    else if (d === 'down' || d === 'right') clockThemeFocus = (clockThemeFocus + 1) % n;
+    else return;
+    paintClockThemeFocus();
+    scheduleRemoteState();
+    return;
+  }
   if (isBgPaneOpen()) {
     const items = [...document.querySelectorAll('#bgThemeList .bg-theme-item')];
     const n = items.length;
@@ -7941,30 +9070,26 @@ function settingsNeighbor(dir) {
     if (settingsPage === 'user') return 'alarm';
     if (settingsPage === 'alarm') return 'stations';
     if (settingsPage === 'stations' && stationsPickMode !== 'alarm') return 'standby';
-    if (settingsPage === 'standby') return 'bg';
+    if (settingsPage === 'standby') return 'clock';
+    if (settingsPage === 'clock') return 'bg';
     return null;
   }
-  /* Home: swipe indietro → chiudi impostazioni e torna allo spettro */
+  /* Home: swipe sx→dx chiude impostazioni */
   if (settingsPage === 'home') return '__close__';
-  /* Sempre: da qualunque sottopagina si può tornare indietro con swipe */
+  /* Sottopagine speciali */
   if (settingsPage === 'standbyMins') return 'standby';
-  if (settingsPage === 'bg') return 'standby';
   if (settingsPage === 'stations' && stationsPickMode === 'alarm') return 'alarm';
+  /* Catena swipe: sempre un passo indietro */
   if (settingsTrail) {
+    if (settingsPage === 'bg') return 'clock';
+    if (settingsPage === 'clock') return 'standby';
     if (settingsPage === 'standby') return 'stations';
     if (settingsPage === 'stations') return 'alarm';
     if (settingsPage === 'alarm') return 'user';
     if (settingsPage === 'user') return 'home';
-    return null;
   }
-  if (
-    settingsPage === 'user'
-    || settingsPage === 'alarm'
-    || settingsPage === 'stations'
-    || settingsPage === 'standby'
-    || settingsPage === 'standbyMins'
-    || settingsPage === 'bg'
-  ) return 'home';
+  /* Apertura diretta da icona (CLOCK/SFONDI/…): gesture indietro → menu */
+  if (settingsPage && settingsPage !== 'home') return 'home';
   return null;
 }
 
@@ -8000,6 +9125,10 @@ function prepareSettingsPeek(id) {
     paintStandbyMinsList();
     return;
   }
+  if (id === 'clock') {
+    paintClockThemeList();
+    return;
+  }
   if (id === 'bg') {
     paintBgThemeList();
   }
@@ -8032,6 +9161,10 @@ function settingsForward(opts = {}) {
     return;
   }
   if (settingsPage === 'standby') {
+    openClockPane(true, { dir: 'forward', instant });
+    return;
+  }
+  if (settingsPage === 'clock') {
     openBgPane(true, { dir: 'forward', instant });
   }
 }
@@ -8056,6 +9189,10 @@ function settingsBack(opts = {}) {
 
   if (settingsTrail) {
     if (settingsPage === 'bg') {
+      openClockPane(true, { dir: 'back', instant });
+      return;
+    }
+    if (settingsPage === 'clock') {
       openStandbyEditor(true, { dir: 'back', instant });
       return;
     }
@@ -8100,6 +9237,10 @@ function settingsBack(opts = {}) {
     openStandbyEditor(false, { dir: 'back', instant });
     return;
   }
+  if (settingsPage === 'clock') {
+    openClockPane(false, { dir: 'back', instant });
+    return;
+  }
   if (settingsPage === 'bg') {
     openBgPane(false, { dir: 'back', instant });
     return;
@@ -8126,8 +9267,14 @@ function settingsEnter() {
   }
   if (isStandbyMinsOpen()) {
     const items = [...document.querySelectorAll('#standbyMinsList .standby-min-item')];
-    const min = Number(items[standbyMinsFocus]?.dataset?.min);
-    if (Number.isFinite(min)) selectStandbyMin(min);
+    const sec = Number(items[standbyMinsFocus]?.dataset?.sec ?? items[standbyMinsFocus]?.dataset?.min);
+    if (Number.isFinite(sec)) selectStandbyMin(sec);
+    return;
+  }
+  if (isClockPaneOpen()) {
+    const items = [...document.querySelectorAll('#clockThemeList .clock-theme-item')];
+    const id = items[clockThemeFocus]?.dataset?.id;
+    if (id) selectClockTheme(id);
     return;
   }
   if (isBgPaneOpen()) {
@@ -8154,6 +9301,7 @@ function settingsEnter() {
   else if (btn.dataset.set === 'alarm') openAlarmEditor(true);
   else if (btn.dataset.set === 'stations') openStationsPane(true, 'browse');
   else if (btn.dataset.set === 'standby') openStandbyEditor(true);
+  else if (btn.dataset.set === 'clock') openClockPane(true);
   else if (btn.dataset.set === 'bg') openBgPane(true);
 }
 
@@ -8317,11 +9465,64 @@ function settingsEnter() {
     }, 290);
   }
 
+  function pickAxis(dx, dy) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return null;
+    /* Preferisci orizzontale: su CLOCK/SFONDI le liste scrollano in verticale */
+    if (Math.abs(dx) >= 10 && Math.abs(dx) >= Math.abs(dy) * 0.75) return 'x';
+    if (Math.abs(dy) > Math.abs(dx) * 1.15) return 'y';
+    return Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+  }
+
+  function onSwipeMove(clientX, clientY, pointerId) {
+    if (!tracking) return false;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    const now = performance.now();
+    const dt = Math.max(1, now - lastT);
+    const vx = (clientX - lastX) / dt;
+    lastX = clientX;
+    lastT = now;
+
+    if (!axis) {
+      axis = pickAxis(dx, dy);
+      if (!axis) return false;
+      if (axis !== 'x') return false;
+    }
+    if (axis !== 'x') return false;
+
+    const wantDir = dx < 0 ? 'forward' : 'back';
+    if (!dragging) {
+      if (Math.abs(dx) < 10) return true;
+      if (!beginPeek(wantDir)) {
+        tracking = false;
+        return false;
+      }
+      dragging = true;
+      settingsSwipeLock = true;
+      if (pointerId != null) {
+        try { panel.setPointerCapture(pointerId); } catch (e) { /* ignore */ }
+      }
+    } else if (dir && wantDir !== dir && Math.abs(dx) < 12) {
+      stopDragVisual();
+      if (!beginPeek(wantDir)) {
+        tracking = false;
+        settingsSwipeLock = false;
+        return false;
+      }
+      dragging = true;
+      settingsSwipeLock = true;
+    }
+    applyDrag(dx);
+    panel.dataset.vx = String(vx);
+    return true;
+  }
+
   panel.addEventListener('pointerdown', (event) => {
+    /* Touch: gestito da touchstart/touchmove (passive:false) per il ritorno gesture */
+    if (event.pointerType === 'touch') return;
     if (!isMonitorSettingsOpen()) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (panel.classList.contains('is-finger-snap')) return;
-    /* Le rotelle orario gestiscono il gesto da sole */
     if (event.target.closest?.('.alarm-wheel, #alarmWheels')) return;
     tracking = true;
     axis = null;
@@ -8334,45 +9535,67 @@ function settingsEnter() {
   }, { passive: true });
 
   panel.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch') return;
+    onSwipeMove(event.clientX, event.clientY, event.pointerId);
+  }, { passive: true });
+
+  /* touchmove non-passive: blocca lo scroll lista quando il gesto è orizzontale (ritorno) */
+  panel.addEventListener('touchstart', (event) => {
+    if (!isMonitorSettingsOpen()) return;
+    if (panel.classList.contains('is-finger-snap')) return;
+    if (event.target.closest?.('.alarm-wheel, #alarmWheels')) return;
+    const t = event.touches?.[0];
+    if (!t) return;
+    tracking = true;
+    axis = null;
+    dragging = false;
+    settingsSwipeLock = false;
+    startX = t.clientX;
+    startY = t.clientY;
+    lastX = t.clientX;
+    lastT = performance.now();
+  }, { passive: true });
+
+  panel.addEventListener('touchmove', (event) => {
     if (!tracking) return;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
-    const now = performance.now();
-    const dt = Math.max(1, now - lastT);
-    const vx = (event.clientX - lastX) / dt;
-    lastX = event.clientX;
-    lastT = now;
-
-    if (!axis) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      axis = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'x' : 'y';
-      if (axis !== 'x') return;
+    const t = event.touches?.[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (!axis) axis = pickAxis(dx, dy);
+    if (axis === 'x' || (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 0.85)) {
+      event.preventDefault();
+      axis = 'x';
+      onSwipeMove(t.clientX, t.clientY, null);
     }
-    if (axis !== 'x') return;
+  }, { passive: false });
 
-    const wantDir = dx < 0 ? 'forward' : 'back';
-    if (!dragging) {
-      if (Math.abs(dx) < 10) return;
-      if (!beginPeek(wantDir)) {
-        tracking = false;
-        return;
-      }
-      dragging = true;
-      settingsSwipeLock = true;
-      try { panel.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
-    } else if (dir && wantDir !== dir && Math.abs(dx) < 12) {
-      /* micro-inversione vicino allo zero: reset peek */
+  panel.addEventListener('touchend', (event) => {
+    if (!tracking) return;
+    const t = event.changedTouches?.[0];
+    const dx = t ? t.clientX - startX : 0;
+    const velocity = Number(panel.dataset.vx || 0);
+    delete panel.dataset.vx;
+    const wasDragging = dragging;
+    tracking = false;
+    if (!wasDragging) {
+      settingsSwipeLock = false;
+      axis = null;
+      return;
+    }
+    finishDrag(true, dx, velocity);
+    axis = null;
+  }, { passive: true });
+
+  panel.addEventListener('touchcancel', () => {
+    if (!tracking && !dragging) return;
+    tracking = false;
+    if (dragging) finishDrag(false, 0, 0);
+    else {
       stopDragVisual();
-      if (!beginPeek(wantDir)) {
-        tracking = false;
-        settingsSwipeLock = false;
-        return;
-      }
-      dragging = true;
-      settingsSwipeLock = true;
+      settingsSwipeLock = false;
     }
-    applyDrag(dx);
-    panel.dataset.vx = String(vx);
+    axis = null;
   }, { passive: true });
 
   const endSwipe = (event) => {
@@ -8434,6 +9657,15 @@ function remoteSnapshot() {
     castPickerOpen: Boolean(castUi.pickerOpen || isCastPickerOpen()),
     castFocus: castUi.focus,
     castCount: castUi.routes.length,
+    /* Lista casse/gruppi per popup telecomando (click diretto) */
+    castRoutes: (castUi.routes || []).slice(0, 40).map((r) => ({
+      id: String(r?.id || ''),
+      name: String(r?.name || 'Cast'),
+      description: String(r?.description || ''),
+      selected: Boolean(r?.selected),
+      connecting: Boolean(r?.connecting),
+      group: Boolean(r?.group)
+    })),
     settingsOpen: isMonitorSettingsOpen(),
     settingsEditor: isDeviceNameEditorOpen() || isAlarmEditorOpen() || isStationsPaneOpen(),
     settingsFocus,
@@ -8442,7 +9674,9 @@ function remoteSnapshot() {
     alarmRinging: Boolean(alarmRinging),
     station: state.locked?.name || '',
     bgTheme: theme?.id || '',
-    skin: theme?.skin || ''
+    skin: theme?.skin || '',
+    standby: Boolean(idleStandbyActive || pendingDisplayWake),
+    clockTheme: clockThemeId || 'casio'
   };
 }
 
@@ -8453,9 +9687,13 @@ function publishRemoteState() {
   } catch (e) { /* ignore */ }
 }
 
+/* Throttle (non debounce): durante tuning continuo il telecomando riceve la frequenza che scorre */
 function scheduleRemoteState() {
-  window.clearTimeout(remoteStateTimer);
-  remoteStateTimer = window.setTimeout(publishRemoteState, 80);
+  if (remoteStateTimer) return;
+  remoteStateTimer = window.setTimeout(() => {
+    remoteStateTimer = 0;
+    publishRemoteState();
+  }, 80);
 }
 
 let screenWakeLock = null;
@@ -8467,11 +9705,11 @@ let pendingDisplayWake = false;
 let wakeNagTimer = 0;
 
 function idleDimMs() {
-  return Math.max(1, idleSettings.dimMin) * 60 * 1000;
+  return Math.max(30, Number(activeIdleProfile().dimSec) || 120) * 1000;
 }
 
 function idleStandbyAfterDimMs() {
-  return Math.max(1, idleSettings.standbyMin) * 60 * 1000;
+  return Math.max(30, Number(activeIdleProfile().standbySec) || 300) * 1000;
 }
 
 let idleDimTimer = 0;
@@ -8480,6 +9718,79 @@ let idleDimmed = false;
 let idleDimDeadline = 0;
 let idleStandbyDeadline = 0;
 let idleCountdownTimer = 0;
+/* Standby idle: SOLO schermo (mai setPower off). Radio resta accesa. */
+let idleStandbyActive = false;
+let idleStandbyWasPlaying = false;
+/* TV: a schermo spento il WebView pausa <video> → audio passa allo stream radio */
+let idleStandbyVideoHandoff = false;
+let idleStandbyAudioKeepTimer = 0;
+
+function stopIdleStandbyAudioKeepAlive() {
+  window.clearTimeout(idleStandbyAudioKeepTimer);
+  idleStandbyAudioKeepTimer = 0;
+}
+
+/* Android: a schermo off l’AudioContext può sospendersi — riprendi finché soft-standby */
+function startIdleStandbyAudioKeepAlive() {
+  stopIdleStandbyAudioKeepAlive();
+  const tick = () => {
+    if (!idleStandbyActive || !state.power || state.stopped || castUi.casting) {
+      stopIdleStandbyAudioKeepAlive();
+      return;
+    }
+    try {
+      if (engine.ctx?.state === 'suspended') engine.ctx.resume().catch(() => {});
+      const url = engine.currentUrl || state.locked?.url || nearest().station?.url;
+      if (url) {
+        engine.play(url);
+        engine.setMix(1, 0);
+        engine.setVolume(state.volume / 10);
+      }
+      armMediaPlaybackSession();
+      updateMediaSession();
+    } catch (e) { /* ignore */ }
+    idleStandbyAudioKeepTimer = window.setTimeout(tick, 2500);
+  };
+  idleStandbyAudioKeepTimer = window.setTimeout(tick, 350);
+}
+
+function handoffTvAudioForStandby() {
+  if (!isTvMode() || !state.power || state.stopped || castUi.casting) return;
+  const station = state.locked || nearest().station;
+  const url = station?.url;
+  if (!url) return;
+  idleStandbyVideoHandoff = true;
+  try { stationVideo?.pause(); } catch (e) { /* ignore */ }
+  if (videoAudioLatched) {
+    try {
+      stationVideo.muted = true;
+      stationVideo.volume = 0;
+    } catch (e) { /* ignore */ }
+    videoAudioLatched = false;
+  }
+  muteTabletAudio(false);
+  try {
+    engine.start();
+    if (engine.ctx?.state === 'suspended') engine.ctx.resume().catch(() => {});
+    engine.play(url);
+    engine.setMix(1, 0);
+    engine.setVolume(state.volume / 10);
+    armMediaPlaybackSession();
+    updateMediaSession();
+  } catch (e) { /* ignore */ }
+  startIdleStandbyAudioKeepAlive();
+}
+
+function restoreTvAudioAfterStandby() {
+  stopIdleStandbyAudioKeepAlive();
+  if (!idleStandbyVideoHandoff) return;
+  idleStandbyVideoHandoff = false;
+  if (!isTvMode() || !state.power || state.stopped || castUi.casting) return;
+  try { engine.silence(); } catch (e) { /* ignore */ }
+  const url = stationVideo?.dataset?.url || stationVideoUrl(state.locked) || holdVideoUrl;
+  if (!url) return;
+  playStationVideo(url);
+}
 
 function formatIdleCountdown(ms) {
   const total = Math.max(0, Math.ceil(Number(ms) / 1000));
@@ -8489,18 +9800,40 @@ function formatIdleCountdown(ms) {
 }
 
 function paintIdleCountdowns() {
-  const dimEl = document.getElementById('idleDimCountdown');
-  const stbyEl = document.getElementById('idleStandbyCountdown');
+  const dimOnEl = document.getElementById('idleDimCountdown');
+  const stbyOnEl = document.getElementById('idleStandbyCountdown');
+  const dimOffEl = document.getElementById('idleDimOffCountdown');
+  const stbyOffEl = document.getElementById('idleStandbyOffCountdown');
+  const dimEl = state.power ? dimOnEl : dimOffEl;
+  const stbyEl = state.power ? stbyOnEl : stbyOffEl;
+  const otherDim = state.power ? dimOffEl : dimOnEl;
+  const otherStby = state.power ? stbyOffEl : stbyOnEl;
+  const clearEl = (el) => {
+    if (!el) return;
+    el.textContent = '—';
+    el.classList.remove('is-active');
+  };
+  clearEl(otherDim);
+  clearEl(otherStby);
+  document.querySelectorAll('.standby-mode-block').forEach((el) => {
+    const mode = el.getAttribute('data-idle-mode');
+    el.classList.toggle('is-active', state.power ? mode === 'on' : mode === 'off');
+  });
   if (!dimEl && !stbyEl) return;
   const now = Date.now();
-  if (!state.power || pendingDisplayWake || alarmRinging) {
+  if (pendingDisplayWake || alarmRinging) {
+    clearEl(dimEl);
+    clearEl(stbyEl);
+    return;
+  }
+  if (idleStandbyActive) {
     if (dimEl) {
-      dimEl.textContent = '—';
-      dimEl.classList.remove('is-active');
+      dimEl.textContent = 'ON';
+      dimEl.classList.add('is-active');
     }
     if (stbyEl) {
-      stbyEl.textContent = '—';
-      stbyEl.classList.remove('is-active');
+      stbyEl.textContent = 'STBY';
+      stbyEl.classList.add('is-active');
     }
     return;
   }
@@ -8548,23 +9881,64 @@ function clearIdleDimUi() {
   try { window.MyTunerNative?.restoreBrightness?.(); } catch (e) { /* ignore */ }
 }
 
+function syncNativeKeepAwake() {
+  /* Soft-standby: spegne schermo; keepCpu solo se radio ancora in play */
+  if (idleStandbyActive && !pendingDisplayWake) {
+    const keepCpu = Boolean(state.power && !state.stopped);
+    try { window.MyTunerNative?.allowStandby?.({ keepCpu }); } catch (e) { /* ignore */ }
+    return;
+  }
+  /* Tieni schermo acceso durante dim/timer (anche a radio spenta), finché non è standby */
+  const hold = Boolean(!idleStandbyActive && !pendingDisplayWake);
+  try { window.MyTunerNative?.keepAwake?.(hold); } catch (e) { /* ignore */ }
+}
+
+function leaveIdleStandby(opts = {}) {
+  if (!idleStandbyActive) return;
+  idleStandbyActive = false;
+  stopIdleStandbyAudioKeepAlive();
+  radio?.classList.remove('is-idle-standby');
+  try { window.MyTunerNative?.restoreBrightness?.(); } catch (e) { /* ignore */ }
+  syncNativeKeepAwake();
+  stopRemoteGuard();
+  idleStandbyWasPlaying = false;
+  restoreTvAudioAfterStandby();
+  if (remoteLinked) syncRemoteWakeLock();
+  paintIdleCountdowns();
+  scheduleRemoteState();
+}
+
 function enterIdleStandby() {
-  if (!state.power || pendingDisplayWake || alarmRinging) return;
+  /* Standby SCHERMO: spegne il display. Radio ON resta in play (niente setPower). */
+  if (alarmRinging || idleStandbyActive || pendingDisplayWake) return;
   clearIdlePowerTimers();
-  clearIdleDimUi();
-  pendingDisplayWake = false;
+  /* NON restoreBrightness qui: era il bug che “riaccendeva” lo schermo */
+  idleDimmed = false;
+  radio?.classList.remove('is-idle-dim', 'is-idle-dim-sys');
   stopWakeNag();
-  setPower(false);
+  idleStandbyWasPlaying = Boolean(state.power && !state.stopped);
+  idleStandbyActive = true;
+  radio?.classList.add('is-idle-standby');
+  if (state.power && !state.stopped) {
+    /* TV: audio sul <video> → handoff allo stream radio a schermo off */
+    handoffTvAudioForStandby();
+    if (!idleStandbyVideoHandoff && !castUi.casting) {
+      startIdleStandbyAudioKeepAlive();
+    }
+  }
   releaseScreenAwake();
-  try { window.MyTunerNative?.allowStandby?.(); } catch (e) { /* ignore */ }
-  try { window.MyTunerNative?.keepAwake?.(false); } catch (e) { /* ignore */ }
+  /* Nero + togli keep-on (nativo). keepCpu solo con audio attivo. */
+  try { window.MyTunerNative?.setBrightness?.(0.01); } catch (e) { /* ignore */ }
+  const keepCpu = Boolean(state.power && !state.stopped);
+  try { window.MyTunerNative?.allowStandby?.({ keepCpu }); } catch (e) { /* ignore */ }
+  syncNativeKeepAwake();
   if (remoteLinked) startRemoteGuard();
   paintIdleCountdowns();
   scheduleRemoteState();
 }
 
 function enterIdleDim() {
-  if (!state.power || document.hidden || pendingDisplayWake || alarmRinging) return;
+  if (document.hidden || idleStandbyActive || pendingDisplayWake || alarmRinging) return;
   idleDimmed = true;
   idleDimDeadline = 0;
   radio?.classList.add('is-idle-dim');
@@ -8574,6 +9948,8 @@ function enterIdleDim() {
     radio?.classList.add('is-idle-dim-sys');
     try { window.MyTunerNative?.setBrightness?.(0.06); } catch (e) { /* ignore */ }
   }
+  /* Riafferma keep-screen-on: altrimenti il timeout OS spegne prima dei minuti impostati */
+  syncNativeKeepAwake();
   window.clearTimeout(idleStandbyTimer);
   const after = idleStandbyAfterDimMs();
   idleStandbyDeadline = Date.now() + after;
@@ -8583,8 +9959,11 @@ function enterIdleDim() {
 
 function bumpIdleActivity() {
   clearIdlePowerTimers();
+  if (idleStandbyActive && document.visibilityState === 'visible') {
+    leaveIdleStandby();
+  }
   if (idleDimmed) clearIdleDimUi();
-  if (!state.power || document.hidden || pendingDisplayWake) {
+  if (document.hidden || pendingDisplayWake || idleStandbyActive) {
     paintIdleCountdowns();
     return;
   }
@@ -8592,6 +9971,7 @@ function bumpIdleActivity() {
     paintIdleCountdowns();
     return;
   }
+  syncNativeKeepAwake();
   const wait = idleDimMs();
   idleDimDeadline = Date.now() + wait;
   idleStandbyDeadline = 0;
@@ -8601,8 +9981,8 @@ function bumpIdleActivity() {
 }
 
 function shouldHoldRemoteWake() {
-  /* Schermo acceso con telecomando + radio accesa; in idle-dim resta acceso (solo più scuro) */
-  return Boolean(remoteLinked && state.power && !document.hidden);
+  /* Wake Lock web: telecomando + radio; in idle-dim resta acceso (solo più scuro) */
+  return Boolean(remoteLinked && state.power && !document.hidden && !idleStandbyActive);
 }
 
 function postToServiceWorker(msg) {
@@ -8630,7 +10010,7 @@ function startRemoteGuard() {
     Il SW apre solo un ruolo "guard" di backup + notifiche, senza rubare il socket.
   */
   if (!remoteLinked) return;
-  if (state.power && !pendingDisplayWake && document.visibilityState === 'visible') return;
+  if (state.power && !pendingDisplayWake && !idleStandbyActive && document.visibilityState === 'visible') return;
   remoteGuardActive = true;
   askRemoteNotifyPermission(true);
   ensureRemotePushSubscription();
@@ -8641,7 +10021,12 @@ function startRemoteGuard() {
     try {
       remoteWs.send(JSON.stringify({
         type: 'state',
-        state: { ...remoteSnapshot(), power: false, standby: true, displayWakePending: Boolean(pendingDisplayWake) }
+        state: {
+          ...remoteSnapshot(),
+          power: Boolean(state.power),
+          standby: Boolean(idleStandbyActive || pendingDisplayWake || !state.power),
+          displayWakePending: Boolean(pendingDisplayWake)
+        }
       }));
       remoteWs.send(JSON.stringify({
         type: 'ping',
@@ -8656,7 +10041,7 @@ function startRemoteGuard() {
     id: remoteDeviceId(),
     name: guessDeviceName(),
     kind: guessDeviceKind(),
-    origin: location.origin
+    origin: HUB_ORIGIN
   };
   const go = () => postToServiceWorker(payload);
   if (navigator.serviceWorker.controller) go();
@@ -8689,12 +10074,14 @@ function completeRemotePowerOn(value) {
     return;
   }
   pendingDisplayWake = false;
+  idleStandbyActive = false;
   stopWakeNag();
   remoteLinked = true;
   stopRemoteGuard();
   clearRemoteUiChrome();
   try { window.focus(); } catch (e) { /* ignore */ }
   try { window.MyTunerNative?.wakeDisplay?.({ reason: 'complete' }); } catch (e) { /* ignore */ }
+  try { window.MyTunerNative?.restoreBrightness?.(); } catch (e) { /* ignore */ }
   try { window.MyTunerNative?.keepAwake?.(true); } catch (e) { /* ignore */ }
   engine.start();
   bumpIdleActivity();
@@ -8864,7 +10251,7 @@ async function ensureRemotePushSubscription() {
     if (!sub) {
       let publicKey = '';
       try {
-        const res = await fetch('/api/remote/vapid', { cache: 'no-store' });
+        const res = await fetch(hubUrl('/api/remote/vapid'), { cache: 'no-store' });
         const data = await res.json();
         publicKey = String(data?.publicKey || '');
       } catch (e) { /* ignore */ }
@@ -8947,6 +10334,12 @@ function unlinkFromRemote(reason) {
 
 function onTabletResume() {
   if (document.visibilityState !== 'visible') return;
+  /* Standby schermo: riprendi senza spegnere/riaccendere */
+  if (idleStandbyActive) {
+    leaveIdleStandby();
+    bumpIdleActivity();
+    return;
+  }
   if (pendingDisplayWake) {
     completeRemotePowerOn('visible');
     return;
@@ -8961,7 +10354,7 @@ function onTabletResume() {
   if (remoteGuardActive && !state.power) {
     postToServiceWorker({ type: 'remote-guard-ping' });
   }
-  if (remoteGuardActive && state.power) stopRemoteGuard();
+  if (remoteGuardActive && state.power && !idleStandbyActive) stopRemoteGuard();
   if (!remoteWs || remoteWs.readyState === WebSocket.CLOSED || remoteWs.readyState === WebSocket.CLOSING) {
     connectRemoteBridge();
   } else if (remoteWs.readyState === WebSocket.OPEN) {
@@ -8989,6 +10382,10 @@ if ('serviceWorker' in navigator) {
     if (data.type !== 'remote-cmd') return;
     const act = String(data.action || '');
     remoteLinked = true;
+    if (act === 'exit') {
+      applyRemoteCommand(act, data.value);
+      return;
+    }
     if (act === 'wake') {
       try { window.MyTunerNative?.wakeDisplay?.({ reason: 'sw-wake' }); } catch (e) { /* ignore */ }
       wakeFromRemote('wake');
@@ -9013,20 +10410,33 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     onTabletResume();
+    syncNativeKeepAwake();
     bumpIdleActivity();
     return;
   }
-  clearIdlePowerTimers();
-  clearIdleDimUi();
-  /* Schermo in standby con radio spenta (o in attesa di tap) → SW tiene il socket */
-  if (remoteLinked && (!state.power || pendingDisplayWake)) {
+  /* App in uscita (long-press Power): niente standby schermo, ma guard sì (per riaprirla) */
+  const exiting = performance.now() < remoteExitGuardUntil;
+  /* Schermo nascosto: passa a standby-schermo (on/off). Non ripristinare luminosità
+     se siamo già in standby — altrimenti lo schermo si riaccende. */
+  if (exiting) {
+    clearIdlePowerTimers();
+  } else if (!idleStandbyActive && !pendingDisplayWake && !alarmRinging) {
+    enterIdleStandby();
+  } else {
+    clearIdlePowerTimers();
+    if (!idleStandbyActive) clearIdleDimUi();
+  }
+  /* Schermo spento: tieni presenza remote (anche con radio ancora ON in idle-standby) */
+  if (remoteLinked && (!state.power || pendingDisplayWake || idleStandbyActive)) {
     startRemoteGuard();
     return;
   }
   if (shouldHoldRemoteWake()) ensureScreenAwakeHeld();
 });
 window.addEventListener('pageshow', onTabletResume);
-window.addEventListener('online', onTabletResume);
+window.addEventListener('online', onNetworkOnline);
+window.addEventListener('offline', onNetworkOffline);
+paintOnlineStatus();
 
 /* Idle dim/standby: qualsiasi interazione locale resetta i timer */
 window.addEventListener('pointerdown', bumpIdleActivity, { passive: true, capture: true });
@@ -9052,31 +10462,52 @@ function applyRemoteCommand(action, value) {
     scheduleRemoteState();
     return;
   }
+  /* Long-press Power telecomando: saluto LED + chiude l’app (Android) */
+  if (act === 'exit') {
+    beginRemoteExit();
+    return;
+  }
   /* Power con value on/off esplicito (telecomando) oppure toggle legacy */
   if (act === 'power') {
     const v = String(value ?? '').toLowerCase();
     const forceOff = v === 'off' || v === '0' || v === 'false';
     const forceOn = v === 'on' || v === '1' || v === 'true';
-    const turningOff = forceOff || (!forceOn && Boolean(state.power) && !pendingDisplayWake);
+    /* Dopo exit: ignora riaccensioni fantasma dal rilascio dito / FCM in coda */
+    if (!forceOff && performance.now() < remoteExitGuardUntil) return;
+    const inStandby = Boolean(pendingDisplayWake || idleStandbyActive);
+    const turningOff = forceOff || (!forceOn && Boolean(state.power) && !inStandby);
     if (turningOff) {
+      /* Spegnimento esplicito: solo radio OFF, schermo normale (niente nero/standby).
+         Poi valgono i timer “Radio spenta” (schermo scuro / standby). */
       pendingDisplayWake = false;
+      if (idleStandbyActive) leaveIdleStandby();
+      idleStandbyActive = false;
+      idleStandbyWasPlaying = false;
       stopWakeNag();
       remoteLinked = true;
       setPower(false);
       releaseScreenAwake();
-      /* Solo rilascia keep-screen-on — l'app resta aperta, niente “esci” */
-      try { window.MyTunerNative?.allowStandby?.(); } catch (e) { /* ignore */ }
-      try { window.MyTunerNative?.keepAwake?.(false); } catch (e) { /* ignore */ }
+      try { window.MyTunerNative?.restoreBrightness?.(); } catch (e) { /* ignore */ }
+      bumpIdleActivity();
+      syncNativeKeepAwake();
       startRemoteGuard();
       scheduleRemoteState();
       return;
     }
-    if (pendingDisplayWake) {
+    /* Idle standby schermo: sveglia display, radio già ON */
+    if (idleStandbyActive && state.power) {
+      try { window.MyTunerNative?.wakeDisplay?.({ reason: 'power' }); } catch (e) { /* ignore */ }
+      leaveIdleStandby();
+      bumpIdleActivity();
       scheduleRemoteState();
       return;
     }
-    if (document.hidden) {
-      requestDisplayWakeAndPower(value || 'on');
+    if (document.hidden || pendingDisplayWake) {
+      if (document.visibilityState !== 'visible') {
+        requestDisplayWakeAndPower(value || 'on');
+        return;
+      }
+      completeRemotePowerOn(value || 'on');
       return;
     }
     completeRemotePowerOn(value || 'on');
@@ -9156,13 +10587,15 @@ function applyRemoteCommand(action, value) {
       break;
     case 'tune_up':
     case 'tune_down': {
-      const dir = action === 'tune_up' ? 1 : -1;
-      const step = state.band === 'fm' ? 0.1 : 9;
-      setFreq(currentFreq() + dir * step, { drag: true });
-      window.clearTimeout(dwellTimer);
-      dwellTimer = window.setTimeout(() => settleTune(), 90);
+      remoteTuneStep(action === 'tune_up' ? 1 : -1);
       break;
     }
+    case 'tune_drag':
+      remoteTuneDrag(value);
+      break;
+    case 'tune_release':
+      remoteTuneRelease(value);
+      break;
     case 'ch_up':
       stepStation(1);
       break;
@@ -9198,6 +10631,21 @@ function applyRemoteCommand(action, value) {
     case 'cast':
       openCastFromRemote();
       break;
+    case 'cast_select':
+      castPickerSelectById(value);
+      break;
+    case 'tune_station':
+      remotePickStation(value);
+      break;
+    case 'stations_sync':
+      sendStationsToRemote();
+      break;
+    case 'settings_sync':
+      sendSettingsToRemote();
+      break;
+    case 'settings_set':
+      remoteApplySetting(value);
+      break;
     case 'cast_nav': {
       if (isCastPickerOpen()) {
         castPickerNav(value);
@@ -9232,8 +10680,8 @@ function applyRemoteCommand(action, value) {
 function connectRemoteBridge() {
   /* Sempre permesso: la pagina è la presenza Connect primaria anche in standby */
   if (remoteWs && (remoteWs.readyState === WebSocket.OPEN || remoteWs.readyState === WebSocket.CONNECTING)) return;
-  const u = new URL('/api/remote/ws', location.origin);
-  u.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const u = new URL('/api/remote/ws', HUB_ORIGIN);
+  u.protocol = HUB_ORIGIN.startsWith('https:') ? 'wss:' : 'ws:';
   u.searchParams.set('role', 'radio');
   u.searchParams.set('id', remoteDeviceId());
   u.searchParams.set('name', guessDeviceName());

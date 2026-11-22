@@ -1,0 +1,15 @@
+const fs = require('fs');
+const path = require('path');
+const temp = process.env.TEMP || process.env.TMP || '.';
+const css = fs.readFileSync(path.join(temp, 'live-radio.css'), 'utf8');
+const js = fs.readFileSync(path.join(temp, 'live-main.js'), 'utf8');
+const html = fs.readFileSync(path.join(temp, 'live-index.html'), 'utf8');
+const o = (css.match(/\{/g) || []).length;
+const x = (css.match(/\}/g) || []).length;
+console.log('live css bytes', css.length, 'braces', o, x, o === x ? 'ok' : 'BAD');
+console.log('has translateX', css.includes('translateX(-0.7em)'));
+console.log('css ends', JSON.stringify(css.slice(-60)));
+console.log('live js bytes', js.length);
+console.log('html radio', html.includes('id="radio"'));
+console.log('html digitalAmPm', html.includes('id="digitalAmPm"'));
+console.log('html digitalSecs', html.includes('id="digitalSecs"'));

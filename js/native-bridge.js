@@ -67,19 +67,34 @@
       return false;
     },
 
-    /* POWER off → togli keep-screen-on, MA resta in app (niente “esci”) */
-    async allowStandby() {
+    /* Schermo off; keepCpu=true tiene PARTIAL_WAKE_LOCK per audio in soft-standby */
+    async allowStandby(opts = {}) {
       const plugin = global.Capacitor?.Plugins?.RemoteWake;
+      const keepCpu = Boolean(opts?.keepCpu);
       if (plugin?.allowStandby) {
         try {
-          await plugin.allowStandby({ background: false });
+          await plugin.allowStandby({ background: false, keepCpu });
           return true;
         } catch (e) {
           return false;
         }
       }
-      try { await this.keepAwake(false); } catch (e) { /* ignore */ }
+      if (!keepCpu) {
+        try { await this.keepAwake(false); } catch (e) { /* ignore */ }
+      }
       return false;
+    },
+
+    /* Long-press Power telecomando: chiude l’Activity Android */
+    async exitApp() {
+      const plugin = global.Capacitor?.Plugins?.RemoteWake;
+      if (!plugin?.exitApp) return false;
+      try {
+        await plugin.exitApp();
+        return true;
+      } catch (e) {
+        return false;
+      }
     },
 
     async registerPushForRemote(sendToHub) {

@@ -1,4 +1,6 @@
-const CACHE = 'mytuner-control-v38';
+const CACHE = 'mytuner-control-v73';
+/* Loghi stazioni: cache permanente, sopravvive agli aggiornamenti di versione */
+const LOGO_CACHE = 'mytuner-control-logos-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -19,15 +21,36 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((k) => k !== CACHE && k !== LOGO_CACHE).map((k) => caches.delete(k))
+    ))
       .then(() => self.clients.claim())
   );
 });
+
+function isLogoRequest(req, url) {
+  if (req.destination === 'image' && url.origin !== self.location.origin) return true;
+  return url.origin === self.location.origin && /^\/(logo|logos)(\/|$)|^\/img\/logos?\//.test(url.pathname);
+}
+
+function logoCacheFirst(req) {
+  return caches.open(LOGO_CACHE).then((cache) => cache.match(req).then((hit) => {
+    if (hit) return hit;
+    return fetch(req).then((res) => {
+      if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone()).catch(() => {});
+      return res;
+    });
+  }));
+}
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (isLogoRequest(req, url)) {
+    event.respondWith(logoCacheFirst(req));
+    return;
+  }
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
   event.respondWith(

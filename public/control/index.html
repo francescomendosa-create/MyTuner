@@ -8,7 +8,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="screen-orientation" content="portrait" />
   <title>MyTuner Control</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="/control/icons/favicon-32.png" sizes="32x32" />
@@ -16,8 +15,8 @@
   <link rel="apple-touch-icon" href="/control/icons/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@560;650;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/control.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@560;650;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/control.css?v=73" />
 </head>
 <body>
   <div class="stage" id="app">
@@ -42,11 +41,28 @@
         <i class="bevel" aria-hidden="true"></i>
         <i class="frame" aria-hidden="true"></i>
 
+        <div class="freq-curtain-clip" aria-hidden="true">
+          <div class="freq-curtain" id="freqCurtain">
+            <span class="freq-curtain-val" id="freqCurtainVal">--.-</span>
+            <span class="freq-curtain-unit" id="freqCurtainUnit">MHz</span>
+            <span class="freq-curtain-name" id="freqCurtainName"></span>
+          </div>
+        </div>
+
         <div class="top-row">
           <div class="slot">
             <span class="lab">CAST</span>
             <button type="button" class="knob cast" data-act="cast" id="btnCast" aria-label="Cast">
-              <span class="knob-face cast-face"><i class="ico-cast"></i></span>
+              <span class="knob-face cast-face">
+                <i class="ico-cast" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path class="cast-screen" d="M21 3H3c-1.1 0-2 .9-2 2v3h2V7h18v12h-7v2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z"/>
+                    <path class="cast-arc cast-arc-1" d="M1 18v3h3a3 3 0 0 0-3-3z"/>
+                    <path class="cast-arc cast-arc-2" d="M1 14v2a5 5 0 0 1 5 5h2a7 7 0 0 0-7-7z"/>
+                    <path class="cast-arc cast-arc-3" d="M1 10v2a9 9 0 0 1 9 9h2c0-6.08-4.92-11-11-11z"/>
+                  </svg>
+                </i>
+              </span>
             </button>
           </div>
           <div class="slot">
@@ -162,9 +178,58 @@
         </div>
 
         <div class="brand" aria-hidden="true">MyTuner</div>
+
+        <!-- Popup Cast: lista casse del tablet, Cast in alto per chiudere -->
+        <div class="cast-sheet is-hidden" id="castSheet" aria-hidden="true">
+          <div class="cast-sheet-panel">
+            <div class="cast-sheet-top">
+              <button type="button" class="knob cast" id="btnCastSheet" aria-label="Chiudi Cast">
+                <span class="knob-face cast-face">
+                  <i class="ico-cast" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path class="cast-screen" d="M21 3H3c-1.1 0-2 .9-2 2v3h2V7h18v12h-7v2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2z"/>
+                      <path class="cast-arc cast-arc-1" d="M1 18v3h3a3 3 0 0 0-3-3z"/>
+                      <path class="cast-arc cast-arc-2" d="M1 14v2a5 5 0 0 1 5 5h2a7 7 0 0 0-7-7z"/>
+                      <path class="cast-arc cast-arc-3" d="M1 10v2a9 9 0 0 1 9 9h2c0-6.08-4.92-11-11-11z"/>
+                    </svg>
+                  </i>
+                </span>
+              </button>
+              <div class="cast-sheet-title">
+                <span class="cast-sheet-lab">CAST</span>
+                <span class="cast-sheet-hint" id="castSheetHint">Scegli una cassa</span>
+              </div>
+            </div>
+            <div class="cast-sheet-empty is-hidden" id="castSheetEmpty">Cerca dispositivi…</div>
+            <div class="cast-sheet-list" id="castSheetList" role="listbox" aria-label="Casse Cast"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-  <script type="module" src="js/control.js"></script>
+
+  <!-- Landscape: sinistra = radio, destra = TV (fuori dallo stage ruotato) -->
+  <button type="button" class="motion-pill is-hidden" id="btnMotion">Attiva rotazione</button>
+  <div class="station-shield" id="stationShield" aria-hidden="true"></div>
+  <div class="station-browser is-hidden" id="stationBrowser" aria-hidden="true">
+    <div class="station-browser-head">
+      <button type="button" class="station-browser-title" id="stationBrowserTitle" aria-label="Passa a TV o radio">RADIO</button>
+      <span class="station-browser-hint" id="stationBrowserHint">clicca per cambiare</span>
+    </div>
+    <div class="station-browser-grid" id="stationGridRadio" role="listbox" aria-label="Stazioni radio"></div>
+    <div class="station-browser-grid is-hidden" id="stationGridTv" role="listbox" aria-label="Canali TV"></div>
+  </div>
+
+  <!-- Landscape destra: impostazioni dello stereo -->
+  <div class="settings-browser is-hidden" id="settingsBrowser" aria-hidden="true">
+    <div class="station-browser-head">
+      <button type="button" class="settings-back is-hidden" id="settingsBack" aria-label="Indietro">‹</button>
+      <span class="station-browser-title settings-title" id="settingsTitle">IMPOSTAZIONI</span>
+      <span class="station-browser-hint" id="settingsVersion"></span>
+    </div>
+    <div class="settings-body" id="settingsBody"></div>
+  </div>
+
+  <script type="module" src="js/control.js?v=73"></script>
 </body>
 </html>
