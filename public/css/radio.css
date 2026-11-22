@@ -7517,7 +7517,7 @@ audio {
   aspect-ratio: 978 / 508 !important;
   border-radius: 16px;
   background-color: #140e0a !important;
-  background-image: url("/img/skins/vintage-50-face.jpg?v=228") !important;
+  background-image: url("/img/skins/vintage-50-face.jpg?v=229") !important;
   background-size: 100% 100% !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
@@ -7683,11 +7683,11 @@ audio {
   height: 9.8%;
   opacity: 1;
   border-radius: 6px;
-  background: url("/img/skins/vintage-50-power.png?v=227") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-power.png?v=229") center / 100% 100% no-repeat !important;
   transition: background-image 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 .radio.skin-vintage50.is-on #btnPower {
-  background-image: url("/img/skins/vintage-50-power-on.png?v=227") !important;
+  background-image: url("/img/skins/vintage-50-power-on.png?v=229") !important;
   transform: translateY(-2px);
   box-shadow: 0 3px 5px rgba(40, 24, 8, 0.35);
 }
@@ -7698,7 +7698,7 @@ audio {
   height: 11%;
   opacity: 1;
   border-radius: 6px;
-  background: url("/img/skins/vintage-50-pause.png?v=227") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-pause.png?v=229") center / 100% 100% no-repeat !important;
   transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
 }
 .radio.skin-vintage50 #btnPower .lamp-face,
@@ -7730,12 +7730,12 @@ audio {
   height: 36.61%;
   opacity: 1;
   overflow: visible;
-  background: url("/img/skins/vintage-50-crown.png?v=228") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-crown.png?v=229") center / 100% 100% no-repeat !important;
   filter: drop-shadow(0 10px 8px rgba(40, 24, 8, 0.35));
 }
 .radio.skin-vintage50 #tuneKnob > *:not(#tuneSpin) { display: none !important; }
 .radio.skin-vintage50 #tuneSpin {
-  background: url("/img/skins/vintage-50-spin.png?v=228") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-spin.png?v=229") center / 100% 100% no-repeat !important;
   box-shadow: none !important;
 }
 .radio.skin-vintage50 #tuneSpin * { display: none !important; }
@@ -7759,44 +7759,49 @@ audio {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("/img/skins/vintage-50-fm-up.png?v=228") center / 100% 100% no-repeat;
+  background: url("/img/skins/vintage-50-fm-up.png?v=229") center / 100% 100% no-repeat;
   pointer-events: none;
 }
 .radio.skin-vintage50 .key-well:has(#btnBand.is-right)::after {
-  background-image: url("/img/skins/vintage-50-fm-down.png?v=228");
+  background-image: url("/img/skins/vintage-50-fm-down.png?v=229");
 }
-/* Mono / Auto: pin crema digitale che SCORRE (niente flip) */
+/* Mono / Auto: guida solida + pin crema che SCORRE (niente flip, niente alone) */
 .radio.skin-vintage50 .key-well:has(#btnMono),
 .radio.skin-vintage50 .key-well:has(#btnAuto) {
   opacity: 1;
-  overflow: visible;
-  background: transparent !important;
+  overflow: hidden;
   border-radius: 999px;
+  background:
+    linear-gradient(180deg, #6a5640 0%, #3a2c1c 42%, #2a1e12 100%) !important;
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 1px rgba(210, 190, 150, 0.25),
+    0 0 0 1px #9a8260;
 }
 .radio.skin-vintage50 .key-well:has(#btnMono)::after,
 .radio.skin-vintage50 .key-well:has(#btnAuto)::after {
   content: "";
   position: absolute;
-  top: 14%;
+  top: 12%;
   width: 34%;
-  height: 72%;
+  height: 76%;
   border-radius: 50%;
-  background: url("/img/skins/vintage-50-slide.png?v=228") center / 100% 100% no-repeat;
-  box-shadow: 0 2px 3px rgba(40, 24, 8, 0.45);
+  background: url("/img/skins/vintage-50-slide.png?v=229") center / 100% 100% no-repeat;
+  box-shadow: 0 1px 2px rgba(30, 18, 8, 0.4);
   transition: left 0.18s ease;
   pointer-events: none;
 }
 .radio.skin-vintage50 .key-well:has(#btnMono) {
-  left: 84.7%;
-  top: 61%;
-  width: 9.6%;
-  height: 7.9%;
+  left: 84.3%;
+  top: 59.8%;
+  width: 10.2%;
+  height: 10.2%;
 }
 .radio.skin-vintage50 .key-well:has(#btnAuto) {
-  left: 76.2%;
-  top: 73.2%;
-  width: 9.6%;
-  height: 7.9%;
+  left: 75.8%;
+  top: 72.0%;
+  width: 10.2%;
+  height: 10.2%;
 }
 .radio.skin-vintage50 .key-well:has(#btnMono)::after,
 .radio.skin-vintage50 .key-well:has(#btnAuto)::after { left: 10%; }
@@ -7841,23 +7846,23 @@ audio {
   height: 6.7%;
 }
 .radio.skin-vintage50 .key-well:has(#btnChDown)::after {
-  background-image: url("/img/skins/vintage-50-chdown-off.png?v=227");
+  background-image: url("/img/skins/vintage-50-chdown-off.png?v=229");
 }
 .radio.skin-vintage50 .key-well:has(#btnChUp)::after {
-  background-image: url("/img/skins/vintage-50-chup-off.png?v=227");
+  background-image: url("/img/skins/vintage-50-chup-off.png?v=229");
 }
 .radio.skin-vintage50 .key-well:has(#btnCast)::after {
-  background-image: url("/img/skins/vintage-50-cast-off.png?v=227");
+  background-image: url("/img/skins/vintage-50-cast-off.png?v=229");
 }
 .radio.skin-vintage50.is-on .key-well:has(#btnChDown)::after {
-  background-image: url("/img/skins/vintage-50-chdown-on.png?v=227");
+  background-image: url("/img/skins/vintage-50-chdown-on.png?v=229");
   filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
 }
 .radio.skin-vintage50.is-on .key-well:has(#btnChUp)::after {
-  background-image: url("/img/skins/vintage-50-chup-on.png?v=227");
+  background-image: url("/img/skins/vintage-50-chup-on.png?v=229");
   filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
 }
 .radio.skin-vintage50.is-on .key-well:has(#btnCast)::after {
-  background-image: url("/img/skins/vintage-50-cast-on.png?v=227");
+  background-image: url("/img/skins/vintage-50-cast-on.png?v=229");
   filter: drop-shadow(0 0 4px rgba(50, 120, 255, 0.7));
 }

@@ -1,4 +1,4 @@
-const APP_VERSION = 'v228';
+const APP_VERSION = 'v229';
 
 /* Hub remoto: in APK/offline gli asset sono locali (Capacitor), API/stream restano sul worker */
 const HUB_ORIGIN = (() => {
