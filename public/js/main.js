@@ -1,4 +1,4 @@
-const APP_VERSION = 'v200';
+const APP_VERSION = 'v209';
 
 /* Hub remoto: in APK/offline gli asset sono locali (Capacitor), API/stream restano sul worker */
 const HUB_ORIGIN = (() => {
@@ -5248,14 +5248,6 @@ function tickRadioClock() {
     digitalTempEl.textContent = formatDigitalTemp(t);
   }
   if (clockThemeId === 'corona') paintCoronaCrown(now);
-}
-
-function syncDigitalClockBand() {
-  if (!digitalAmPmEl) return;
-  const band = (typeof state !== 'undefined' && state?.band === 'am') ? 'AM' : 'FM';
-  digitalAmPmEl.textContent = band;
-  digitalAmPmEl.classList.toggle('is-am', band === 'AM');
-  digitalAmPmEl.classList.toggle('is-fm', band === 'FM');
 }
 
 function stopCoronaAnim() {
