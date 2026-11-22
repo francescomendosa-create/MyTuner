@@ -3122,7 +3122,6 @@ function paintModes() {
   radio.classList.toggle('band-am', state.band === 'am');
   radio.classList.toggle('is-stereo', Boolean(state.stereo));
   syncDialLamp();
-  try { syncDigitalClockBand(); } catch (e) { /* ignore */ }
 }
 
 function cancelAfc() {
@@ -5077,7 +5076,6 @@ const coronaCrownEl = document.getElementById('coronaCrown');
 const digitalHoursEl = document.getElementById('digitalHours');
 const digitalMinsEl = document.getElementById('digitalMins');
 const digitalSecsEl = document.getElementById('digitalSecs');
-const digitalAmPmEl = document.getElementById('digitalAmPm');
 const digitalTempEl = document.getElementById('digitalTemp');
 const radioClockSlot = document.getElementById('radioClockSlot');
 let clockTimer = 0;
@@ -5245,7 +5243,6 @@ function tickRadioClock() {
   }
   if (digitalSecsEl) digitalSecsEl.textContent = pad2(now.getSeconds());
   syncDigitalClockDate(now);
-  syncDigitalClockBand();
   if (digitalTempEl) {
     const t = Number.isFinite(localeWxTempC) ? localeWxTempC : window.__mytunerWxTempC;
     digitalTempEl.textContent = formatDigitalTemp(t);

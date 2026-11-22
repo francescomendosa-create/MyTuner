@@ -5252,12 +5252,6 @@ button {
   color: #5fe8de;
   animation: casio-colon-blink 1s steps(1, end) infinite;
 }
-.radio.is-on .digital-clock-band {
-  color: var(--gold-hot, #e8d7a8);
-  text-shadow:
-    0 0 5px rgba(232, 215, 168, 0.55),
-    0 0 10px rgba(200, 170, 90, 0.3);
-}
 .radio.is-on .digital-clock-secs {
   color: #5fe8de;
   text-shadow:
