@@ -1,12 +1,12 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v227';
+const CACHE = 'mytuner-fs-v228';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/radio.css',
-  '/css/radio.css?v=226',
+  '/css/radio.css?v=228',
   '/js/main.js',
-  '/js/main.js?v=226',
+  '/js/main.js?v=228',
   '/img/skins/vintage-50.jpg',
   '/img/skins/vintage-50-face.jpg',
   '/img/skins/vintage-50-crown.png',

@@ -7517,7 +7517,7 @@ audio {
   aspect-ratio: 978 / 508 !important;
   border-radius: 16px;
   background-color: #140e0a !important;
-  background-image: url("/img/skins/vintage-50-face.jpg?v=227") !important;
+  background-image: url("/img/skins/vintage-50-face.jpg?v=228") !important;
   background-size: 100% 100% !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
@@ -7730,65 +7730,46 @@ audio {
   height: 36.61%;
   opacity: 1;
   overflow: visible;
-  background: url("/img/skins/vintage-50-crown.png?v=227") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-crown.png?v=228") center / 100% 100% no-repeat !important;
   filter: drop-shadow(0 10px 8px rgba(40, 24, 8, 0.35));
 }
 .radio.skin-vintage50 #tuneKnob > *:not(#tuneSpin) { display: none !important; }
 .radio.skin-vintage50 #tuneSpin {
-  background: url("/img/skins/vintage-50-spin.png?v=227") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-spin.png?v=228") center / 100% 100% no-repeat !important;
   box-shadow: none !important;
 }
 .radio.skin-vintage50 #tuneSpin * { display: none !important; }
-/* —— Pannello comandi destro: FM/AM, Mono, Auto, Preset, CH±, CAST —— */
-.radio.skin-vintage50 .key-well:has(#btnBand),
-.radio.skin-vintage50 .key-well:has(#btnPreset) {
+/* —— Pannello comandi destro: FM/AM, Mono, Auto, CH±, CAST (niente PRESET) —— */
+.radio.skin-vintage50 .key-well:has(#btnPreset),
+.radio.skin-vintage50 .mode:has(#btnPreset) {
+  display: none !important;
+  pointer-events: none !important;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand) {
   opacity: 1;
   background: transparent !important;
   overflow: hidden;
   border-radius: 50%;
-}
-.radio.skin-vintage50 .key-well:has(#btnBand)::after,
-.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-.radio.skin-vintage50 .key-well:has(#btnBand) {
   left: 77.5%;
   top: 60.6%;
   width: 4.5%;
   height: 8.7%;
 }
 .radio.skin-vintage50 .key-well:has(#btnBand)::after {
-  background-image: url("/img/skins/vintage-50-fm-up.png?v=227");
-  opacity: 1;
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/img/skins/vintage-50-fm-up.png?v=228") center / 100% 100% no-repeat;
+  pointer-events: none;
 }
 .radio.skin-vintage50 .key-well:has(#btnBand.is-right)::after {
-  background-image: url("/img/skins/vintage-50-fm-down.png?v=227");
+  background-image: url("/img/skins/vintage-50-fm-down.png?v=228");
 }
-.radio.skin-vintage50 .key-well:has(#btnPreset) {
-  left: 86.5%;
-  top: 72.8%;
-  width: 4.5%;
-  height: 9.1%;
-}
-.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
-  background-image: url("/img/skins/vintage-50-preset-up.png?v=227");
-  opacity: 1;
-}
-.radio.skin-vintage50 .key-well:has(#btnPreset.is-down)::after {
-  background-image: url("/img/skins/vintage-50-preset-down.png?v=227");
-}
+/* Mono / Auto: pin crema digitale che SCORRE (niente flip) */
 .radio.skin-vintage50 .key-well:has(#btnMono),
 .radio.skin-vintage50 .key-well:has(#btnAuto) {
   opacity: 1;
-  overflow: hidden;
+  overflow: visible;
   background: transparent !important;
   border-radius: 999px;
 }
@@ -7796,12 +7777,14 @@ audio {
 .radio.skin-vintage50 .key-well:has(#btnAuto)::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
+  top: 14%;
+  width: 34%;
+  height: 72%;
+  border-radius: 50%;
+  background: url("/img/skins/vintage-50-slide.png?v=228") center / 100% 100% no-repeat;
+  box-shadow: 0 2px 3px rgba(40, 24, 8, 0.45);
+  transition: left 0.18s ease;
   pointer-events: none;
-  transition: transform 0.16s ease;
 }
 .radio.skin-vintage50 .key-well:has(#btnMono) {
   left: 84.7%;
@@ -7815,22 +7798,10 @@ audio {
   width: 9.6%;
   height: 7.9%;
 }
-/* Mono: foto con pin a destra; mono = mirror */
-.radio.skin-vintage50 .key-well:has(#btnMono)::after {
-  background-image: url("/img/skins/vintage-50-mono-right.png?v=227");
-  transform: scaleX(-1);
-}
-.radio.skin-vintage50 .key-well:has(#btnMono.is-right)::after {
-  transform: none;
-}
-/* Auto: foto con pin a sinistra; manuale = mirror */
-.radio.skin-vintage50 .key-well:has(#btnAuto)::after {
-  background-image: url("/img/skins/vintage-50-auto-left.png?v=227");
-  transform: none;
-}
-.radio.skin-vintage50 .key-well:has(#btnAuto.is-right)::after {
-  transform: scaleX(-1);
-}
+.radio.skin-vintage50 .key-well:has(#btnMono)::after,
+.radio.skin-vintage50 .key-well:has(#btnAuto)::after { left: 10%; }
+.radio.skin-vintage50 .key-well:has(#btnMono.is-right)::after,
+.radio.skin-vintage50 .key-well:has(#btnAuto.is-right)::after { left: 56%; }
 .radio.skin-vintage50 .key-well:has(#btnChDown),
 .radio.skin-vintage50 .key-well:has(#btnChUp),
 .radio.skin-vintage50 .key-well:has(#btnCast) {
