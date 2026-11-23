@@ -1,5 +1,5 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v276';
+const CACHE = 'mytuner-fs-v277';
 const ASSETS = [
   '/',
   '/index.html',
@@ -58,6 +58,11 @@ const ASSETS = [
   '/img/bg/scaffale-panoramico.jpg',
   '/img/bg/soggiorno-radio-lontano.jpg',
   '/img/bg/soggiorno-radio-vicino.jpg',
+  '/img/bg/soggiorno-radio-3d/radio.glb',
+  '/js/scene-approach-3d.js',
+  '/js/vendor/three/three.module.js',
+  '/js/vendor/three/examples/jsm/loaders/GLTFLoader.js',
+  '/js/vendor/three/examples/jsm/utils/BufferGeometryUtils.js',
   '/img/bg/laccata-grigia.png',
   '/img/bg/acciaio-incassato.png',
   '/img/bg/soggiorno-chiaro.jpg',

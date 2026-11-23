@@ -1,4 +1,4 @@
-const APP_VERSION = 'v276';
+const APP_VERSION = 'v277';
 
 /* Skin radio: dichiarato subito (paintDial gira prima del blocco skin in fondo) */
 const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
@@ -8356,6 +8356,8 @@ const BG_THEMES = [
     thumb: '/img/bg/soggiorno-radio-lontano.jpg',
     image: '/img/bg/soggiorno-radio-vicino.jpg',
     approach: true,
+    approach3d: true,
+    approachModel: '/img/bg/soggiorno-radio-3d/radio.glb',
     approachFar: '/img/bg/soggiorno-radio-lontano.jpg',
     approachNear: '/img/bg/soggiorno-radio-vicino.jpg',
     preferSkin: 'vintage50'
@@ -8373,6 +8375,7 @@ let fitLayoutTimer = 0;
 let sceneApproachTimer = 0;
 let sceneApproachMidTimer = 0;
 let sceneApproachEl = null;
+let sceneApproach3dHandle = null;
 
 function readBgThemeId() {
   try {
@@ -8547,6 +8550,8 @@ function stopSceneApproach(opts = {}) {
   window.clearTimeout(sceneApproachMidTimer);
   sceneApproachTimer = 0;
   sceneApproachMidTimer = 0;
+  try { sceneApproach3dHandle?.stop?.(); } catch (e) { /* ignore */ }
+  sceneApproach3dHandle = null;
   radio?.classList.remove('is-scene-approaching', 'is-scene-arriving');
   if (chassis) {
     chassis.style.transition = '';
@@ -8581,9 +8586,54 @@ function ensureSceneApproachEl() {
   return root;
 }
 
-function playSceneApproach(theme) {
-  if (!radio || !theme?.approach) return;
-  stopSceneApproach({ keepDom: true });
+function beginSceneApproachHideRadio() {
+  radio.classList.add('is-scene-approaching');
+  radio.classList.remove('is-scene-arriving');
+  if (chassis) {
+    chassis.style.transition = 'none';
+    chassis.style.opacity = '0';
+    chassis.style.transform = 'translate3d(0, 10%, 0) scale(0.82)';
+    chassis.style.filter = 'blur(3px)';
+  }
+}
+
+function revealOfficialRadioFromApproach() {
+  radio.classList.remove('is-scene-approaching');
+  radio.classList.add('is-scene-arriving');
+  if (chassis) {
+    void chassis.offsetWidth;
+    chassis.style.transition =
+      'opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 980ms cubic-bezier(0.22, 1, 0.36, 1), filter 720ms ease';
+    chassis.style.opacity = '1';
+    chassis.style.transform = '';
+    chassis.style.filter = 'none';
+    try { applyV50Zoom(); } catch (e) { /* ignore */ }
+  }
+}
+
+async function playSceneApproach3D(theme) {
+  beginSceneApproachHideRadio();
+  try {
+    const mod = await import(`./scene-approach-3d.js?v=${APP_VERSION}`);
+    sceneApproach3dHandle = mod.playApproach3D({
+      modelUrl: `${theme.approachModel}?v=${APP_VERSION}`,
+      durationMs: 4300,
+      onArrive: () => {
+        revealOfficialRadioFromApproach();
+      },
+      onDone: () => {
+        sceneApproach3dHandle = null;
+        stopSceneApproach();
+        radio?.classList.remove('is-scene-arriving');
+      }
+    });
+  } catch (e) {
+    /* Fallback foto se WebGL/modulo non disponibile */
+    playSceneApproachPhotos(theme);
+  }
+}
+
+function playSceneApproachPhotos(theme) {
   const farUrl = `${theme.approachFar || theme.image}?v=${APP_VERSION}`;
   const nearUrl = `${theme.approachNear || theme.image}?v=${APP_VERSION}`;
   [farUrl, nearUrl].forEach((url) => {
@@ -8594,56 +8644,46 @@ function playSceneApproach(theme) {
     } catch (e) { /* ignore */ }
   });
 
-  if (theme.preferSkin && theme.preferSkin !== radioSkinId) {
-    try { selectRadioSkin(theme.preferSkin, { silent: true, keepSettings: true }); } catch (e) { /* ignore */ }
-  }
-
-  try { openMonitorSettings(false); } catch (e) { /* ignore */ }
-
   const root = ensureSceneApproachEl();
   const far = root.querySelector('.scene-approach-layer.is-far');
   const near = root.querySelector('.scene-approach-layer.is-near');
   if (far) far.style.backgroundImage = `url("${farUrl}")`;
   if (near) near.style.backgroundImage = `url("${nearUrl}")`;
 
-  radio.classList.add('is-scene-approaching');
-  radio.classList.remove('is-scene-arriving');
-  if (chassis) {
-    chassis.style.transition = 'none';
-    chassis.style.opacity = '0';
-    chassis.style.transform = 'translate3d(0, 10%, 0) scale(0.82)';
-    chassis.style.filter = 'blur(3px)';
-  }
-
+  beginSceneApproachHideRadio();
   root.classList.remove('is-run', 'is-mid', 'is-end');
   void root.offsetWidth;
   requestAnimationFrame(() => {
     root.classList.add('is-run');
-    /* Crossfade sul frontale mentre la camera è già vicina */
     sceneApproachMidTimer = window.setTimeout(() => {
       root.classList.add('is-mid');
     }, 1680);
   });
 
-  /* Arrivo dolce sulla radio ufficiale */
   sceneApproachTimer = window.setTimeout(() => {
     root.classList.add('is-end');
-    radio.classList.remove('is-scene-approaching');
-    radio.classList.add('is-scene-arriving');
-    if (chassis) {
-      void chassis.offsetWidth;
-      chassis.style.transition =
-        'opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 980ms cubic-bezier(0.22, 1, 0.36, 1), filter 720ms ease';
-      chassis.style.opacity = '1';
-      chassis.style.transform = '';
-      chassis.style.filter = 'none';
-      try { applyV50Zoom(); } catch (e) { /* ignore */ }
-    }
+    revealOfficialRadioFromApproach();
     sceneApproachTimer = window.setTimeout(() => {
       stopSceneApproach();
       radio?.classList.remove('is-scene-arriving');
     }, 1000);
   }, 3800);
+}
+
+function playSceneApproach(theme) {
+  if (!radio || !theme?.approach) return;
+  stopSceneApproach({ keepDom: true });
+
+  if (theme.preferSkin && theme.preferSkin !== radioSkinId) {
+    try { selectRadioSkin(theme.preferSkin, { silent: true, keepSettings: true }); } catch (e) { /* ignore */ }
+  }
+  try { openMonitorSettings(false); } catch (e) { /* ignore */ }
+
+  if (theme.approach3d && theme.approachModel) {
+    playSceneApproach3D(theme);
+    return;
+  }
+  playSceneApproachPhotos(theme);
 }
 
 function selectBgTheme(id) {
