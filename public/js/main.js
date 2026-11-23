@@ -1,4 +1,9 @@
-const APP_VERSION = 'v229';
+const APP_VERSION = 'v276';
+
+/* Skin radio: dichiarato subito (paintDial gira prima del blocco skin in fondo) */
+const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
+const RADIO_SKIN_IDS = new Set(['', 'vintage50']);
+let radioSkinId = '';
 
 /* Hub remoto: in APK/offline gli asset sono locali (Capacitor), API/stream restano sul worker */
 const HUB_ORIGIN = (() => {
@@ -328,6 +333,7 @@ function wxFromCode(code, isDay) {
 let localeWxTimer = 0;
 let localeWxCoords = null;
 let localeWxTempC = null;
+const v50WxState = { city: '', code: null, isDay: null };
 let wxFlairTimer = 0;
 let wxFlairClearTimer = 0;
 
@@ -541,7 +547,11 @@ async function refreshLocaleWeather(lat, lon, cityHint) {
   }, 30 * 60 * 1000);
   /* Mostra subito un placeholder così non resta nascosto se l’API è lenta/fail */
   const early = localeFallbackPlace(lat, lon, cityHint);
-  if (early) paintLocaleWx(early, 'cloud', '…');
+  if (early) {
+    v50WxState.city = early;
+    paintLocaleWx(early, 'cloud', '…');
+    try { paintV50DialWx(); } catch (e0) { /* ignore */ }
+  }
   try {
     const [city, wx] = await Promise.all([
       cityHint ? Promise.resolve(cityHint) : resolvePlaceName(lat, lon),
@@ -549,13 +559,21 @@ async function refreshLocaleWeather(lat, lon, cityHint) {
     ]);
     const mapped = wxFromCode(wx.code, wx.isDay);
     const place = localeFallbackPlace(lat, lon, city || cityHint);
+    v50WxState.city = place;
+    v50WxState.code = wx.code;
+    v50WxState.isDay = wx.isDay;
     localeWxTempC = Number.isFinite(wx.tempC) ? wx.tempC : null;
     window.__mytunerWxTempC = localeWxTempC;
     paintLocaleWx(place, mapped.icon, mapped.label);
+    try { paintV50DialWx(); } catch (e1) { /* ignore */ }
     try { tickRadioClock(); } catch (e2) { /* ignore */ }
   } catch (e) {
     const place = localeFallbackPlace(lat, lon, cityHint);
-    if (place) paintLocaleWx(place, 'cloud', '');
+    if (place) {
+      v50WxState.city = place;
+      paintLocaleWx(place, 'cloud', '');
+      try { paintV50DialWx(); } catch (e3) { /* ignore */ }
+    }
   }
 }
 
@@ -644,6 +662,54 @@ const dialNeedle = document.getElementById('dialNeedle');
 const vintageNeedle = document.getElementById('vintageNeedle');
 const bandFm = document.getElementById('bandFm');
 const bandAm = document.getElementById('bandAm');
+const v50LampFm = document.getElementById('v50LampFm');
+const v50LampAm = document.getElementById('v50LampAm');
+const v50CitySr = document.getElementById('v50CitySr');
+const v50CityCt = document.getElementById('v50CityCt');
+const v50CityAg = document.getElementById('v50CityAg');
+const v50WxSun = document.getElementById('v50WxSun');
+const v50WxMoon = document.getElementById('v50WxMoon');
+const v50WxCloud = document.getElementById('v50WxCloud');
+const v50WxRain = document.getElementById('v50WxRain');
+
+function v50ResolveCityId() {
+  const name = String(v50WxState.city || '').toLowerCase();
+  if (/augusta/.test(name)) return 'ag';
+  if (/catania/.test(name)) return 'ct';
+  if (/siracusa/.test(name)) return 'sr';
+  if (localeWxCoords && Number.isFinite(localeWxCoords.lat) && Number.isFinite(localeWxCoords.lon)) {
+    const pts = [
+      { id: 'sr', lat: 37.0755, lon: 15.2866 },
+      { id: 'ct', lat: 37.5079, lon: 15.0830 },
+      { id: 'ag', lat: 37.2308, lon: 15.2213 }
+    ];
+    let best = pts[0];
+    let bestD = Infinity;
+    for (const p of pts) {
+      const d = haversineKm(localeWxCoords.lat, localeWxCoords.lon, p.lat, p.lon);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    return best.id;
+  }
+  return activeZoneId === 'catania' ? 'ct' : 'sr';
+}
+
+function paintV50DialWx() {
+  const lit = Boolean(state.power);
+  const cityId = v50ResolveCityId();
+  if (v50CitySr) v50CitySr.classList.toggle('is-lit', lit && cityId === 'sr');
+  if (v50CityCt) v50CityCt.classList.toggle('is-lit', lit && cityId === 'ct');
+  if (v50CityAg) v50CityAg.classList.toggle('is-lit', lit && cityId === 'ag');
+  const h = new Date().getHours();
+  const isDay = v50WxState.isDay != null ? Boolean(v50WxState.isDay) : (h >= 6 && h < 19);
+  const c = v50WxState.code != null ? Number(v50WxState.code) : NaN;
+  const isRain = Number.isFinite(c) && c >= 51;
+  const isCloud = Number.isFinite(c) && (c === 2 || c === 3 || c === 45 || c === 48);
+  if (v50WxSun) v50WxSun.classList.toggle('is-lit', lit && isDay);
+  if (v50WxMoon) v50WxMoon.classList.toggle('is-lit', lit && !isDay);
+  if (v50WxCloud) v50WxCloud.classList.toggle('is-lit', lit && isCloud);
+  if (v50WxRain) v50WxRain.classList.toggle('is-lit', lit && isRain);
+}
 const tuneKnob = document.getElementById('tuneKnob');
 const tuneSpin = document.getElementById('tuneSpin');
 const volKnob = document.getElementById('volKnob');
@@ -2950,7 +3016,7 @@ let lastNeedlePct = null;
 let needleAnimToken = 0;
 
 function needlePctForBand(band) {
-  const pad = 2.2;
+  const pad = radioSkinId === 'vintage50' ? 0.8 : 2.2;
   if (band === 'am') {
     return pad + ((state.am - AM.min) / (AM.max - AM.min)) * (100 - pad * 2);
   }
@@ -2959,7 +3025,8 @@ function needlePctForBand(band) {
 
 function setNeedlePosition(pct, { animate = false } = {}) {
   if (!dialNeedle) return;
-  const to = clamp(pct, 2.2, 97.8);
+  const pad = radioSkinId === 'vintage50' ? 0.8 : 2.2;
+  const to = clamp(pct, pad, 100 - pad);
   if (!animate || lastNeedlePct == null) {
     needleAnimToken += 1;
     dialNeedle.style.left = `${to}%`;
@@ -2996,6 +3063,9 @@ function paintDial() {
   freqAm.textContent = String(Math.round(state.am)).padStart(4, ' ');
   bandFm.classList.toggle('is-active', state.power && state.band === 'fm');
   bandAm.classList.toggle('is-active', state.power && state.band === 'am');
+  if (v50LampFm) v50LampFm.classList.toggle('is-lit', state.power && state.band === 'fm');
+  if (v50LampAm) v50LampAm.classList.toggle('is-lit', state.power && state.band === 'am');
+  paintV50DialWx();
   const spec = bandSpec();
   setTuneRotation(tuneAngle(), { animate: animateNeedle });
   paintDial._animateTune = false;
@@ -3032,8 +3102,12 @@ function paintTuneIndicated() {
 
 function tuneAngle() {
   const spec = bandSpec();
-  const p = (currentFreq() - spec.min) / (spec.max - spec.min);
-  return -150 + clamp(p, 0, 1) * 300;
+  const p = clamp((currentFreq() - spec.min) / (spec.max - spec.min), 0, 1);
+  if (radioSkinId === 'vintage50') {
+    /* Vintage 50: parte dal 90 (-144°) e arriva massimo all'ultima linea della scala (+150° = 106 sul display) */
+    return -144 + p * 294;
+  }
+  return -150 + p * 300;
 }
 
 let lastTuneDeg = tuneAngle();
@@ -4685,6 +4759,7 @@ function setPower(on, opts = {}) {
     idleStandbyVideoHandoff = false;
     stopIdleStandbyAudioKeepAlive();
     radio?.classList.remove('is-idle-standby');
+    clearV50Glitch();
     if (!quiet) playPowerOffPop();
     try { openMonitorSettings(false); } catch (e) { /* ignore */ }
     try { openCastPicker(false); } catch (e) { /* ignore */ }
@@ -4739,6 +4814,7 @@ function setPower(on, opts = {}) {
     scheduleAlbumArtFlip(6000 + Math.random() * 10000);
   }
   if (!quiet) scheduleNameSweep(3500 + Math.random() * 5500);
+  if (!quiet) runV50BootGlitches();
   paintDial();
   paintTransport();
   if (quiet) {
@@ -5083,6 +5159,18 @@ const digitalMinsEl = document.getElementById('digitalMins');
 const digitalSecsEl = document.getElementById('digitalSecs');
 const digitalTempEl = document.getElementById('digitalTemp');
 const radioClockSlot = document.getElementById('radioClockSlot');
+const v50OdoRoot = document.getElementById('v50Odo');
+const v50OdoCanvas = document.getElementById('v50OdoCanvas');
+const V50_ODO_MOD = [3, 10, 6, 10, 6, 10];
+let v50OdoCtx = null;
+let v50OdoAssets = null;
+let v50OdoPrev = '';
+let v50OdoCur = [0, 0, 0, 0, 0, 0];
+let v50OdoFrom = [0, 0, 0, 0, 0, 0];
+let v50OdoTo = [0, 0, 0, 0, 0, 0];
+let v50OdoTarget = [0, 0, 0, 0, 0, 0];
+let v50OdoAnimT0 = 0;
+let v50OdoRaf = 0;
 let clockTimer = 0;
 let coronaRaf = 0;
 let coronaSegs = [];
@@ -5230,6 +5318,400 @@ function paintCoronaCrown(now) {
   }
 }
 
+function buildV50OdoAssets() {
+  if (v50OdoAssets || !v50OdoCanvas) return v50OdoAssets;
+  const cw = v50OdoCanvas.width || 556;
+  const ch = v50OdoCanvas.height || 184;
+  v50OdoCtx = v50OdoCanvas.getContext('2d');
+  if (!v50OdoCtx) return null;
+
+  const pad = Math.round(cw * 0.016);
+  const colonW = Math.round(cw * 0.074);
+  const redW = Math.round(cw * 0.032);
+  const gapW = Math.round(cw * 0.022);
+  const avail = cw - 2 * pad - colonW - redW - 3 * gapW;
+  const dw = avail / 6;
+
+  const drums = [];
+  let cur = pad;
+  drums.push({ x0: cur, x1: cur + dw, sec: false }); cur += dw + gapW;
+  drums.push({ x0: cur, x1: cur + dw, sec: false }); cur += dw;
+  const colonX = [cur, cur + colonW]; cur += colonW;
+  drums.push({ x0: cur, x1: cur + dw, sec: false }); cur += dw + gapW;
+  drums.push({ x0: cur, x1: cur + dw, sec: false }); cur += dw;
+  const redX = [cur, cur + redW]; cur += redW;
+  drums.push({ x0: cur, x1: cur + dw, sec: true }); cur += dw + gapW;
+  drums.push({ x0: cur, x1: cur + dw, sec: true });
+
+  /* Curva di illuminazione cilindrica verticale campionata dalla foto reale */
+  const cylV = new Float32Array(ch);
+  for (let y = 0; y < ch; y += 1) {
+    const yy = y / (ch - 1);
+    let v = 0.10
+      + 0.42 * Math.exp(-(((yy - 0.30) ** 2) / (2 * 0.16 * 0.16)))
+      + 0.48 * Math.exp(-(((yy - 0.25) ** 2) / (2 * 0.055 * 0.055)))
+      + 0.08 * Math.exp(-(((yy - 0.72) ** 2) / (2 * 0.12 * 0.12)));
+    v *= Math.max(0.06, Math.min(1, yy / 0.11));
+    v *= Math.max(0.08, Math.min(1, (1 - yy) / 0.13));
+    cylV[y] = v;
+  }
+
+  /* 1. Layer base: 6 tamburi cilindrici con grana fine e riflesso superiore */
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = cw;
+  bgCanvas.height = ch;
+  const bctx = bgCanvas.getContext('2d');
+  const imgData = bctx.createImageData(cw, ch);
+  const data = imgData.data;
+
+  /* Fondo scuro uniforme */
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 8; data[i + 1] = 7; data[i + 2] = 6; data[i + 3] = 255;
+  }
+
+  /* Generatore pseudocasuale deterministico per grana plastica/metallica */
+  let seed = 1337;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed / 2147483647) - 0.5;
+  };
+
+  for (let idx = 0; idx < drums.length; idx += 1) {
+    const d = drums[idx];
+    const ix0 = Math.round(d.x0);
+    const ix1 = Math.round(d.x1);
+    const wd = Math.max(1, ix1 - ix0);
+    const edgePx = Math.max(2, Math.round(cw * 0.0055));
+    for (let y = 0; y < ch; y += 1) {
+      const cv = cylV[y];
+      for (let x = ix0; x < ix1; x += 1) {
+        const xn = ((x - ix0) / (wd - 1 || 1)) * 2 - 1;
+        const cylH = 0.72 + 0.28 * Math.sqrt(Math.max(0, 1 - 0.75 * xn * xn));
+        const rim = 0.14 * Math.exp(-(((Math.abs(xn) - 0.86) ** 2) / (2 * 0.07 * 0.07)));
+        const sh = Math.min(1.15, cv * (cylH + rim));
+        const n = rand() * 5.2 * (0.4 + 0.5 * sh);
+        let r = 9 + (82 - 9) * sh + n;
+        let g = 8 + (78 - 8) * sh + n;
+        let b = 6 + (72 - 6) * sh + n;
+        if (x - ix0 < edgePx || ix1 - 1 - x < edgePx) {
+          r *= 0.28; g *= 0.28; b *= 0.28;
+        }
+        const p = (y * cw + x) * 4;
+        data[p] = Math.max(0, Math.min(255, r));
+        data[p + 1] = Math.max(0, Math.min(255, g));
+        data[p + 2] = Math.max(0, Math.min(255, b));
+        data[p + 3] = 255;
+      }
+    }
+  }
+  bctx.putImageData(imgData, 0, 0);
+
+  /* Trattini grigi orizzontali nelle fessure tra coppie di rulli (identici alla foto) */
+  [0, 2, 4].forEach((i) => {
+    const gx0 = Math.round(drums[i].x1);
+    const gx1 = Math.round(drums[i + 1].x0);
+    if (gx1 <= gx0) return;
+    bctx.fillStyle = '#0c0b09';
+    bctx.fillRect(gx0, 0, gx1 - gx0, ch);
+    const my0 = Math.round(ch * 0.475);
+    const mh = Math.max(3, Math.round(ch * 0.05));
+    const padX = Math.max(1, Math.floor((gx1 - gx0) * 0.18));
+    bctx.fillStyle = '#76726c';
+    bctx.fillRect(gx0 + padX, my0, Math.max(2, gx1 - gx0 - padX * 2), mh);
+  });
+
+  /* Colon centrale (due punti avorio tra ore e minuti, dimensioni e spaziatura della foto) */
+  {
+    const cx0 = Math.round(colonX[0]);
+    const cwC = Math.round(colonX[1] - colonX[0]);
+    const cGrad = bctx.createLinearGradient(0, 0, 0, ch);
+    cGrad.addColorStop(0, '#0a0908');
+    cGrad.addColorStop(0.28, '#23201c');
+    cGrad.addColorStop(0.75, '#151310');
+    cGrad.addColorStop(1, '#080706');
+    bctx.fillStyle = cGrad;
+    bctx.fillRect(cx0, 0, cwC, ch);
+    const ccx = cx0 + cwC * 0.5;
+    const dotR = Math.max(2.5, cwC * 0.175);
+    [0.40, 0.60].forEach((fy) => {
+      const cy = ch * fy;
+      bctx.beginPath();
+      bctx.arc(ccx, cy, dotR + 1.2, 0, Math.PI * 2);
+      bctx.fillStyle = 'rgba(0,0,0,0.75)';
+      bctx.fill();
+      bctx.beginPath();
+      bctx.arc(ccx, cy, dotR, 0, Math.PI * 2);
+      bctx.fillStyle = '#d4cec2';
+      bctx.fill();
+    });
+  }
+
+  /* 2. Layer superiore: linea rossa meccanica + ombre incassate della cornice + riflesso vetro */
+  const fgCanvas = document.createElement('canvas');
+  fgCanvas.width = cw;
+  fgCanvas.height = ch;
+  const fctx = fgCanvas.getContext('2d');
+
+  /* Linea rossa verticale prima dei secondi (vernice anni '50 patinata) */
+  {
+    const rx0 = Math.round(redX[0]);
+    const rw = Math.round(redX[1] - redX[0]);
+    fctx.fillStyle = '#0a0907';
+    fctx.fillRect(rx0, 0, rw, ch);
+    const rcx = rx0 + rw * 0.5;
+    const lw = Math.max(2, Math.round(cw * 0.0065));
+    const rGrad = fctx.createLinearGradient(0, ch * 0.06, 0, ch * 0.94);
+    rGrad.addColorStop(0, '#441a13');
+    rGrad.addColorStop(0.26, '#ad4d3c');
+    rGrad.addColorStop(0.56, '#903a2c');
+    rGrad.addColorStop(1, '#36130e');
+    fctx.fillStyle = rGrad;
+    fctx.fillRect(Math.round(rcx - lw / 2), Math.round(ch * 0.07), lw, Math.round(ch * 0.86));
+  }
+
+  /* Ombra incassata superiore e inferiore (feritoia della cornice bronzea) */
+  const topSh = fctx.createLinearGradient(0, 0, 0, ch * 0.30);
+  topSh.addColorStop(0, 'rgba(0,0,0,0.88)');
+  topSh.addColorStop(0.45, 'rgba(0,0,0,0.34)');
+  topSh.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = topSh;
+  fctx.fillRect(0, 0, cw, ch * 0.32);
+
+  const botSh = fctx.createLinearGradient(0, ch, 0, ch * 0.70);
+  botSh.addColorStop(0, 'rgba(0,0,0,0.84)');
+  botSh.addColorStop(0.45, 'rgba(0,0,0,0.30)');
+  botSh.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = botSh;
+  fctx.fillRect(0, ch * 0.68, cw, ch * 0.32);
+
+  /* Ombra laterale ai bordi sinistro e destro della finestra */
+  const leftSh = fctx.createLinearGradient(0, 0, cw * 0.03, 0);
+  leftSh.addColorStop(0, 'rgba(0,0,0,0.68)');
+  leftSh.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = leftSh;
+  fctx.fillRect(0, 0, cw * 0.035, ch);
+
+  const rightSh = fctx.createLinearGradient(cw, 0, cw * 0.97, 0);
+  rightSh.addColorStop(0, 'rgba(0,0,0,0.68)');
+  rightSh.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = rightSh;
+  fctx.fillRect(cw * 0.965, 0, cw * 0.035, ch);
+
+  /* Sottilissimo riflesso vetro orizzontale in alto */
+  const gl = fctx.createLinearGradient(0, ch * 0.06, 0, ch * 0.24);
+  gl.addColorStop(0, 'rgba(255,248,232,0)');
+  gl.addColorStop(0.5, 'rgba(255,248,232,0.065)');
+  gl.addColorStop(1, 'rgba(255,248,232,0)');
+  fctx.fillStyle = gl;
+  fctx.fillRect(0, ch * 0.06, cw, ch * 0.18);
+
+  /* 3. Sprite dei glifi 0..9 (avorio caldo e rosso vernice invecchiato anni '50) */
+  const gw = Math.round(dw * 1.12);
+  const gh = Math.round(ch * 0.64);
+  const makeGlyphs = (color, aged) => {
+    const arr = [];
+    for (let d = 0; d < 10; d += 1) {
+      const c = document.createElement('canvas');
+      c.width = gw;
+      c.height = gh;
+      const gctx = c.getContext('2d');
+      gctx.textAlign = 'center';
+      gctx.textBaseline = 'middle';
+      const fontSize = Math.round(ch * 0.46);
+      gctx.font = `600 ${fontSize}px "Helvetica Neue", "Arial", "Segoe UI", sans-serif`;
+      gctx.save();
+      gctx.translate(gw / 2, gh / 2 + fontSize * 0.03);
+      gctx.scale(0.92, 1.0);
+      gctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      gctx.shadowBlur = 2;
+      gctx.shadowOffsetY = 1.5;
+      if (aged) {
+        const gGrad = gctx.createLinearGradient(0, -fontSize * 0.42, 0, fontSize * 0.42);
+        gGrad.addColorStop(0, '#9c4333');
+        gGrad.addColorStop(0.36, '#bc5c49');
+        gGrad.addColorStop(0.68, '#a44736');
+        gGrad.addColorStop(1, '#7c3024');
+        gctx.fillStyle = gGrad;
+      } else {
+        gctx.fillStyle = color;
+      }
+      gctx.fillText(String(d), 0, 0);
+      gctx.restore();
+
+      if (aged) {
+        /* Leggera patina/usura vernice smaltata sui numeri rossi dei secondi */
+        gctx.save();
+        gctx.globalCompositeOperation = 'source-atop';
+        let gSeed = 4099 + d * 7919;
+        const gRand = () => {
+          gSeed = (gSeed * 16807) % 2147483647;
+          return gSeed / 2147483647;
+        };
+        /* Velo caldo opaco tipo vernice scolorita dal tempo */
+        gctx.fillStyle = 'rgba(54, 34, 24, 0.16)';
+        gctx.fillRect(0, 0, gw, gh);
+        /* Micro-puntinatura di usura e macchioline brunite */
+        for (let k = 0; k < 46; k += 1) {
+          const sx = gRand() * gw;
+          const sy = gRand() * gh;
+          const sr = 0.7 + gRand() * 2.0;
+          gctx.fillStyle = k % 3 === 0
+            ? `rgba(218, 176, 146, ${0.10 + gRand() * 0.12})`
+            : `rgba(38, 18, 12, ${0.14 + gRand() * 0.20})`;
+          gctx.beginPath();
+          gctx.arc(sx, sy, sr, 0, Math.PI * 2);
+          gctx.fill();
+        }
+        gctx.restore();
+      }
+      arr.push(c);
+    }
+    return arr;
+  };
+
+  v50OdoAssets = {
+    cw,
+    ch,
+    dw,
+    drums,
+    bgCanvas,
+    fgCanvas,
+    glyphsIvory: makeGlyphs('#d6d0c4', false),
+    glyphsRed: makeGlyphs('#b3513f', true)
+  };
+  return v50OdoAssets;
+}
+
+function drawV50OdoFrame(vals) {
+  const a = buildV50OdoAssets();
+  if (!a || !v50OdoCtx) return;
+  const ctx = v50OdoCtx;
+  const { cw, ch, drums, bgCanvas, fgCanvas, glyphsIvory, glyphsRed } = a;
+
+  ctx.drawImage(bgCanvas, 0, 0);
+
+  /* Raggio del cilindro tarato sulla foto: centrale ben raccolta + ~1/3 di cifra sopra e sotto */
+  const R = ch * 0.68;
+  const cy = ch * 0.50;
+  const stepAng = (Math.PI * 2) / 10;
+
+  for (let i = 0; i < drums.length; i += 1) {
+    const d = drums[i];
+    const mod = V50_ODO_MOD[i];
+    const glyphs = d.sec ? glyphsRed : glyphsIvory;
+    const val = vals[i];
+    const base = Math.floor(val);
+    const frac = val - base;
+    const x0 = Math.round(d.x0);
+    const wd = Math.round(d.x1) - x0;
+    const dcx = x0 + wd * 0.5;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0 + 1, 0, Math.max(1, wd - 2), ch);
+    ctx.clip();
+
+    for (let off = -2; off <= 2; off += 1) {
+      const digit = (((base + off) % mod) + mod) % mod;
+      const theta = (off - frac) * stepAng;
+      if (Math.abs(theta) > 1.38) continue;
+      const scaleY = Math.cos(theta);
+      if (scaleY <= 0.08) continue;
+      const yProj = cy + R * Math.sin(theta);
+      const sp = glyphs[digit];
+      const drawW = wd * 0.96;
+      const drawH = sp.height * scaleY;
+      ctx.globalAlpha = Math.max(0.24, Math.min(1, 0.30 + 0.74 * Math.pow(scaleY, 0.85)));
+      ctx.drawImage(sp, dcx - drawW * 0.5, yProj - drawH * 0.5, drawW, drawH);
+    }
+
+    ctx.restore();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.drawImage(fgCanvas, 0, 0);
+}
+
+function stopV50OdoAnim() {
+  if (v50OdoRaf) {
+    cancelAnimationFrame(v50OdoRaf);
+    v50OdoRaf = 0;
+  }
+}
+
+function paintV50Odo(now, force) {
+  if (!v50OdoRoot || !v50OdoCanvas || radioSkinId !== 'vintage50') {
+    stopV50OdoAnim();
+    return;
+  }
+  const hh = now.getHours();
+  const mm = now.getMinutes();
+  const ss = now.getSeconds();
+  const target = [
+    Math.floor(hh / 10),
+    hh % 10,
+    Math.floor(mm / 10),
+    mm % 10,
+    Math.floor(ss / 10),
+    ss % 10
+  ];
+  const stamp = target.join('');
+  if (!force && stamp === v50OdoPrev) return;
+
+  const animate = Boolean(v50OdoPrev) && !force;
+  v50OdoPrev = stamp;
+
+  if (!animate) {
+    stopV50OdoAnim();
+    v50OdoCur = target.slice();
+    v50OdoFrom = target.slice();
+    v50OdoTo = target.slice();
+    v50OdoTarget = target.slice();
+    drawV50OdoFrame(v50OdoCur);
+    return;
+  }
+
+  /* Imposta la rotazione sempre in avanti secondo il modulo di ciascun rullo */
+  v50OdoTarget = target.slice();
+  v50OdoFrom = v50OdoCur.slice();
+  v50OdoTo = target.map((t, i) => {
+    const mod = V50_ODO_MOD[i];
+    const from = ((v50OdoFrom[i] % mod) + mod) % mod;
+    v50OdoFrom[i] = from;
+    const diff = ((t - Math.round(from)) % mod + mod) % mod;
+    return from + diff;
+  });
+
+  v50OdoAnimT0 = performance.now();
+  const DUR = 360;
+
+  if (!v50OdoRaf) {
+    const step = (ts) => {
+      if (radioSkinId !== 'vintage50') {
+        v50OdoRaf = 0;
+        return;
+      }
+      const u = Math.max(0, Math.min(1, (ts - v50OdoAnimT0) / DUR));
+      /* Curva meccanica fluida del tamburo */
+      const ease = u < 0.5
+        ? 4 * u * u * u
+        : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      for (let i = 0; i < 6; i += 1) {
+        v50OdoCur[i] = v50OdoFrom[i] + (v50OdoTo[i] - v50OdoFrom[i]) * ease;
+      }
+      drawV50OdoFrame(v50OdoCur);
+      if (u < 1) {
+        v50OdoRaf = requestAnimationFrame(step);
+      } else {
+        v50OdoRaf = 0;
+        v50OdoCur = v50OdoTarget.slice();
+        drawV50OdoFrame(v50OdoCur);
+      }
+    };
+    v50OdoRaf = requestAnimationFrame(step);
+  }
+}
+
 function tickRadioClock() {
   const now = new Date();
   if (clockHoursEl && clockMinsEl) {
@@ -5253,6 +5735,7 @@ function tickRadioClock() {
     digitalTempEl.textContent = formatDigitalTemp(t);
   }
   if (clockThemeId === 'corona') paintCoronaCrown(now);
+  paintV50Odo(now, false);
 }
 
 function stopCoronaAnim() {
@@ -5470,15 +5953,97 @@ function signalMeterTarget(frameMax) {
   return clamp(audio * 0.12, 0, 0.12);
 }
 
+const v50SignalNeedle = document.getElementById('v50SignalNeedle');
+/* Meter SIGNAL V50 in px della foto (155×99): perno ≠ centro arco, la lunghezza cambia con l'angolo */
+const V50_SM = { h: 99, pcx: 0.3, pcy: 13.8, r: 58.5, rest: 45.8 };
+function v50NeedleHeightPct(angDeg) {
+  const a = (angDeg * Math.PI) / 180;
+  const b = V50_SM.pcx * Math.sin(a) - V50_SM.pcy * Math.cos(a);
+  const c = V50_SM.pcx * V50_SM.pcx + V50_SM.pcy * V50_SM.pcy - V50_SM.r * V50_SM.r;
+  const t = -b + Math.sqrt(Math.max(0, b * b - c));
+  return (t / V50_SM.h) * 100;
+}
+
 function paintSMeter(frameMax) {
-  if (!sNeedle) return;
   const target = signalMeterTarget(frameMax);
   sMeterSmooth += (target - sMeterSmooth) * (target > sMeterSmooth ? 0.22 : 0.12);
   const wobble = state.power && !state.stopped && sMeterSmooth > 0.2
     ? Math.sin(performance.now() / 180) * 0.012 * sMeterSmooth
     : 0;
-  const ang = -48 + clamp(sMeterSmooth + wobble, 0, 1) * 96;
-  sNeedle.style.transform = `translateX(-50%) rotate(${ang.toFixed(2)}deg)`;
+  const isV50 = radioSkinId === 'vintage50';
+  const level = clamp(sMeterSmooth + wobble, 0, 1);
+  const ang = isV50
+    ? -V50_SM.rest + level * V50_SM.rest * 2
+    : -48 + level * 96;
+  const rot = `translateX(-50%) rotate(${ang.toFixed(2)}deg)`;
+  if (sNeedle) sNeedle.style.transform = rot;
+  if (v50SignalNeedle && isV50) {
+    v50SignalNeedle.style.transform = rot;
+    v50SignalNeedle.style.height = `${v50NeedleHeightPct(ang).toFixed(2)}%`;
+  }
+}
+
+/* Vintage 50: calo di tensione soft su CH± / LED cassa (ogni tanto) */
+const v50SignalLed = document.getElementById('v50SignalLed');
+let v50BrownoutTimer = 0;
+let v50BrownoutIdleTimer = 0;
+
+function v50BrownoutTargets() {
+  /* Solo channel sotto: niente traballio sulla lucina cassa */
+  const up = document.querySelector('.radio.skin-vintage50 .key-well:has(#btnChUp)');
+  const down = document.querySelector('.radio.skin-vintage50 .key-well:has(#btnChDown)');
+  return [up, down].filter(Boolean);
+}
+
+function clearV50Glitch() {
+  window.clearTimeout(v50BrownoutTimer);
+  window.clearTimeout(v50BrownoutIdleTimer);
+  v50BrownoutTimer = 0;
+  v50BrownoutIdleTimer = 0;
+  for (const el of v50BrownoutTargets()) el.classList.remove('is-brownout');
+}
+
+function runV50BrownoutDip() {
+  if (!state.power || radioSkinId !== 'vintage50') return;
+  const targets = v50BrownoutTargets();
+  if (!targets.length) return;
+  /* Uno o due LED “perdono tensione” un attimo, poi riprendono */
+  const pick = targets.filter(() => Math.random() < 0.7);
+  const list = pick.length ? pick : [targets[Math.floor(Math.random() * targets.length)]];
+  for (const el of list) el.classList.add('is-brownout');
+  const hold = 140 + Math.random() * 220;
+  v50BrownoutTimer = window.setTimeout(() => {
+    for (const el of list) el.classList.remove('is-brownout');
+  }, hold);
+}
+
+function scheduleV50IdleGlitch() {
+  window.clearTimeout(v50BrownoutIdleTimer);
+  if (!state.power || radioSkinId !== 'vintage50') return;
+  /* Raro: ogni ~12–40 s */
+  const wait = 12000 + Math.random() * 28000;
+  v50BrownoutIdleTimer = window.setTimeout(() => {
+    if (!state.power || radioSkinId !== 'vintage50') return;
+    runV50BrownoutDip();
+    scheduleV50IdleGlitch();
+  }, wait);
+}
+
+function runV50BootGlitches() {
+  clearV50Glitch();
+  if (radioSkinId !== 'vintage50' || !state.power) return;
+  /* All’accensione: 1–2 cali soft, niente sfarfallio maniacale */
+  v50BrownoutTimer = window.setTimeout(() => {
+    runV50BrownoutDip();
+    if (Math.random() < 0.65) {
+      v50BrownoutTimer = window.setTimeout(() => {
+        runV50BrownoutDip();
+        scheduleV50IdleGlitch();
+      }, 350 + Math.random() * 500);
+    } else {
+      scheduleV50IdleGlitch();
+    }
+  }, 280 + Math.random() * 420);
 }
 
 const PAUSE_WORD_TOP = 0.92;
@@ -5923,7 +6488,7 @@ document.addEventListener('pointerdown', (event) => {
   if (castUi.casting) {
     muteTabletAudio(true);
     if (turningOff || stopping) return;
-    if (event.target.closest('#btnCast, #btnPower, #btnStop, #btnChUp, #btnChDown, #volKnob, #tuneKnob, #btnSpecSettings, #btnViewMode, .band-body, .monitor-settings, .monitor-cast')) return;
+    if (event.target.closest('#btnCast, #btnPower, #btnStop, #btnChUp, #btnChDown, #volKnob, #tuneKnob, #btnSpecSettings, #btnViewMode, #btnFaceEdit, .v50-edit-bar, #v50Paint, .band-body, .monitor-settings, .monitor-cast')) return;
     return;
   }
   engine.start();
@@ -6660,7 +7225,7 @@ document.addEventListener('click', (event) => {
     if (el?.contains(event.target)) return;
   }
 
-  if (event.target.closest('#tuneKnob, #volKnob, #btnViewMode, #btnSpecSettings, #btnPower, #btnStop, #btnCast, #btnBand, #btnAuto, #btnPreset, #btnMono, #btnChUp, #btnChDown, .key, .lamp, .controls, .monitor-settings, .monitor-cast')) {
+  if (event.target.closest('#tuneKnob, #volKnob, #btnViewMode, #btnFaceEdit, #btnSpecSettings, #btnPower, #btnStop, #btnCast, #btnBand, #btnAuto, #btnPreset, #btnMono, #btnChUp, #btnChDown, .v50-edit-bar, #v50Paint, .key, .lamp, .controls, .monitor-settings, .monitor-cast')) {
     return;
   }
   if (!event.target.closest('#radio')) return;
@@ -6935,6 +7500,11 @@ function bindChannelStep(btn, dir) {
   const HOLD_MS = 340;
   let pressId = null;
   let didHold = false;
+  const well = btn.closest('.key-well');
+
+  const setPressed = (on) => {
+    if (well) well.classList.toggle('is-pressed', !!on);
+  };
 
   const endPress = (event) => {
     if (pressId == null) return;
@@ -6944,6 +7514,7 @@ function bindChannelStep(btn, dir) {
     const wasHold = didHold;
     didHold = false;
     pressId = null;
+    setPressed(false);
     if (wasHold) stopChannelFastSeek();
     else {
       engine.start();
@@ -6959,6 +7530,7 @@ function bindChannelStep(btn, dir) {
     playKeyClick();
     didHold = false;
     pressId = event.pointerId;
+    setPressed(true);
     try { btn.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
     window.clearTimeout(chFastSeek.holdTimer);
     chFastSeek.holdTimer = window.setTimeout(() => {
@@ -7742,8 +8314,22 @@ const BG_THEMES = [
   {
     id: 'scaffale-legno-noce',
     name: 'Scaffale in legno noce',
-    thumb: '/img/bg/scaffale-legno-noce.png',
-    image: '/img/bg/scaffale-legno-noce.png'
+    thumb: '/img/bg/scaffale-legno-noce.jpg',
+    image: '/img/bg/scaffale-legno-noce.jpg'
+  },
+  {
+    id: 'scaffale-panoramico',
+    name: 'Scaffale panoramico',
+    thumb: '/img/bg/scaffale-panoramico.jpg',
+    image: '/img/bg/scaffale-panoramico.jpg',
+    /* Rettangolo interno dello scomparto vuoto (frazioni sull’immagine 1024×636) */
+    imgW: 1024,
+    imgH: 636,
+    niche: { x: 0.255, y: 0.175, w: 0.49, h: 0.56 },
+    nichePad: 0.035,
+    nicheShrink: 0.94,
+    nicheAlign: 'bottom',
+    nicheBottomGap: 0.018
   },
   {
     id: 'laccata-grigia',
@@ -7761,8 +8347,18 @@ const BG_THEMES = [
   {
     id: 'soggiorno-chiaro',
     name: 'Soggiorno chiaro',
-    thumb: '/img/bg/soggiorno-chiaro.png',
-    image: '/img/bg/soggiorno-chiaro.png'
+    thumb: '/img/bg/soggiorno-chiaro.jpg',
+    image: '/img/bg/soggiorno-chiaro.jpg'
+  },
+  {
+    id: 'soggiorno-radio',
+    name: 'Soggiorno radio',
+    thumb: '/img/bg/soggiorno-radio-lontano.jpg',
+    image: '/img/bg/soggiorno-radio-vicino.jpg',
+    approach: true,
+    approachFar: '/img/bg/soggiorno-radio-lontano.jpg',
+    approachNear: '/img/bg/soggiorno-radio-vicino.jpg',
+    preferSkin: 'vintage50'
   },
   {
     id: 'banco-falegname',
@@ -7774,6 +8370,9 @@ const BG_THEMES = [
 let bgThemeId = '';
 let bgThemeFocus = 0;
 let fitLayoutTimer = 0;
+let sceneApproachTimer = 0;
+let sceneApproachMidTimer = 0;
+let sceneApproachEl = null;
 
 function readBgThemeId() {
   try {
@@ -7815,9 +8414,75 @@ function layoutFullscreenFit() {
   radio.style.setProperty('--fit-h', `${Math.floor(ah)}px`);
 }
 
+/* Calcola nicchia per una skin (Classic/Vintage hanno formati diversi) */
+function computeNicheLayout(skinId) {
+  const theme = BG_THEMES.find((t) => t.id === bgThemeId);
+  if (!theme?.niche) return null;
+  const { w: viewW, h: viewH } = viewportFitBox();
+  const imgW = Number(theme.imgW) || 1024;
+  const imgH = Number(theme.imgH) || 636;
+  const scale = Math.max(viewW / imgW, viewH / imgH);
+  const dispW = imgW * scale;
+  const dispH = imgH * scale;
+  const offsetX = (viewW - dispW) / 2;
+  const offsetY = (viewH - dispH) / 2;
+  const n = theme.niche;
+  const pad = Number(theme.nichePad) || 0.03;
+  const padX = pad * n.w;
+  const padY = pad * n.h;
+  const nx = offsetX + (n.x + padX) * dispW;
+  const ny = offsetY + (n.y + padY) * dispH;
+  const nw = Math.max(48, (n.w - padX * 2) * dispW);
+  const nh = Math.max(36, (n.h - padY * 2) * dispH);
+  const aspect = skinId === 'vintage50' ? (978 / 508) : 2.05;
+  let cw = nw;
+  let ch = cw / aspect;
+  if (ch > nh) {
+    ch = nh;
+    cw = ch * aspect;
+  }
+  const shrink = Number(theme.nicheShrink) || 0.95;
+  cw *= shrink;
+  ch *= shrink;
+  const left = nx + (nw - cw) / 2;
+  const align = theme.nicheAlign || 'bottom';
+  const gap = (Number(theme.nicheBottomGap) || 0) * dispH;
+  const top = align === 'center'
+    ? ny + (nh - ch) / 2
+    : ny + Math.max(0, nh - ch) - gap;
+  return {
+    left: Math.round(left),
+    top: Math.round(top),
+    w: Math.round(cw),
+    h: Math.round(ch)
+  };
+}
+
+/* Posiziona la radio dentro lo scomparto dello sfondo (cover + center) */
+function layoutSceneNiche() {
+  if (!radio) return;
+  const box = computeNicheLayout(radioSkinId);
+  if (!box) {
+    radio.classList.remove('is-scene-niche');
+    radio.style.removeProperty('--niche-left');
+    radio.style.removeProperty('--niche-top');
+    radio.style.removeProperty('--niche-w');
+    radio.style.removeProperty('--niche-h');
+    return;
+  }
+  radio.classList.add('is-scene-niche');
+  radio.style.setProperty('--niche-left', `${box.left}px`);
+  radio.style.setProperty('--niche-top', `${box.top}px`);
+  radio.style.setProperty('--niche-w', `${box.w}px`);
+  radio.style.setProperty('--niche-h', `${box.h}px`);
+}
+
 function scheduleFullscreenFit() {
   window.clearTimeout(fitLayoutTimer);
-  fitLayoutTimer = window.setTimeout(layoutFullscreenFit, 40);
+  fitLayoutTimer = window.setTimeout(() => {
+    layoutFullscreenFit();
+    layoutSceneNiche();
+  }, 40);
 }
 
 function applySceneBg() {
@@ -7827,14 +8492,17 @@ function applySceneBg() {
   if (!radio) return;
   radio.classList.toggle('has-scene-bg', has);
   radio.classList.toggle('is-fit-fullscreen', fitFs);
+  radio.classList.toggle('is-scene-niche', Boolean(theme?.niche));
   /* Skin radio (colore/materiale chassis) opzionale per tema */
   [...radio.classList].forEach((cls) => {
     if (cls.startsWith('skin-') && cls !== 'skin-vintage50') radio.classList.remove(cls);
   });
   if (theme?.skin) radio.classList.add(`skin-${theme.skin}`);
+  applyRadioSkin();
   if (has) radio.style.setProperty('--scene-bg', `url("${theme.image}?v=${APP_VERSION}")`);
   else radio.style.removeProperty('--scene-bg');
   layoutFullscreenFit();
+  layoutSceneNiche();
 }
 
 function paintBgThemeList() {
@@ -7874,14 +8542,121 @@ function paintBgThemeFocus() {
   items[bgThemeFocus]?.scrollIntoView?.({ block: 'nearest' });
 }
 
+function stopSceneApproach(opts = {}) {
+  window.clearTimeout(sceneApproachTimer);
+  window.clearTimeout(sceneApproachMidTimer);
+  sceneApproachTimer = 0;
+  sceneApproachMidTimer = 0;
+  radio?.classList.remove('is-scene-approaching', 'is-scene-arriving');
+  if (chassis) {
+    chassis.style.transition = '';
+    chassis.style.opacity = '';
+    chassis.style.transform = '';
+    chassis.style.filter = '';
+    try { applyV50Zoom(); } catch (e) { /* ignore */ }
+  }
+  if (sceneApproachEl) {
+    sceneApproachEl.classList.remove('is-run', 'is-mid', 'is-end');
+    if (!opts.keepDom && sceneApproachEl.parentNode) {
+      sceneApproachEl.parentNode.removeChild(sceneApproachEl);
+      sceneApproachEl = null;
+    }
+  }
+}
+
+function ensureSceneApproachEl() {
+  if (sceneApproachEl?.isConnected) return sceneApproachEl;
+  const root = document.createElement('div');
+  root.className = 'scene-approach';
+  root.setAttribute('aria-hidden', 'true');
+  root.innerHTML =
+    '<div class="scene-approach-viewport">' +
+      '<div class="scene-approach-stage">' +
+        '<div class="scene-approach-layer is-far"></div>' +
+        '<div class="scene-approach-layer is-near"></div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(root);
+  sceneApproachEl = root;
+  return root;
+}
+
+function playSceneApproach(theme) {
+  if (!radio || !theme?.approach) return;
+  stopSceneApproach({ keepDom: true });
+  const farUrl = `${theme.approachFar || theme.image}?v=${APP_VERSION}`;
+  const nearUrl = `${theme.approachNear || theme.image}?v=${APP_VERSION}`;
+  [farUrl, nearUrl].forEach((url) => {
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+    } catch (e) { /* ignore */ }
+  });
+
+  if (theme.preferSkin && theme.preferSkin !== radioSkinId) {
+    try { selectRadioSkin(theme.preferSkin, { silent: true, keepSettings: true }); } catch (e) { /* ignore */ }
+  }
+
+  try { openMonitorSettings(false); } catch (e) { /* ignore */ }
+
+  const root = ensureSceneApproachEl();
+  const far = root.querySelector('.scene-approach-layer.is-far');
+  const near = root.querySelector('.scene-approach-layer.is-near');
+  if (far) far.style.backgroundImage = `url("${farUrl}")`;
+  if (near) near.style.backgroundImage = `url("${nearUrl}")`;
+
+  radio.classList.add('is-scene-approaching');
+  radio.classList.remove('is-scene-arriving');
+  if (chassis) {
+    chassis.style.transition = 'none';
+    chassis.style.opacity = '0';
+    chassis.style.transform = 'translate3d(0, 10%, 0) scale(0.82)';
+    chassis.style.filter = 'blur(3px)';
+  }
+
+  root.classList.remove('is-run', 'is-mid', 'is-end');
+  void root.offsetWidth;
+  requestAnimationFrame(() => {
+    root.classList.add('is-run');
+    /* Crossfade sul frontale mentre la camera è già vicina */
+    sceneApproachMidTimer = window.setTimeout(() => {
+      root.classList.add('is-mid');
+    }, 1680);
+  });
+
+  /* Arrivo dolce sulla radio ufficiale */
+  sceneApproachTimer = window.setTimeout(() => {
+    root.classList.add('is-end');
+    radio.classList.remove('is-scene-approaching');
+    radio.classList.add('is-scene-arriving');
+    if (chassis) {
+      void chassis.offsetWidth;
+      chassis.style.transition =
+        'opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 980ms cubic-bezier(0.22, 1, 0.36, 1), filter 720ms ease';
+      chassis.style.opacity = '1';
+      chassis.style.transform = '';
+      chassis.style.filter = 'none';
+      try { applyV50Zoom(); } catch (e) { /* ignore */ }
+    }
+    sceneApproachTimer = window.setTimeout(() => {
+      stopSceneApproach();
+      radio?.classList.remove('is-scene-arriving');
+    }, 1000);
+  }, 3800);
+}
+
 function selectBgTheme(id) {
   const next = BG_THEMES.some((t) => t.id === id) ? id : '';
+  const theme = BG_THEMES.find((t) => t.id === next);
   bgThemeId = next;
   persistBgThemeId();
+  if (!theme?.approach) stopSceneApproach();
   applySceneBg();
   paintBgThemeList();
   scheduleRemoteState();
-  flash(next ? (BG_THEMES.find((t) => t.id === next)?.name || 'SFONDO') : 'SFONDO OFF', true);
+  flash(next ? (theme?.name || 'SFONDO') : 'SFONDO OFF', true);
+  if (theme?.approach) playSceneApproach(theme);
 }
 
 function openBgPane(on, opts = {}) {
@@ -7896,21 +8671,397 @@ function openBgPane(on, opts = {}) {
   scheduleRemoteState();
 }
 
-const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
-let radioSkinId = '';
-
 function readRadioSkinId() {
-  try {
-    const id = String(localStorage.getItem(RADIO_SKIN_KEY) || '');
-    return id === 'vintage50' ? id : '';
-  } catch (e) {
-    return '';
-  }
+  /* Al momento: avvio sempre Classic 70/80 (ignora eventuali skin salvate) */
+  try { localStorage.setItem(RADIO_SKIN_KEY, ''); } catch (e) { /* ignore */ }
+  return '';
 }
 
+/* ——— Vintage 50: ritocco faccia (disabilitato momentaneamente) ——— */
+const V50_FACE_EDIT_ENABLED = false;
+const V50_PAINT_KEY = 'mytuner-v50-paint-v2';
+const v50Paint = document.getElementById('v50Paint');
+const btnFaceEdit = document.getElementById('btnFaceEdit');
+const v50EditBar = document.getElementById('v50EditBar');
+const v50EditUndo = document.getElementById('v50EditUndo');
+const v50ColorSwatch = document.getElementById('v50ColorSwatch');
+const v50EditDone = document.getElementById('v50EditDone');
+let v50EditOn = false;
+let v50Color = 'rgb(196, 165, 116)';
+let v50Drawing = false; /* true solo dopo un piccolo drag */
+let v50StrokeActive = false;
+let v50Moved = false;
+let v50Last = null;
+let v50DownPt = null;
+let v50Zoom = 1;
+let v50PanX = 0;
+let v50PanY = 0;
+let v50Pinch = null;
+let v50FaceImg = null;
+let v50FaceReady = false;
+let v50SaveTimer = 0;
+let v50UndoStack = [];
+const V50_UNDO_MAX = 40;
+const v50PaintCtx = v50Paint?.getContext?.('2d', { willReadFrequently: true }) || null;
+const v50SampleCanvas = document.createElement('canvas');
+const v50SampleCtx = v50SampleCanvas.getContext('2d', { willReadFrequently: true });
+
+function loadV50FaceImage() {
+  if (v50FaceImg) return;
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => {
+    v50FaceImg = img;
+    v50FaceReady = true;
+  };
+  img.onerror = () => { v50FaceReady = false; };
+  img.src = `img/skins/vintage-50-face.jpg?v=${APP_VERSION}`;
+}
+
+function syncV50UndoBtn() {
+  if (!v50EditUndo) return;
+  v50EditUndo.disabled = v50UndoStack.length === 0;
+}
+
+function pushV50Undo() {
+  if (!v50Paint || !v50PaintCtx) return;
+  try {
+    const snap = v50PaintCtx.getImageData(0, 0, v50Paint.width, v50Paint.height);
+    v50UndoStack.push(snap);
+    if (v50UndoStack.length > V50_UNDO_MAX) v50UndoStack.shift();
+  } catch (e) { /* ignore */ }
+  syncV50UndoBtn();
+}
+
+function undoV50Paint() {
+  if (!v50Paint || !v50PaintCtx || !v50UndoStack.length) return;
+  const snap = v50UndoStack.pop();
+  v50PaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+  v50PaintCtx.putImageData(snap, 0, 0);
+  persistV50Paint();
+  syncV50UndoBtn();
+  flash('UNDO', true);
+}
+
+function syncV50PaintSize() {
+  if (!v50Paint || !chassis) return;
+  const w = Math.max(1, Math.round(chassis.clientWidth * (window.devicePixelRatio || 1)));
+  const h = Math.max(1, Math.round(chassis.clientHeight * (window.devicePixelRatio || 1)));
+  if (v50Paint.width !== w || v50Paint.height !== h) {
+    const prev = document.createElement('canvas');
+    prev.width = v50Paint.width;
+    prev.height = v50Paint.height;
+    try { prev.getContext('2d').drawImage(v50Paint, 0, 0); } catch (e) { /* ignore */ }
+    v50Paint.width = w;
+    v50Paint.height = h;
+    v50UndoStack = [];
+    syncV50UndoBtn();
+    if (v50PaintCtx && prev.width && prev.height) {
+      v50PaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+      v50PaintCtx.clearRect(0, 0, w, h);
+      v50PaintCtx.drawImage(prev, 0, 0, w, h);
+    }
+  }
+  applyV50Zoom();
+}
+
+function applyV50Zoom() {
+  if (!chassis) return;
+  if (!v50EditOn || radioSkinId !== 'vintage50') {
+    chassis.style.transform = '';
+    return;
+  }
+  chassis.style.transform = `translate(${v50PanX}px, ${v50PanY}px) scale(${v50Zoom})`;
+}
+
+function persistV50Paint() {
+  if (!v50Paint) return;
+  window.clearTimeout(v50SaveTimer);
+  v50SaveTimer = window.setTimeout(() => {
+    try {
+      localStorage.setItem(V50_PAINT_KEY, v50Paint.toDataURL('image/png'));
+    } catch (e) { /* ignore */ }
+  }, 280);
+}
+
+function restoreV50Paint() {
+  if (!v50Paint || !v50PaintCtx) return;
+  let url = '';
+  try { url = localStorage.getItem(V50_PAINT_KEY) || ''; } catch (e) { /* ignore */ }
+  if (!url) return;
+  const img = new Image();
+  img.onload = () => {
+    syncV50PaintSize();
+    v50PaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+    v50PaintCtx.clearRect(0, 0, v50Paint.width, v50Paint.height);
+    v50PaintCtx.drawImage(img, 0, 0, v50Paint.width, v50Paint.height);
+  };
+  img.src = url;
+}
+
+function wipeV50Paint() {
+  if (v50Paint && v50PaintCtx) {
+    v50PaintCtx.setTransform(1, 0, 0, 1, 0, 0);
+    v50PaintCtx.clearRect(0, 0, v50Paint.width, v50Paint.height);
+  }
+  v50UndoStack = [];
+  try { localStorage.removeItem(V50_PAINT_KEY); } catch (e) { /* ignore */ }
+  try { localStorage.removeItem('mytuner-v50-paint-v1'); } catch (e) { /* ignore */ }
+  syncV50UndoBtn();
+}
+
+function setFaceEditMode(on) {
+  if (!V50_FACE_EDIT_ENABLED) on = false;
+  v50EditOn = Boolean(on) && radioSkinId === 'vintage50';
+  radio?.classList.toggle('is-face-edit', v50EditOn);
+  btnFaceEdit?.classList.toggle('is-on', v50EditOn);
+  btnFaceEdit?.setAttribute('aria-pressed', String(v50EditOn));
+  if (v50EditBar) v50EditBar.hidden = !v50EditOn;
+  if (!v50EditOn) {
+    v50Drawing = false;
+    v50StrokeActive = false;
+    v50Moved = false;
+    v50Last = null;
+    v50DownPt = null;
+    v50Pinch = null;
+    v50Zoom = 1;
+    v50PanX = 0;
+    v50PanY = 0;
+    applyV50Zoom();
+    return;
+  }
+  loadV50FaceImage();
+  syncV50PaintSize();
+  syncV50UndoBtn();
+  if (v50ColorSwatch) v50ColorSwatch.style.background = v50Color;
+}
+
+function v50CanvasPoint(clientX, clientY) {
+  if (!v50Paint) return null;
+  const rect = v50Paint.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return null;
+  return {
+    x: ((clientX - rect.left) / rect.width) * v50Paint.width,
+    y: ((clientY - rect.top) / rect.height) * v50Paint.height
+  };
+}
+
+function sampleV50Color(clientX, clientY) {
+  const pt = v50CanvasPoint(clientX, clientY);
+  if (!pt || !v50Paint || !v50PaintCtx) return v50Color;
+  const x = Math.max(0, Math.min(v50Paint.width - 1, Math.round(pt.x)));
+  const y = Math.max(0, Math.min(v50Paint.height - 1, Math.round(pt.y)));
+  /* 1) ritocco sopra, se presente */
+  try {
+    const p = v50PaintCtx.getImageData(x, y, 1, 1).data;
+    if (p[3] > 12) return `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+  } catch (e) { /* ignore */ }
+  /* 2) pixel esatto della foto (stesso stretch 100%×100% del chassis) */
+  if (v50FaceReady && v50FaceImg && v50SampleCtx) {
+    const fx = Math.max(0, Math.min(v50FaceImg.naturalWidth - 1, Math.floor((x / v50Paint.width) * v50FaceImg.naturalWidth)));
+    const fy = Math.max(0, Math.min(v50FaceImg.naturalHeight - 1, Math.floor((y / v50Paint.height) * v50FaceImg.naturalHeight)));
+    if (v50SampleCanvas.width !== 1 || v50SampleCanvas.height !== 1) {
+      v50SampleCanvas.width = 1;
+      v50SampleCanvas.height = 1;
+    }
+    v50SampleCtx.setTransform(1, 0, 0, 1, 0, 0);
+    v50SampleCtx.clearRect(0, 0, 1, 1);
+    v50SampleCtx.drawImage(v50FaceImg, fx, fy, 1, 1, 0, 0, 1, 1);
+    const d = v50SampleCtx.getImageData(0, 0, 1, 1).data;
+    if (d[3] >= 8) return `rgb(${d[0]}, ${d[1]}, ${d[2]})`;
+  }
+  return v50Color;
+}
+
+function v50BrushRadius() {
+  return Math.max(2.5, Math.min(v50Paint?.width || 800, v50Paint?.height || 400) * 0.011);
+}
+
+function paintV50Stroke(from, to) {
+  if (!v50PaintCtx || !to) return;
+  const r = v50BrushRadius();
+  v50PaintCtx.save();
+  v50PaintCtx.globalCompositeOperation = 'source-over';
+  v50PaintCtx.lineCap = 'round';
+  v50PaintCtx.lineJoin = 'round';
+  v50PaintCtx.lineWidth = r * 2;
+  v50PaintCtx.strokeStyle = v50Color;
+  v50PaintCtx.beginPath();
+  if (from) v50PaintCtx.moveTo(from.x, from.y);
+  else v50PaintCtx.moveTo(to.x, to.y);
+  v50PaintCtx.lineTo(to.x, to.y);
+  v50PaintCtx.stroke();
+  v50PaintCtx.restore();
+}
+
+function onV50PaintPointerDown(event) {
+  if (!v50EditOn || !v50Paint) return;
+  if (event.target.closest?.('.v50-edit-bar, .face-edit-btn, .settings-btn')) return;
+  event.preventDefault();
+  event.stopPropagation();
+  v50Paint.setPointerCapture?.(event.pointerId);
+  const pt = v50CanvasPoint(event.clientX, event.clientY);
+  if (!pt) return;
+  /* Tap: solo campiona colore esatto. Drag: disegna. */
+  v50Color = sampleV50Color(event.clientX, event.clientY);
+  if (v50ColorSwatch) v50ColorSwatch.style.background = v50Color;
+  v50StrokeActive = true;
+  v50Drawing = false;
+  v50Moved = false;
+  v50DownPt = pt;
+  v50Last = pt;
+}
+
+function onV50PaintPointerMove(event) {
+  if (!v50StrokeActive) return;
+  event.preventDefault();
+  const pt = v50CanvasPoint(event.clientX, event.clientY);
+  if (!pt || !v50DownPt) return;
+  const dx = pt.x - v50DownPt.x;
+  const dy = pt.y - v50DownPt.y;
+  const dist = Math.hypot(dx, dy);
+  if (!v50Drawing && dist < 3.5) return;
+  if (!v50Drawing) {
+    v50Drawing = true;
+    v50Moved = true;
+    pushV50Undo();
+    paintV50Stroke(null, v50DownPt);
+  }
+  paintV50Stroke(v50Last, pt);
+  v50Last = pt;
+}
+
+function onV50PaintPointerUp(event) {
+  if (!v50StrokeActive) return;
+  v50StrokeActive = false;
+  if (v50Drawing) persistV50Paint();
+  v50Drawing = false;
+  v50Moved = false;
+  v50Last = null;
+  v50DownPt = null;
+  try { v50Paint?.releasePointerCapture?.(event.pointerId); } catch (e) { /* ignore */ }
+}
+
+function onV50Wheel(event) {
+  if (!v50EditOn || radioSkinId !== 'vintage50') return;
+  if (event.target.closest?.('.v50-edit-bar')) return;
+  if (!event.target.closest?.('.chassis, #radio')) return;
+  event.preventDefault();
+  v50Zoom = clamp(v50Zoom * (event.deltaY < 0 ? 1.08 : 0.92), 1, 3.2);
+  if (v50Zoom <= 1.02) {
+    v50Zoom = 1;
+    v50PanX = 0;
+    v50PanY = 0;
+  }
+  applyV50Zoom();
+}
+
+function onV50TouchStart(event) {
+  if (!v50EditOn || event.touches.length !== 2) return;
+  if (event.target.closest?.('.v50-edit-bar')) return;
+  const [a, b] = event.touches;
+  v50Pinch = {
+    dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+    zoom: v50Zoom,
+    panX: v50PanX,
+    panY: v50PanY,
+    midX: (a.clientX + b.clientX) / 2,
+    midY: (a.clientY + b.clientY) / 2
+  };
+  v50StrokeActive = false;
+  v50Drawing = false;
+}
+
+function onV50TouchMove(event) {
+  if (!v50EditOn || !v50Pinch || event.touches.length !== 2) return;
+  event.preventDefault();
+  const [a, b] = event.touches;
+  const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const midX = (a.clientX + b.clientX) / 2;
+  const midY = (a.clientY + b.clientY) / 2;
+  v50Zoom = clamp(v50Pinch.zoom * (dist / Math.max(1, v50Pinch.dist)), 1, 3.2);
+  v50PanX = v50Pinch.panX + (midX - v50Pinch.midX);
+  v50PanY = v50Pinch.panY + (midY - v50Pinch.midY);
+  if (v50Zoom <= 1.02) {
+    v50Zoom = 1;
+    v50PanX = 0;
+    v50PanY = 0;
+  }
+  applyV50Zoom();
+}
+
+function onV50TouchEnd(event) {
+  if (!v50Pinch) return;
+  if (event.touches && event.touches.length >= 2) return;
+  v50Pinch = null;
+}
+
+btnFaceEdit?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!V50_FACE_EDIT_ENABLED || radioSkinId !== 'vintage50') return;
+  setFaceEditMode(!v50EditOn);
+  flash(v50EditOn ? 'MODIFICA ON' : 'MODIFICA OFF', true);
+});
+v50EditDone?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+});
+v50EditDone?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  setFaceEditMode(false);
+  flash('MODIFICA OFF', true);
+});
+v50EditUndo?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+});
+v50EditUndo?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  undoV50Paint();
+});
+v50EditBar?.addEventListener('pointerdown', (event) => {
+  event.stopPropagation();
+});
+v50Paint?.addEventListener('pointerdown', onV50PaintPointerDown);
+v50Paint?.addEventListener('pointermove', onV50PaintPointerMove);
+v50Paint?.addEventListener('pointerup', onV50PaintPointerUp);
+v50Paint?.addEventListener('pointercancel', onV50PaintPointerUp);
+window.addEventListener('wheel', onV50Wheel, { passive: false });
+radio?.addEventListener('touchstart', onV50TouchStart, { passive: true });
+radio?.addEventListener('touchmove', onV50TouchMove, { passive: false });
+radio?.addEventListener('touchend', onV50TouchEnd, { passive: true });
+window.addEventListener('resize', () => {
+  if (radioSkinId === 'vintage50') syncV50PaintSize();
+});
+/* Modifica faccia spenta: scarta ritocchi e non ripristinarli */
+wipeV50Paint();
+setFaceEditMode(false);
+if (btnFaceEdit) btnFaceEdit.hidden = true;
+if (v50EditBar) v50EditBar.hidden = true;
+
 function applyRadioSkin() {
-  if (!radio) return;
-  radio.classList.toggle('skin-vintage50', radioSkinId === 'vintage50');
+  try {
+    if (!radio) return;
+    radio.classList.remove('skin-newvintage50');
+    const v50 = radioSkinId === 'vintage50';
+    radio.classList.toggle('skin-vintage50', v50);
+    if (btnFaceEdit) btnFaceEdit.hidden = !V50_FACE_EDIT_ENABLED || !v50;
+    setFaceEditMode(false);
+    if (v50 && V50_FACE_EDIT_ENABLED) syncV50PaintSize();
+    if (v50) {
+      v50OdoPrev = '';
+      paintV50Odo(new Date(), true);
+    }
+    setNeedlePosition(needlePctForBand(state.band), { animate: false });
+    setTuneRotation(tuneAngle(), { animate: false });
+    if (v50LampFm) v50LampFm.classList.toggle('is-lit', state.power && state.band === 'fm');
+    if (v50LampAm) v50LampAm.classList.toggle('is-lit', state.power && state.band === 'am');
+    paintV50DialWx();
+    try { layoutSceneNiche(); } catch (e) { /* ignore */ }
+  } catch (e) { /* ignore */ }
 }
 
 function paintRadioSkinList() {
@@ -7921,14 +9072,352 @@ function paintRadioSkinList() {
   });
 }
 
-function selectRadioSkin(id) {
+function selectRadioSkin(id, opts = {}) {
   radioSkinId = id === 'vintage50' ? 'vintage50' : '';
   try { localStorage.setItem(RADIO_SKIN_KEY, radioSkinId); } catch (e) { /* ignore */ }
   applyRadioSkin();
   paintRadioSkinList();
-  flash(radioSkinId === 'vintage50' ? 'VINTAGE 50' : 'CLASSIC 70/80', true);
+  if (!opts.silent) flash(radioSkinId === 'vintage50' ? 'VINTAGE 50' : 'CLASSIC 70/80', true);
+  if (!opts.keepSettings) {
+    try { openMonitorSettings(false); } catch (e) { /* ignore */ }
+  }
   scheduleRemoteState();
 }
+
+/* ——— Swipe bordo: carosello radio fluido (preload immagini, niente gemello caldo) ——— */
+const RADIO_SKIN_ORDER = ['', 'vintage50'];
+const SKIN_SLIDE_EDGE = 44;
+const SKIN_SLIDE_COMMIT = 78;
+const SKIN_SLIDE_MS = 420;
+let skinSlide = null;
+
+const RADIO_SKIN_PRELOAD_URLS = [
+  '/img/skins/vintage-50-face.jpg?v=270',
+  '/img/skins/vintage-50-face.jpg',
+  '/img/skins/vintage-50-speaker.jpg',
+  '/img/skins/vintage-50-crown.png?v=262',
+  '/img/skins/vintage-50-spin.png?v=262',
+  '/img/skins/vintage-50-vol-crown.png?v=261',
+  '/img/skins/vintage-50-vol-spin.png?v=261',
+  '/img/skins/vintage-50-mono-track.png?v=261',
+  '/img/skins/vintage-50-mono-knob.png?v=260',
+  '/img/skins/vintage-50-auto-track.png?v=261',
+  '/img/skins/vintage-50-auto-knob.png?v=260',
+  '/img/skins/vintage-50-fm-up.png?v=265',
+  '/img/skins/vintage-50-fm-down.png?v=266',
+  '/img/skins/vintage-50-preset-up.png?v=235',
+  '/img/skins/vintage-50-preset-down.png?v=235',
+  '/img/skins/vintage-50-power.png?v=265',
+  '/img/skins/vintage-50-power-on.png?v=265',
+  '/img/skins/vintage-50-pause.png?v=265',
+  '/img/skins/vintage-50-chdown-off.png?v=235',
+  '/img/skins/vintage-50-chdown-on.png?v=235',
+  '/img/skins/vintage-50-chup-off.png?v=235',
+  '/img/skins/vintage-50-chup-on.png?v=235',
+  '/img/skins/vintage-50-cast-off.png?v=235',
+  '/img/skins/vintage-50-cast-on.png?v=235',
+  '/img/skins/v50-lit-fm.png?v=265',
+  '/img/skins/v50-lit-am.png?v=265',
+  '/img/skins/v50-lit-sr.png?v=265',
+  '/img/skins/v50-lit-ct.png?v=265',
+  '/img/skins/v50-lit-ag.png?v=265',
+  '/img/skins/v50-lit-sun.png?v=265',
+  '/img/skins/v50-lit-moon.png?v=265',
+  '/img/skins/v50-lit-cloud.png?v=265',
+  '/img/skins/v50-lit-rain.png?v=265',
+  '/img/skins/classic-7080-thumb.jpg',
+  '/img/skins/vintage-50-thumb.jpg'
+];
+
+function neighborRadioSkin(dir) {
+  const n = RADIO_SKIN_ORDER.length;
+  let i = RADIO_SKIN_ORDER.indexOf(radioSkinId);
+  if (i < 0) i = 0;
+  const step = dir === 'left' ? 1 : -1;
+  return RADIO_SKIN_ORDER[(i + step + n * 8) % n];
+}
+
+function skinSlideBlocked() {
+  if (!radio || !chassis) return true;
+  if (skinSlide?.busy) return true;
+  if (radio.classList.contains('is-scene-approaching') || radio.classList.contains('is-scene-arriving')) return true;
+  if (typeof v50EditOn !== 'undefined' && v50EditOn) return true;
+  if (radio.classList.contains('is-face-edit')) return true;
+  if (radio.classList.contains('is-panel-zooming') || radio.classList.contains('is-tv-zoom')) return true;
+  const ms = document.getElementById('monitorSettings');
+  if (ms && !ms.classList.contains('is-hidden')) return true;
+  const mc = document.getElementById('monitorCast');
+  if (mc && !mc.classList.contains('is-hidden')) return true;
+  return false;
+}
+
+function skinSlideClearChassisMotion() {
+  if (!chassis) return;
+  chassis.style.transition = 'none';
+  chassis.style.transform = '';
+  chassis.style.opacity = '';
+  chassis.style.filter = '';
+  chassis.style.removeProperty('width');
+  chassis.style.removeProperty('height');
+  chassis.style.removeProperty('max-width');
+  chassis.style.removeProperty('max-height');
+  chassis.style.removeProperty('left');
+  chassis.style.removeProperty('top');
+  chassis.style.removeProperty('position');
+  chassis.style.removeProperty('margin');
+  try { applyV50Zoom(); } catch (e) { /* ignore */ }
+}
+
+function preloadSkinImage(url) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      const finish = () => {
+        if (typeof img.decode === 'function') img.decode().then(resolve, resolve);
+        else resolve();
+      };
+      img.onload = finish;
+      img.onerror = () => resolve();
+      img.src = url;
+    } catch (e) {
+      resolve();
+    }
+  });
+}
+
+function prepareRadioSkinCarousel() {
+  try { loadV50FaceImage(); } catch (e) { /* ignore */ }
+  const urls = new Set(RADIO_SKIN_PRELOAD_URLS);
+  RADIO_SKIN_PRELOAD_URLS.forEach((u) => {
+    const base = u.split('?')[0];
+    urls.add(base);
+    urls.add(`${base}?v=${APP_VERSION}`);
+  });
+  /* Precarica in background: lo swipe resta subito usabile */
+  Promise.all([...urls].map(preloadSkinImage)).catch(() => {});
+}
+
+function buildRadioSkinGhost(nextId) {
+  const clip = document.createElement('div');
+  clip.className = 'radio-slide-clip is-slide-active';
+  clip.setAttribute('aria-hidden', 'true');
+
+  const ghost = document.createElement('div');
+  ghost.className = 'radio radio-slide-ghost';
+  if (nextId === 'vintage50') ghost.classList.add('skin-vintage50');
+  ['is-on', 'is-fit-fullscreen', 'has-scene-bg'].forEach((cls) => {
+    if (radio.classList.contains(cls)) ghost.classList.add(cls);
+  });
+  try {
+    if (document.documentElement.classList.contains('is-ios')) ghost.classList.add('is-ios');
+    if (document.documentElement.classList.contains('is-android')) ghost.classList.add('is-android');
+  } catch (e) { /* ignore */ }
+  const scene = radio.style.getPropertyValue('--scene-bg');
+  if (scene) ghost.style.setProperty('--scene-bg', scene);
+  ['--fit-w', '--fit-h', '--fit-pad'].forEach((prop) => {
+    const val = radio.style.getPropertyValue(prop);
+    if (val) ghost.style.setProperty(prop, val);
+  });
+
+  /* Nicchia/formato PROPRI della radio in arrivo (non quelli della radio uscente) */
+  const niche = computeNicheLayout(nextId === 'vintage50' ? 'vintage50' : '');
+  if (niche) {
+    ghost.classList.add('is-scene-niche');
+    ghost.style.setProperty('--niche-left', `${niche.left}px`);
+    ghost.style.setProperty('--niche-top', `${niche.top}px`);
+    ghost.style.setProperty('--niche-w', `${niche.w}px`);
+    ghost.style.setProperty('--niche-h', `${niche.h}px`);
+  }
+
+  const clone = chassis.cloneNode(true);
+  clone.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+  clone.querySelectorAll('video, audio').forEach((el) => el.remove());
+  clone.querySelectorAll('canvas').forEach((el) => {
+    try {
+      const ctx = el.getContext?.('2d');
+      if (ctx) ctx.clearRect(0, 0, el.width || 0, el.height || 0);
+    } catch (e) { /* ignore */ }
+  });
+  clone.style.transition = 'none';
+  clone.style.transform = '';
+  clone.style.opacity = '1';
+  clone.style.filter = '';
+  /* Lascia che CSS/skin di destinazione diano la misura giusta */
+  clone.style.removeProperty('width');
+  clone.style.removeProperty('height');
+  clone.style.removeProperty('left');
+  clone.style.removeProperty('top');
+  ghost.appendChild(clone);
+  clip.appendChild(ghost);
+  document.body.appendChild(clip);
+  void clone.offsetWidth;
+  return { clip, ghost, ghostChassis: clone };
+}
+
+function skinSlideSetOffsets(dxOut, dxIn, settling) {
+  if (!skinSlide || !chassis) return;
+  const ease = settling
+    ? `transform ${SKIN_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+    : 'none';
+  chassis.style.transition = ease;
+  chassis.style.transform = `translate3d(${dxOut}px, 0, 0)`;
+  chassis.style.opacity = '1';
+  chassis.style.filter = 'none';
+  if (skinSlide.ghostChassis) {
+    skinSlide.ghostChassis.style.transition = ease;
+    skinSlide.ghostChassis.style.transform = `translate3d(${dxIn}px, 0, 0)`;
+    skinSlide.ghostChassis.style.opacity = '1';
+    skinSlide.ghostChassis.style.filter = 'none';
+  }
+}
+
+function skinSlideTeardown() {
+  if (skinSlide?.clip?.parentNode) skinSlide.clip.parentNode.removeChild(skinSlide.clip);
+  radio?.classList.remove('is-skin-sliding');
+  skinSlideClearChassisMotion();
+  skinSlide = null;
+}
+
+function finishRadioSkinSlide(commit) {
+  if (!skinSlide || skinSlide.busy) return;
+  skinSlide.busy = true;
+  const { dir, nextId, width } = skinSlide;
+  const gap = Math.round(width * 0.06);
+  const outEnd = dir === 'left' ? -(width + gap) : (width + gap);
+  const inStart = dir === 'left' ? (width + gap) : -(width + gap);
+
+  if (!commit) {
+    skinSlideSetOffsets(0, inStart, true);
+    window.setTimeout(() => {
+      skinSlideTeardown();
+    }, SKIN_SLIDE_MS + 16);
+    return;
+  }
+
+  skinSlideSetOffsets(outEnd, 0, true);
+  window.setTimeout(() => {
+    const target = nextId;
+    const clip = skinSlide?.clip;
+    /* 1) Skin nuova mentre la radio vera è ancora fuori schermo */
+    if (chassis) chassis.style.transition = 'none';
+    selectRadioSkin(target, { silent: false, keepSettings: true });
+    try { layoutSceneNiche(); } catch (e) { /* ignore */ }
+    void chassis?.offsetWidth;
+    /* 2) Snap al posto + togli ghost nello stesso frame → niente rimbalzo */
+    radio?.classList.remove('is-skin-sliding');
+    skinSlideClearChassisMotion();
+    if (clip?.parentNode) clip.parentNode.removeChild(clip);
+    skinSlide = null;
+  }, SKIN_SLIDE_MS + 16);
+}
+
+function onSkinSlidePointerDown(event) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (skinSlideBlocked()) return;
+  if (RADIO_SKIN_ORDER.length < 2) return;
+  const hit = event.target;
+  if (hit?.closest?.('button, a, input, select, textarea, .knob, .key-well, .vol-wrap, .tune-bridge, .monitor-settings, .monitor-cast, .settings-btn, .face-edit-btn, .v50-edit-bar')) {
+    return;
+  }
+  const x = event.clientX;
+  const w = window.innerWidth || document.documentElement.clientWidth || 0;
+  let dir = '';
+  if (x >= w - SKIN_SLIDE_EDGE) dir = 'left';
+  else if (x <= SKIN_SLIDE_EDGE) dir = 'right';
+  else return;
+
+  skinSlide = {
+    dir,
+    nextId: neighborRadioSkin(dir),
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    lastX: event.clientX,
+    lastT: performance.now(),
+    vx: 0,
+    armed: false,
+    busy: false,
+    width: 0,
+    clip: null,
+    ghost: null,
+    ghostChassis: null
+  };
+}
+
+function onSkinSlidePointerMove(event) {
+  if (!skinSlide || skinSlide.busy) return;
+  if (event.pointerId !== skinSlide.pointerId) return;
+  const dx = event.clientX - skinSlide.startX;
+  const dy = event.clientY - skinSlide.startY;
+  const now = performance.now();
+  const dt = Math.max(1, now - skinSlide.lastT);
+  skinSlide.vx = (event.clientX - skinSlide.lastX) / dt;
+  skinSlide.lastX = event.clientX;
+  skinSlide.lastT = now;
+
+  if (!skinSlide.armed) {
+    if (Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx) * 1.15) {
+      skinSlide = null;
+      return;
+    }
+    const going =
+      (skinSlide.dir === 'left' && dx < -14) ||
+      (skinSlide.dir === 'right' && dx > 14);
+    if (!going) return;
+    if (skinSlide.nextId === radioSkinId) {
+      skinSlide = null;
+      return;
+    }
+    skinSlide.armed = true;
+    radio.classList.add('is-skin-sliding');
+    /* Congela la misura della radio uscente: non deve ridimensionarsi a metà gesto */
+    const liveRect = chassis.getBoundingClientRect();
+    chassis.style.setProperty('width', `${Math.round(liveRect.width)}px`, 'important');
+    chassis.style.setProperty('height', `${Math.round(liveRect.height)}px`, 'important');
+    chassis.style.setProperty('max-width', 'none', 'important');
+    chassis.style.setProperty('max-height', 'none', 'important');
+    const built = buildRadioSkinGhost(skinSlide.nextId);
+    skinSlide.clip = built.clip;
+    skinSlide.ghost = built.ghost;
+    skinSlide.ghostChassis = built.ghostChassis;
+    const ghostW = built.ghostChassis.getBoundingClientRect().width || liveRect.width;
+    skinSlide.width = Math.max(liveRect.width, ghostW, window.innerWidth * 0.55);
+    const gap = Math.round(skinSlide.width * 0.06);
+    const inStart = skinSlide.dir === 'left' ? (skinSlide.width + gap) : -(skinSlide.width + gap);
+    skinSlideSetOffsets(0, inStart, false);
+    try { event.target.setPointerCapture?.(event.pointerId); } catch (e) { /* ignore */ }
+  }
+
+  const gap = Math.round(skinSlide.width * 0.06);
+  const max = skinSlide.width + gap;
+  let pulled = skinSlide.dir === 'left' ? Math.min(0, dx) : Math.max(0, dx);
+  pulled = Math.max(-max, Math.min(max, pulled));
+  const dxIn = skinSlide.dir === 'left' ? (max + pulled) : (-max + pulled);
+  skinSlideSetOffsets(pulled, dxIn, false);
+  try { event.preventDefault(); } catch (e) { /* ignore */ }
+}
+
+function onSkinSlidePointerUp(event) {
+  if (!skinSlide || event.pointerId !== skinSlide.pointerId) return;
+  if (!skinSlide.armed) {
+    skinSlide = null;
+    return;
+  }
+  if (skinSlide.busy) return;
+  const dx = event.clientX - skinSlide.startX;
+  const pulled = skinSlide.dir === 'left' ? -dx : dx;
+  const flick =
+    (skinSlide.dir === 'left' && skinSlide.vx < -0.55) ||
+    (skinSlide.dir === 'right' && skinSlide.vx > 0.55);
+  const commit = pulled >= SKIN_SLIDE_COMMIT || flick;
+  finishRadioSkinSlide(commit);
+}
+
+window.addEventListener('pointerdown', onSkinSlidePointerDown, { passive: true, capture: true });
+window.addEventListener('pointermove', onSkinSlidePointerMove, { passive: false, capture: true });
+window.addEventListener('pointerup', onSkinSlidePointerUp, { passive: true, capture: true });
+window.addEventListener('pointercancel', onSkinSlidePointerUp, { passive: true, capture: true });
 
 function openHome2Pane(on, opts = {}) {
   const pane = document.getElementById('monitorHome2Body');
@@ -7959,6 +9448,7 @@ function openRadiosPane(on, opts = {}) {
 
 radioSkinId = readRadioSkinId();
 applyRadioSkin();
+prepareRadioSkinCarousel();
 
 bgThemeId = readBgThemeId();
 applySceneBg();

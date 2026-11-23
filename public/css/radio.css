@@ -1081,6 +1081,45 @@ button {
     0 40px 60px rgba(0, 0, 0, 0.5);
 }
 
+/* Sfondo con nicchia (es. scaffale panoramico): radio dentro lo scomparto */
+.radio.is-scene-niche {
+  display: block;
+  padding: 0 !important;
+  place-items: unset;
+}
+.radio.is-scene-niche::before {
+  background:
+    radial-gradient(ellipse at 50% 46%, transparent 46%, rgba(8, 5, 3, 0.18) 78%, rgba(0, 0, 0, 0.36) 100%);
+}
+.radio.is-scene-niche .chassis,
+.radio.is-scene-niche.skin-vintage50 .chassis,
+.radio.is-scene-niche.skin-vintage50.is-fit-fullscreen .chassis,
+.radio.is-scene-niche.skin-vintage50.is-fit-fullscreen.has-scene-bg .chassis,
+.radio.is-scene-niche.has-scene-bg .chassis {
+  position: absolute !important;
+  left: var(--niche-left, 50%) !important;
+  top: var(--niche-top, 50%) !important;
+  width: var(--niche-w, 60vw) !important;
+  height: var(--niche-h, 30vw) !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  z-index: 1;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.5),
+    0 10px 22px rgba(0, 0, 0, 0.55),
+    0 22px 40px rgba(0, 0, 0, 0.4);
+}
+.radio.radio-slide-ghost.is-scene-niche .chassis {
+  position: absolute !important;
+  left: var(--niche-left, 50%) !important;
+  top: var(--niche-top, 50%) !important;
+  width: var(--niche-w, 60vw) !important;
+  height: var(--niche-h, 30vw) !important;
+}
+
 /* Tema: radio + mobile stesso acciaio grigio, effetto incasso */
 .radio.skin-acciaio.has-scene-bg {
   background-color: #2f3235;
@@ -7510,18 +7549,31 @@ audio {
 .radio.skin-vintage50 .chassis,
 .radio.skin-vintage50.is-fit-fullscreen .chassis,
 .radio.skin-vintage50.is-fit-fullscreen.has-scene-bg .chassis {
-  width: min(96vw, 1280px, calc(88dvh * 1.925)) !important;
-  height: auto !important;
+  /* Altezza esplicita: su WebView Android height:auto + aspect-ratio può collassare a 0 (schermo nero) */
+  --v50-w: min(96vw, 1280px, calc(88dvh * 1.925));
+  width: var(--v50-w) !important;
+  height: calc(var(--v50-w) * 508 / 978) !important;
   max-width: 1280px !important;
-  max-height: none !important;
-  aspect-ratio: 978 / 508 !important;
+  max-height: min(92dvh, 720px) !important;
+  aspect-ratio: auto !important;
   border-radius: 16px;
   background-color: #140e0a !important;
-  background-image: url("/img/skins/vintage-50-face.jpg?v=229") !important;
+  background-image: url("../img/skins/vintage-50-face.jpg?v=270") !important;
   background-size: 100% 100% !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+}
+.is-android .metal::after {
+  /* SVG filter #grain: su alcuni WebView Android annerisce il compositing */
+  filter: none !important;
+  opacity: 0.18;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03) 0 1px,
+      transparent 1px 2px
+    );
 }
 .radio.skin-vintage50 .metal,
 .radio.skin-vintage50 .sheen,
@@ -7529,6 +7581,88 @@ audio {
 .radio.skin-vintage50 .bezel-lip,
 .radio.skin-vintage50 .speaker-grille {
   display: none !important;
+}
+/* Dial FM/AM: schermo nero intero fino subito dopo FM (bordo destro ~53.9%) */
+.v50-dial-shade,
+.v50-dial-glow {
+  display: none;
+  position: absolute;
+  left: 5.35%;
+  top: 11.9%;
+  width: 48.35%;
+  height: 41.0%;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: 3px;
+}
+.radio.skin-vintage50 .v50-dial-shade,
+.radio.skin-vintage50 .v50-dial-glow {
+  display: block;
+}
+.v50-dial-shade {
+  background: rgba(4, 3, 2, 0.72);
+  mix-blend-mode: multiply;
+  opacity: 1;
+  transition: opacity 0.55s ease;
+}
+.radio.skin-vintage50.is-on .v50-dial-shade {
+  opacity: 0;
+}
+.v50-dial-glow {
+  background:
+    radial-gradient(ellipse at 50% 16%, rgba(255, 220, 140, 0.3) 0%, rgba(255, 190, 90, 0.1) 40%, transparent 70%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.radio.skin-vintage50.is-on .v50-dial-glow {
+  opacity: 1;
+}
+/* Pallina cassa: stessi PNG di CH− (spento / acceso fisso). z sotto le impostazioni */
+.v50-signal-led {
+  display: none;
+  position: absolute;
+  left: 88.35%;
+  top: 30.85%;
+  width: 2.75%;
+  height: 5.3%;
+  border-radius: 50%;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+  background: url("/img/skins/vintage-50-chdown-off.png?v=249") center / 100% 100% no-repeat;
+  box-shadow: none;
+  filter: none;
+}
+.radio.skin-vintage50 .v50-signal-led {
+  display: block;
+}
+.radio.skin-vintage50.is-on .v50-signal-led {
+  background-image: url("/img/skins/vintage-50-chdown-on.png?v=249");
+  filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
+}
+/* Tappini cassa: ora fusi direttamente sulla plancia vintage-50-face.jpg (entrambi uguali) */
+.v50-screw-cap,
+.v50-screw-cap-bot,
+.radio.skin-vintage50 .v50-screw-cap,
+.radio.skin-vintage50 .v50-screw-cap-bot {
+  display: none !important;
+}
+/* Impostazioni e Cast SEMPRE sopra a LED cassa, switch, manopole e controlli */
+.radio.skin-vintage50:has(.monitor-settings:not(.is-hidden), .monitor-cast:not(.is-hidden)) .panel,
+.radio.skin-vintage50:has(.monitor-settings:not(.is-hidden), .monitor-cast:not(.is-hidden)) .bezel,
+.radio.skin-vintage50:has(.monitor-settings:not(.is-hidden), .monitor-cast:not(.is-hidden)) .glass {
+  z-index: 30 !important;
+}
+.radio.skin-vintage50:has(.monitor-settings:not(.is-hidden), .monitor-cast:not(.is-hidden)) .controls {
+  z-index: 1 !important;
+}
+.radio.skin-vintage50:has(.monitor-settings:not(.is-hidden), .monitor-cast:not(.is-hidden)) .v50-signal-led {
+  opacity: 0 !important;
+}
+.radio.skin-vintage50 .monitor-settings:not(.is-hidden),
+.radio.skin-vintage50 .monitor-cast:not(.is-hidden) {
+  z-index: 35 !important;
 }
 .radio.skin-vintage50 .panel {
   position: absolute;
@@ -7567,13 +7701,79 @@ audio {
 .radio.skin-vintage50 .monitor-cast:not(.is-hidden) {
   pointer-events: auto;
 }
+/* Retroilluminazione esatta sui soli tratti/icone (zero alone tondo sul vetro) */
+.v50-band-lamp,
+.v50-dial-lamp {
+  display: none;
+}
+.radio.skin-vintage50 .v50-band-lamp,
+.radio.skin-vintage50 .v50-dial-lamp {
+  display: block;
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+.radio.skin-vintage50.is-on .v50-band-lamp.is-lit,
+.radio.skin-vintage50.is-on .v50-dial-lamp.is-lit {
+  opacity: 1;
+}
+.radio.skin-vintage50 .v50-band-lamp.is-fm {
+  left: 6.237%; top: 28.740%; width: 1.943%; height: 3.150%;
+  background-image: url("/img/skins/v50-lit-fm.png?v=265");
+  filter: drop-shadow(0 0 1.5px rgba(255, 110, 76, 0.55));
+}
+.radio.skin-vintage50 .v50-band-lamp.is-am {
+  left: 6.237%; top: 35.827%; width: 1.943%; height: 3.150%;
+  background-image: url("/img/skins/v50-lit-am.png?v=265");
+  filter: drop-shadow(0 0 1.5px rgba(255, 224, 152, 0.50));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-city-sr {
+  left: 46.319%; top: 14.961%; width: 5.419%; height: 2.953%;
+  background-image: url("/img/skins/v50-lit-sr.png?v=265");
+  filter: drop-shadow(0 0 1.5px rgba(255, 226, 156, 0.48));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-city-ct {
+  left: 46.319%; top: 17.717%; width: 4.601%; height: 2.559%;
+  background-image: url("/img/skins/v50-lit-ct.png?v=265");
+  filter: drop-shadow(0 0 1.5px rgba(255, 226, 156, 0.48));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-city-ag {
+  left: 46.319%; top: 20.079%; width: 4.806%; height: 2.559%;
+  background-image: url("/img/skins/v50-lit-ag.png?v=265");
+  filter: drop-shadow(0 0 1.5px rgba(255, 226, 156, 0.48));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-wx-sun {
+  left: 42.434%; top: 14.961%; width: 3.681%; height: 6.890%;
+  background-image: url("/img/skins/v50-lit-sun.png?v=265");
+  filter: drop-shadow(0 0 2px rgba(255, 214, 112, 0.52));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-wx-moon {
+  left: 42.945%; top: 22.441%; width: 2.658%; height: 4.921%;
+  background-image: url("/img/skins/v50-lit-moon.png?v=265");
+  filter: drop-shadow(0 0 2px rgba(248, 236, 194, 0.50));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-wx-cloud {
+  left: 46.421%; top: 22.638%; width: 2.863%; height: 4.528%;
+  background-image: url("/img/skins/v50-lit-cloud.png?v=265");
+  filter: drop-shadow(0 0 1.8px rgba(246, 236, 212, 0.48));
+}
+.radio.skin-vintage50 .v50-dial-lamp.is-wx-rain {
+  left: 49.387%; top: 22.638%; width: 2.863%; height: 4.921%;
+  background-image: url("/img/skins/v50-lit-rain.png?v=265");
+  filter: drop-shadow(0 0 1.8px rgba(212, 232, 250, 0.50));
+}
 .vintage-needle-rail { display: none; }
 .radio.skin-vintage50 .vintage-needle-rail {
   display: block;
   position: absolute;
-  left: 10.7%;
+  left: 8.90%;
   top: 12.6%;
-  width: 44.4%;
+  width: 41.10%;
   height: 42.3%;
   z-index: 4;
   pointer-events: none;
@@ -7600,16 +7800,181 @@ audio {
   pointer-events: auto;
 }
 .radio.skin-vintage50 .settings-btn,
-.radio.skin-vintage50 .view-btn {
+.radio.skin-vintage50 .view-btn,
+.radio.skin-vintage50 .face-edit-btn {
   pointer-events: auto;
-  z-index: 6;
+  z-index: 8;
   top: 2.2%;
   width: 4.2%;
   height: 8%;
-  opacity: 0.72;
 }
-.radio.skin-vintage50 .settings-btn { right: 2.2%; }
-.radio.skin-vintage50 .view-btn { right: 7.2%; }
+/* Impostazioni: icona nascosta; hit-area = piolino ottone in alto a destra della cassa */
+.radio.skin-vintage50 .settings-btn {
+  left: 92.35%;
+  top: 11.9%;
+  right: auto;
+  width: 3.75%;
+  height: 7.2%;
+  margin: 0;
+  padding: 0;
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.radio.skin-vintage50 .settings-btn-face,
+.radio.skin-vintage50 .settings-btn-ico,
+.radio.skin-vintage50 .settings-btn.is-open .settings-btn-face {
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+}
+.radio.skin-vintage50 .settings-btn:active {
+  transform: none;
+  box-shadow: none !important;
+}
+/* Pannello impostazioni/Cast: grandezza cassa (proporzionato come Classic) */
+.radio.skin-vintage50 .monitor-settings,
+.radio.skin-vintage50 .monitor-cast {
+  left: 5.1%;
+  top: 7.2%;
+  right: auto;
+  bottom: auto;
+  width: 89.8%;
+  height: 79.5%;
+  border-radius: 12px;
+  padding: clamp(8px, 1.4%, 14px);
+  box-shadow:
+    inset 0 1px 0 rgba(80, 160, 140, 0.2),
+    inset 0 0 22px rgba(0, 0, 0, 0.55),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.radio.skin-vintage50 .view-btn { display: none !important; }
+.radio.skin-vintage50 .face-edit-btn {
+  display: grid;
+  place-items: center;
+  right: 7.2%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #5a4630;
+  cursor: pointer;
+}
+.radio.skin-vintage50 .face-edit-btn[hidden] { display: none !important; }
+.face-edit-btn-face {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f0e2c4 0%, #d4bf94 55%, #b89a68 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(40, 24, 8, 0.35);
+}
+.face-edit-btn-ico { width: 58%; height: 58%; }
+.radio.skin-vintage50 .face-edit-btn.is-on {
+  opacity: 1;
+}
+.radio.skin-vintage50 .face-edit-btn.is-on .face-edit-btn-face {
+  background: linear-gradient(180deg, #ffe7a8 0%, #e0c06a 55%, #c4983a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 0 0 1px rgba(160, 110, 40, 0.45),
+    0 2px 6px rgba(120, 70, 10, 0.35);
+}
+.v50-paint-layer {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+  touch-action: none;
+}
+.radio.skin-vintage50 .v50-paint-layer {
+  display: none; /* modifica faccia disabilitata */
+}
+.radio.skin-vintage50.is-face-edit .v50-paint-layer {
+  display: block;
+  pointer-events: auto;
+  z-index: 8;
+  cursor: crosshair;
+}
+.radio.skin-vintage50.is-face-edit .controls,
+.radio.skin-vintage50.is-face-edit .vintage-needle-rail {
+  pointer-events: none !important;
+}
+.radio.skin-vintage50.is-face-edit .settings-btn,
+.radio.skin-vintage50.is-face-edit .face-edit-btn {
+  pointer-events: auto !important;
+  z-index: 9;
+}
+/* Barra fissa fuori dallo zoom chassis: sempre in vista e non disegnabile */
+.v50-edit-bar {
+  display: none;
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(28, 22, 14, 0.92);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.v50-edit-bar:not([hidden]) {
+  display: flex;
+}
+.v50-edit-undo,
+.v50-edit-done {
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 245, 220, 0.14);
+  color: #f3e6c8;
+  cursor: pointer;
+  font: 700 13px/1 "Barlow Condensed", sans-serif;
+  letter-spacing: 0.06em;
+  touch-action: manipulation;
+}
+.v50-edit-undo:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.v50-edit-done {
+  background: #f0d78a;
+  color: #3a2a12;
+}
+.v50-edit-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: #c4a574;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.radio.skin-vintage50.is-face-edit .chassis {
+  transform-origin: center center;
+  will-change: transform;
+}
 .radio.skin-vintage50 .controls {
   position: absolute;
   inset: 0;
@@ -7676,38 +8041,119 @@ audio {
   margin: 0;
   opacity: 0;
 }
+/* POWER: la cornice dorata sulla foto resta 100% ferma, bascula solo l'interruttore bianco interno */
 .radio.skin-vintage50 #btnPower {
-  left: 6.1%;
-  top: 63%;
-  width: 5.7%;
-  height: 9.8%;
+  left: 6.851%;
+  top: 63.780%;
+  width: 4.294%;
+  height: 8.268%;
   opacity: 1;
-  border-radius: 6px;
-  background: url("/img/skins/vintage-50-power.png?v=229") center / 100% 100% no-repeat !important;
-  transition: background-image 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  border-radius: 3px;
+  background: url("/img/skins/vintage-50-power.png?v=265") center / 100% 100% no-repeat !important;
+  transition: background-image 0.10s ease;
+  transform: none !important;
+  box-shadow: none !important;
 }
 .radio.skin-vintage50.is-on #btnPower {
-  background-image: url("/img/skins/vintage-50-power-on.png?v=229") !important;
-  transform: translateY(-2px);
-  box-shadow: 0 3px 5px rgba(40, 24, 8, 0.35);
+  background-image: url("/img/skins/vintage-50-power-on.png?v=265") !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
+/* PAUSE/PLAY: centrato al millimetro nella cornice nera con bordo uniforme sui 4 lati */
 .radio.skin-vintage50 #btnStop {
-  left: 5.7%;
-  top: 83.5%;
-  width: 5.9%;
-  height: 11%;
+  left: 6.237%;
+  top: 83.268%;
+  width: 5.624%;
+  height: 10.827%;
   opacity: 1;
-  border-radius: 6px;
-  background: url("/img/skins/vintage-50-pause.png?v=229") center / 100% 100% no-repeat !important;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+  border-radius: 5px;
+  background: url("/img/skins/vintage-50-pause.png?v=265") center / 100% 100% no-repeat !important;
+  transform-style: preserve-3d;
+  perspective: 240px;
+  transition: transform 0.16s cubic-bezier(0.3, 0.1, 0.2, 1), box-shadow 0.16s ease, filter 0.16s ease;
+  transform: translate3d(0, 0, 0) scale(1);
+  box-shadow: none;
+  filter: none;
 }
 .radio.skin-vintage50 #btnPower .lamp-face,
 .radio.skin-vintage50 #btnStop .lamp-face { display: none !important; }
-.radio.skin-vintage50.is-stopped #btnStop,
+/* Premuto: rientra DENTRO (asse Z), non scende */
+.radio.skin-vintage50.is-stopped #btnStop {
+  transform: translate3d(0, 0, -14px) scale(0.93);
+  box-shadow:
+    inset 0 8px 16px rgba(0, 0, 0, 0.72),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+  filter: brightness(0.82);
+}
 .radio.skin-vintage50 #btnStop:active {
-  transform: translateY(4px) scale(0.96);
-  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.7);
-  filter: brightness(0.78);
+  transform: translate3d(0, 0, -14px) scale(0.93);
+  box-shadow:
+    inset 0 8px 16px rgba(0, 0, 0, 0.72),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+  filter: brightness(0.82);
+}
+/* SIGNAL vintage: foto (numeri intatti) + lancetta nera punta rossa sul perno */
+.v50-signal-meter {
+  display: none;
+  position: absolute;
+  left: 33.129%;
+  top: 57.48%;
+  width: 15.849%;
+  height: 19.488%;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 3px;
+  background: none;
+}
+.radio.skin-vintage50 .v50-signal-meter {
+  display: block;
+}
+.v50-signal-needle {
+  position: absolute;
+  left: 56.58%;
+  bottom: 9.6%;
+  width: max(1.5px, 1.2%);
+  height: 68.5%;
+  margin: 0;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) rotate(-45.8deg);
+  background: linear-gradient(
+    180deg,
+    #d21810 0%,
+    #b01008 14%,
+    #1a1a1a 15%,
+    #2c2c2c 100%
+  );
+  border-radius: 1px;
+  box-shadow:
+    0 0 1px rgba(0, 0, 0, 0.55),
+    0 1px 1px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+  will-change: transform;
+}
+/* Contatore sotto SIGNAL: orologio meccanico a rulli cilindrici 3D (HH : MM | SS) */
+.v50-odo {
+  display: none;
+  position: absolute;
+  left: 35.072%;
+  top: 79.331%;
+  width: 14.213%;
+  height: 9.055%;
+  z-index: 5;
+  pointer-events: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #08090a;
+}
+.radio.skin-vintage50 .v50-odo {
+  display: block;
+}
+.v50-odo-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .radio.skin-vintage50 #volKnob {
   left: 13.29%;
@@ -7716,10 +8162,10 @@ audio {
   height: 39.37%;
   opacity: 1;
   overflow: visible;
-  background: url("/img/skins/vintage-50-vol-crown.png?v=222") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-vol-crown.png?v=261") center / 100% 100% no-repeat !important;
 }
 .radio.skin-vintage50 #volSpin {
-  background: url("/img/skins/vintage-50-vol-spin.png?v=222") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-vol-spin.png?v=261") center / 100% 100% no-repeat !important;
   box-shadow: none !important;
 }
 .radio.skin-vintage50 #volSpin * { display: none !important; }
@@ -7730,83 +8176,139 @@ audio {
   height: 36.61%;
   opacity: 1;
   overflow: visible;
-  background: url("/img/skins/vintage-50-crown.png?v=229") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-crown.png?v=262") center / 100% 100% no-repeat !important;
   filter: drop-shadow(0 10px 8px rgba(40, 24, 8, 0.35));
 }
 .radio.skin-vintage50 #tuneKnob > *:not(#tuneSpin) { display: none !important; }
 .radio.skin-vintage50 #tuneSpin {
-  background: url("/img/skins/vintage-50-spin.png?v=229") center / 100% 100% no-repeat !important;
+  background: url("/img/skins/vintage-50-spin.png?v=262") center / 100% 100% no-repeat !important;
+  transform-origin: 49.73% 48.12% !important;
   box-shadow: none !important;
 }
 .radio.skin-vintage50 #tuneSpin * { display: none !important; }
-/* —— Pannello comandi destro: FM/AM, Mono, Auto, CH±, CAST (niente PRESET) —— */
-.radio.skin-vintage50 .key-well:has(#btnPreset),
-.radio.skin-vintage50 .mode:has(#btnPreset) {
-  display: none !important;
-  pointer-events: none !important;
-}
-.radio.skin-vintage50 .key-well:has(#btnBand) {
+/* —— Pannello comandi destro: FM/AM, Mono, Auto, Preset, CH±, CAST (come foto originale) —— */
+.radio.skin-vintage50 .key-well:has(#btnBand),
+.radio.skin-vintage50 .key-well:has(#btnPreset) {
   opacity: 1;
   background: transparent !important;
   overflow: hidden;
   border-radius: 50%;
-  left: 77.5%;
-  top: 60.6%;
-  width: 4.5%;
-  height: 8.7%;
 }
-.radio.skin-vintage50 .key-well:has(#btnBand)::after {
+.radio.skin-vintage50 .key-well:has(#btnBand)::after,
+.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("/img/skins/vintage-50-fm-up.png?v=229") center / 100% 100% no-repeat;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand) {
+  left: 79.039%;
+  top: 60.630%;
+  width: 4.703%;
+  height: 9.055%;
+}
+.radio.skin-vintage50 .key-well:has(#btnBand)::after {
+  background-image: url("/img/skins/vintage-50-fm-up.png?v=265");
+  opacity: 1;
 }
 .radio.skin-vintage50 .key-well:has(#btnBand.is-right)::after {
-  background-image: url("/img/skins/vintage-50-fm-down.png?v=229");
+  background-image: url("/img/skins/vintage-50-fm-down.png?v=266");
 }
-/* Mono / Auto: guida solida + pin crema che SCORRE (niente flip, niente alone) */
-.radio.skin-vintage50 .key-well:has(#btnMono),
-.radio.skin-vintage50 .key-well:has(#btnAuto) {
+.radio.skin-vintage50 .key-well:has(#btnPreset) {
+  left: 86.5%;
+  top: 72.8%;
+  width: 4.5%;
+  height: 9.1%;
+}
+.radio.skin-vintage50 .key-well:has(#btnPreset)::after {
+  background-image: url("/img/skins/vintage-50-preset-up.png?v=235");
+  opacity: 1;
+}
+.radio.skin-vintage50 .key-well:has(#btnPreset.is-down)::after {
+  background-image: url("/img/skins/vintage-50-preset-down.png?v=235");
+}
+/* Mono/Stereo: solo ovale incassato con bordi trasparenti armonizzati alla plancia */
+.radio.skin-vintage50 .key-well:has(#btnMono) {
+  left: 86.196%;
+  top: 61.024%;
+  width: 6.442%;
+  height: 9.252%;
   opacity: 1;
   overflow: hidden;
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, #6a5640 0%, #3a2c1c 42%, #2a1e12 100%) !important;
-  box-shadow:
-    inset 0 2px 3px rgba(0, 0, 0, 0.55),
-    inset 0 -1px 1px rgba(210, 190, 150, 0.25),
-    0 0 0 1px #9a8260;
+  background-color: transparent !important;
+  background-image: url("/img/skins/vintage-50-mono-track.png?v=261") !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  filter: none;
 }
-.radio.skin-vintage50 .key-well:has(#btnMono)::after,
+.radio.skin-vintage50 .key-well:has(#btnMono)::before {
+  content: none !important;
+  display: none !important;
+}
+.radio.skin-vintage50 .key-well:has(#btnMono)::after {
+  content: "";
+  position: absolute;
+  top: 14%;
+  left: 9%;
+  width: 53.7%;
+  height: 72%;
+  border-radius: 0;
+  background: url("/img/skins/vintage-50-mono-knob.png?v=260") center / contain no-repeat;
+  box-shadow: none;
+  transition: left 0.24s cubic-bezier(0.33, 0.1, 0.2, 1);
+  pointer-events: none;
+  transform: none;
+}
+.radio.skin-vintage50 .key-well:has(#btnMono.is-right)::after {
+  left: 37%;
+  transform: none;
+}
+/* Auto/Manual: solo ovale incassato con bordi trasparenti armonizzati alla plancia */
+.radio.skin-vintage50 .key-well:has(#btnAuto) {
+  left: 78.425%;
+  top: 73.622%;
+  width: 6.339%;
+  height: 9.252%;
+  opacity: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: transparent !important;
+  background-image: url("/img/skins/vintage-50-auto-track.png?v=261") !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  filter: none;
+}
+.radio.skin-vintage50 .key-well:has(#btnAuto)::before {
+  content: none !important;
+  display: none !important;
+}
 .radio.skin-vintage50 .key-well:has(#btnAuto)::after {
   content: "";
   position: absolute;
-  top: 12%;
-  width: 34%;
-  height: 76%;
-  border-radius: 50%;
-  background: url("/img/skins/vintage-50-slide.png?v=229") center / 100% 100% no-repeat;
-  box-shadow: 0 1px 2px rgba(30, 18, 8, 0.4);
-  transition: left 0.18s ease;
+  top: 14%;
+  left: 9%;
+  width: 54.5%;
+  height: 72%;
+  border-radius: 0;
+  background: url("/img/skins/vintage-50-auto-knob.png?v=260") center / contain no-repeat;
+  box-shadow: none;
+  filter: none;
+  transition: left 0.24s cubic-bezier(0.33, 0.1, 0.2, 1);
   pointer-events: none;
+  transform: none;
 }
-.radio.skin-vintage50 .key-well:has(#btnMono) {
-  left: 84.3%;
-  top: 59.8%;
-  width: 10.2%;
-  height: 10.2%;
+.radio.skin-vintage50 .key-well:has(#btnAuto.is-right)::after {
+  left: 36.5%;
+  transform: none;
 }
-.radio.skin-vintage50 .key-well:has(#btnAuto) {
-  left: 75.8%;
-  top: 72.0%;
-  width: 10.2%;
-  height: 10.2%;
-}
-.radio.skin-vintage50 .key-well:has(#btnMono)::after,
-.radio.skin-vintage50 .key-well:has(#btnAuto)::after { left: 10%; }
-.radio.skin-vintage50 .key-well:has(#btnMono.is-right)::after,
-.radio.skin-vintage50 .key-well:has(#btnAuto.is-right)::after { left: 56%; }
 .radio.skin-vintage50 .key-well:has(#btnChDown),
 .radio.skin-vintage50 .key-well:has(#btnChUp),
 .radio.skin-vintage50 .key-well:has(#btnCast) {
@@ -7814,6 +8316,18 @@ audio {
   background: transparent !important;
   overflow: hidden;
   border-radius: 50%;
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown),
+.radio.skin-vintage50 .key-well:has(#btnChUp) {
+  transform-style: preserve-3d;
+  perspective: 180px;
+  transition:
+    transform 0.12s cubic-bezier(0.3, 0.1, 0.2, 1),
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 3px rgba(20, 12, 4, 0.28);
 }
 .radio.skin-vintage50 .key-well:has(#btnChDown)::after,
 .radio.skin-vintage50 .key-well:has(#btnChUp)::after,
@@ -7825,7 +8339,32 @@ audio {
   background-position: center;
   background-size: 100% 100%;
   pointer-events: none;
-  transition: filter 0.18s ease, opacity 0.18s ease;
+  transition: filter 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+}
+/* CH±: schiacciamento 3D + lucina un filo più viva al tap */
+.radio.skin-vintage50 .key-well:has(#btnChDown:active),
+.radio.skin-vintage50 .key-well:has(#btnChUp:active),
+.radio.skin-vintage50 .key-well:has(#btnChDown).is-pressed,
+.radio.skin-vintage50 .key-well:has(#btnChUp).is-pressed {
+  transform: translate3d(0, 1px, -8px) scale(0.9);
+  box-shadow:
+    inset 0 4px 8px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+.radio.skin-vintage50 .key-well:has(#btnChDown:active)::after,
+.radio.skin-vintage50 .key-well:has(#btnChUp:active)::after,
+.radio.skin-vintage50 .key-well:has(#btnChDown).is-pressed::after,
+.radio.skin-vintage50 .key-well:has(#btnChUp).is-pressed::after {
+  transform: scale(0.94);
+  filter: brightness(1.18);
+}
+.radio.skin-vintage50.is-on .key-well:has(#btnChDown:active)::after,
+.radio.skin-vintage50.is-on .key-well:has(#btnChUp:active)::after,
+.radio.skin-vintage50.is-on .key-well:has(#btnChDown).is-pressed::after,
+.radio.skin-vintage50.is-on .key-well:has(#btnChUp).is-pressed::after {
+  filter:
+    brightness(1.28)
+    drop-shadow(0 0 6px rgba(70, 255, 120, 0.85)) !important;
 }
 .radio.skin-vintage50 .key-well:has(#btnChDown) {
   left: 78.05%;
@@ -7846,23 +8385,184 @@ audio {
   height: 6.7%;
 }
 .radio.skin-vintage50 .key-well:has(#btnChDown)::after {
-  background-image: url("/img/skins/vintage-50-chdown-off.png?v=229");
+  background-image: url("/img/skins/vintage-50-chdown-off.png?v=235");
 }
 .radio.skin-vintage50 .key-well:has(#btnChUp)::after {
-  background-image: url("/img/skins/vintage-50-chup-off.png?v=229");
+  background-image: url("/img/skins/vintage-50-chup-off.png?v=235");
 }
 .radio.skin-vintage50 .key-well:has(#btnCast)::after {
-  background-image: url("/img/skins/vintage-50-cast-off.png?v=229");
+  background-image: url("/img/skins/vintage-50-cast-off.png?v=235");
 }
 .radio.skin-vintage50.is-on .key-well:has(#btnChDown)::after {
-  background-image: url("/img/skins/vintage-50-chdown-on.png?v=229");
+  background-image: url("/img/skins/vintage-50-chdown-on.png?v=235");
   filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
 }
 .radio.skin-vintage50.is-on .key-well:has(#btnChUp)::after {
-  background-image: url("/img/skins/vintage-50-chup-on.png?v=229");
+  background-image: url("/img/skins/vintage-50-chup-on.png?v=235");
   filter: drop-shadow(0 0 4px rgba(40, 220, 90, 0.65));
 }
+/* Calo di tensione soft solo su CH+/CH− */
+.radio.skin-vintage50.is-on .key-well:has(#btnChDown).is-brownout::after,
+.radio.skin-vintage50.is-on .key-well:has(#btnChUp).is-brownout::after {
+  filter: brightness(0.52) saturate(0.85) !important;
+  transition: filter 0.14s ease;
+}
 .radio.skin-vintage50.is-on .key-well:has(#btnCast)::after {
-  background-image: url("/img/skins/vintage-50-cast-on.png?v=229");
+  background-image: url("/img/skins/vintage-50-cast-on.png?v=235");
   filter: drop-shadow(0 0 4px rgba(50, 120, 255, 0.7));
+}
+
+/* Avvicinamento 3D sfondo “Soggiorno radio” — dolly camera verso la radio */
+.scene-approach {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+  background: #140e0a;
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+.scene-approach.is-end {
+  opacity: 0;
+}
+.scene-approach-viewport {
+  position: absolute;
+  inset: 0;
+  perspective: 1600px;
+  perspective-origin: 50% 48%;
+  overflow: hidden;
+}
+.scene-approach-stage {
+  position: absolute;
+  inset: -18%;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform: translate3d(-3%, 6%, -560px) scale(0.55) rotateY(-17deg) rotateX(7deg);
+}
+.scene-approach.is-run .scene-approach-stage {
+  animation: scene-dolly-cam 3.8s cubic-bezier(0.2, 0.7, 0.18, 1) forwards;
+}
+@keyframes scene-dolly-cam {
+  0% {
+    transform: translate3d(-3%, 6%, -560px) scale(0.55) rotateY(-17deg) rotateX(7deg);
+  }
+  22% {
+    transform: translate3d(-1.6%, 3.2%, -340px) scale(0.72) rotateY(-12deg) rotateX(4.2deg);
+  }
+  48% {
+    transform: translate3d(0.4%, 1%, -90px) scale(0.98) rotateY(-6deg) rotateX(1.8deg);
+  }
+  72% {
+    transform: translate3d(0.2%, -0.2%, 160px) scale(1.28) rotateY(-2deg) rotateX(0.5deg);
+  }
+  100% {
+    transform: translate3d(0, -1.4%, 420px) scale(1.62) rotateY(0deg) rotateX(0deg);
+  }
+}
+.scene-approach-layer {
+  position: absolute;
+  inset: 0;
+  background-color: #140e0a;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: transform, opacity, background-position;
+}
+.scene-approach-layer.is-far {
+  opacity: 1;
+  background-position: 46% 54%;
+  transform: translateZ(-120px) scale(1.08);
+  filter: saturate(1.04) contrast(1.03);
+}
+.scene-approach.is-run .scene-approach-layer.is-far {
+  animation:
+    scene-dolly-far-fade 3.8s ease forwards,
+    scene-dolly-far-focus 3.8s cubic-bezier(0.2, 0.7, 0.18, 1) forwards;
+}
+@keyframes scene-dolly-far-fade {
+  0%, 38% { opacity: 1; }
+  62% { opacity: 0.25; }
+  78%, 100% { opacity: 0; }
+}
+@keyframes scene-dolly-far-focus {
+  0% { background-position: 46% 54%; transform: translateZ(-120px) scale(1.08); }
+  100% { background-position: 50% 46%; transform: translateZ(-40px) scale(1.2); }
+}
+.scene-approach-layer.is-near {
+  opacity: 0;
+  background-position: 50% 48%;
+  transform: translateZ(60px) scale(1.02);
+  filter: saturate(1.06) contrast(1.05);
+}
+.scene-approach.is-run .scene-approach-layer.is-near {
+  animation:
+    scene-dolly-near-fade 3.8s ease forwards,
+    scene-dolly-near-focus 3.8s cubic-bezier(0.2, 0.7, 0.18, 1) forwards;
+}
+.scene-approach.is-mid .scene-approach-layer.is-near,
+.scene-approach.is-end .scene-approach-layer.is-near {
+  opacity: 1;
+}
+@keyframes scene-dolly-near-fade {
+  0%, 34% { opacity: 0; }
+  52% { opacity: 0.55; }
+  68%, 100% { opacity: 1; }
+}
+@keyframes scene-dolly-near-focus {
+  0% { background-position: 48% 50%; transform: translateZ(40px) scale(1.01); }
+  100% { background-position: 50% 44%; transform: translateZ(90px) scale(1.12); }
+}
+.scene-approach-viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 48%, transparent 34%, rgba(10, 6, 3, 0.28) 68%, rgba(0, 0, 0, 0.58) 100%);
+  opacity: 0.85;
+  transition: opacity 0.8s ease;
+}
+.scene-approach.is-end .scene-approach-viewport::after {
+  opacity: 0.2;
+}
+.radio.is-scene-approaching .chassis {
+  pointer-events: none !important;
+}
+.radio.is-scene-approaching .settings-btn,
+.radio.is-scene-approaching .face-edit-btn,
+.radio.is-scene-arriving .settings-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Carosello swipe tra radio (bordo dx/sx) */
+.radio.is-skin-sliding > .chassis {
+  will-change: transform, opacity, filter;
+  z-index: 6;
+  pointer-events: none !important;
+}
+.radio-slide-clip {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  overflow: hidden;
+  pointer-events: none;
+}
+.radio-slide-clip.is-slide-active {
+  opacity: 1;
+  z-index: 12;
+}
+.radio.radio-slide-ghost {
+  position: absolute;
+  inset: 0;
+  background: transparent !important;
+  pointer-events: none !important;
+  z-index: 1;
+}
+.radio.radio-slide-ghost::before,
+.radio.radio-slide-ghost::after {
+  display: none !important;
+}
+.radio.radio-slide-ghost > .chassis {
+  will-change: transform, opacity, filter;
+  pointer-events: none !important;
 }

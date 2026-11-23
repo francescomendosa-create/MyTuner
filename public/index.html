@@ -13,7 +13,15 @@
 <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="application-name" content="MyTuner">
-<link rel="stylesheet" href="css/radio.css?v=229">
+<link rel="stylesheet" href="css/radio.css?v=276">
+<link rel="preload" as="image" href="img/skins/vintage-50-face.jpg?v=270">
+<link rel="preload" as="image" href="img/skins/vintage-50-crown.png?v=262">
+<link rel="preload" as="image" href="img/skins/vintage-50-spin.png?v=262">
+<link rel="preload" as="image" href="img/skins/vintage-50-vol-crown.png?v=261">
+<link rel="preload" as="image" href="img/skins/vintage-50-vol-spin.png?v=261">
+<link rel="preload" as="image" href="img/skins/vintage-50-fm-up.png?v=265">
+<link rel="preload" as="image" href="img/skins/vintage-50-fm-down.png?v=266">
+<link rel="preload" as="image" href="img/skins/classic-7080-thumb.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
 window.__onGCastApiAvailable = function (isAvailable) {
@@ -45,6 +53,27 @@ window.__onGCastApiAvailable = function (isAvailable) {
 <div class="radio" id="radio">
   <div class="chassis">
     <div class="vintage-needle-rail" id="vintageNeedleRail" aria-hidden="true"><i id="vintageNeedle"></i></div>
+    <canvas class="v50-paint-layer" id="v50Paint" aria-hidden="true"></canvas>
+    <i class="v50-dial-shade" id="v50DialShade" aria-hidden="true"></i>
+    <i class="v50-dial-glow" id="v50DialGlow" aria-hidden="true"></i>
+    <i class="v50-band-lamp is-fm" id="v50LampFm" aria-hidden="true"></i>
+    <i class="v50-band-lamp is-am" id="v50LampAm" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-city-sr" id="v50CitySr" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-city-ct" id="v50CityCt" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-city-ag" id="v50CityAg" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-wx-sun" id="v50WxSun" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-wx-moon" id="v50WxMoon" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-wx-cloud" id="v50WxCloud" aria-hidden="true"></i>
+    <i class="v50-dial-lamp is-wx-rain" id="v50WxRain" aria-hidden="true"></i>
+    <i class="v50-signal-led" id="v50SignalLed" aria-hidden="true" title="Segnale"></i>
+    <i class="v50-screw-cap" id="v50ScrewCap" aria-hidden="true"></i>
+    <i class="v50-screw-cap-bot" id="v50ScrewCapBot" aria-hidden="true"></i>
+    <div class="v50-signal-meter" id="v50SignalMeter" aria-hidden="true">
+      <i class="v50-signal-needle" id="v50SignalNeedle" aria-hidden="true"></i>
+    </div>
+    <div class="v50-odo" id="v50Odo" aria-hidden="true" aria-label="Orologio">
+      <canvas class="v50-odo-canvas" id="v50OdoCanvas" width="556" height="184"></canvas>
+    </div>
     <div class="metal" aria-hidden="true"></div>
     <div class="sheen" aria-hidden="true"></div>
 
@@ -64,6 +93,14 @@ window.__onGCastApiAvailable = function (isAvailable) {
             <svg class="view-btn-ico" viewBox="0 0 24 24" focusable="false">
               <path d="M12 3v9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
               <path d="M8.2 6.4a7.2 7.2 0 1 0 7.6 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
+        <button type="button" class="face-edit-btn" id="btnFaceEdit" aria-label="Modifica faccia" aria-pressed="false" title="Modifica faccia" hidden>
+          <span class="face-edit-btn-face" aria-hidden="true">
+            <svg class="face-edit-btn-ico" viewBox="0 0 24 24" focusable="false">
+              <path d="M4 20l4.5-1.2L19 8.3a2.1 2.1 0 0 0-3-3L5.5 15.8 4 20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M14.2 6.1l3.7 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
           </span>
         </button>
@@ -675,6 +712,11 @@ window.__onGCastApiAvailable = function (isAvailable) {
     <div class="vignette" aria-hidden="true"></div>
   </div>
 </div>
+<div class="v50-edit-bar" id="v50EditBar" hidden>
+  <button type="button" class="v50-edit-undo" id="v50EditUndo" title="Torna indietro">UNDO</button>
+  <i class="v50-edit-swatch" id="v50ColorSwatch" title="Colore campionato" aria-hidden="true"></i>
+  <button type="button" class="v50-edit-done" id="v50EditDone" title="Chiudi modifiche">OK</button>
+</div>
 <audio id="player" playsinline webkit-playsinline preload="auto" crossorigin="anonymous"></audio>
 <div class="cast-remote-gate is-hidden" id="castRemoteGate" role="dialog" aria-label="Apri Cast">
   <button type="button" class="cast-remote-gate-btn" id="castRemoteGateBtn">
@@ -683,6 +725,6 @@ window.__onGCastApiAvailable = function (isAvailable) {
   </button>
 </div>
 <script src="js/native-bridge.js"></script>
-<script type="module" src="js/main.js?v=229"></script>
+<script type="module" src="js/main.js?v=276"></script>
 </body>
 </html>

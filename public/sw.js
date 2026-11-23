@@ -1,12 +1,17 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v229';
+const CACHE = 'mytuner-fs-v276';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/radio.css',
-  '/css/radio.css?v=229',
+  '/css/radio.css?v=252',
   '/js/main.js',
-  '/js/main.js?v=229',
+  '/js/main.js?v=252',
+  '/img/skins/vintage-50-screw.png',
+  '/img/skins/vintage-50-mono-track.png',
+  '/img/skins/vintage-50-mono-knob.png',
+  '/img/skins/vintage-50-auto-track.png',
+  '/img/skins/vintage-50-auto-knob.png',
   '/img/skins/vintage-50.jpg',
   '/img/skins/vintage-50-face.jpg',
   '/img/skins/vintage-50-crown.png',
@@ -49,10 +54,13 @@ const ASSETS = [
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon-32.png',
-  '/img/bg/scaffale-legno-noce.png',
+  '/img/bg/scaffale-legno-noce.jpg',
+  '/img/bg/scaffale-panoramico.jpg',
+  '/img/bg/soggiorno-radio-lontano.jpg',
+  '/img/bg/soggiorno-radio-vicino.jpg',
   '/img/bg/laccata-grigia.png',
   '/img/bg/acciaio-incassato.png',
-  '/img/bg/soggiorno-chiaro.png',
+  '/img/bg/soggiorno-chiaro.jpg',
   '/img/bg/banco-falegname.jpg'
 ];
 

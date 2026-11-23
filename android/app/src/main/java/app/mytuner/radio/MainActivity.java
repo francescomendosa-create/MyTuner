@@ -4,11 +4,16 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebView;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -19,6 +24,9 @@ import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static long lastAlarmInjectAt = 0;
+    private final Handler immersiveHandler = new Handler(Looper.getMainLooper());
+    private boolean immersiveListenerBound = false;
+    private final Runnable rehideSystemBars = this::applyImmersiveFullscreen;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -26,6 +34,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeCastPlugin.class);
         registerPlugin(WhatsAppNotifyPlugin.class);
         super.onCreate(savedInstanceState);
+        bindImmersiveListener();
         applyImmersiveFullscreen();
         try {
             com.google.android.gms.cast.framework.CastContext.getSharedInstance(this);
@@ -66,18 +75,23 @@ public class MainActivity extends BridgeActivity {
         if (hasFocus) applyImmersiveFullscreen();
     }
 
+    /**
+     * Fullscreen sticky: niente status/nav bar al swipe dai bordi
+     * (prima BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE faceva scendere orologio/data).
+     */
     private void applyImmersiveFullscreen() {
         Window window = getWindow();
         if (window == null) return;
         try {
+            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
             WindowCompat.setDecorFitsSystemWindows(window, false);
             WindowInsetsControllerCompat c =
                 WindowCompat.getInsetsController(window, window.getDecorView());
             if (c != null) {
+                /* BEHAVIOR_DEFAULT ≈ immersive sticky: le barre non restano aperte col gesto */
+                c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_DEFAULT);
                 c.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
-                c.setSystemBarsBehavior(
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                );
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 WindowManager.LayoutParams lp = window.getAttributes();
@@ -86,6 +100,34 @@ public class MainActivity extends BridgeActivity {
                 window.setAttributes(lp);
             }
         } catch (Exception ignored) { }
+    }
+
+    private void bindImmersiveListener() {
+        if (immersiveListenerBound) return;
+        Window window = getWindow();
+        if (window == null) return;
+        View decor = window.getDecorView();
+        if (decor == null) return;
+        immersiveListenerBound = true;
+        ViewCompat.setOnApplyWindowInsetsListener(decor, (v, insets) -> {
+            Insets status = insets.getInsets(WindowInsetsCompat.Type.statusBars());
+            Insets nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars());
+            boolean barsPeeking =
+                insets.isVisible(WindowInsetsCompat.Type.statusBars())
+                    || insets.isVisible(WindowInsetsCompat.Type.navigationBars())
+                    || status.top > 0
+                    || nav.bottom > 0
+                    || nav.left > 0
+                    || nav.right > 0;
+            if (barsPeeking) {
+                immersiveHandler.removeCallbacks(rehideSystemBars);
+                /* Ri-nasconde subito + un secondo colpo se il sistema le ripropone */
+                immersiveHandler.post(rehideSystemBars);
+                immersiveHandler.postDelayed(rehideSystemBars, 120);
+                immersiveHandler.postDelayed(rehideSystemBars, 420);
+            }
+            return ViewCompat.onApplyWindowInsets(v, insets);
+        });
     }
 
     /**
