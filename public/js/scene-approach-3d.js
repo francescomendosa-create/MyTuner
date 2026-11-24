@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three/three.module.js';
 import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js';
 
 function easeInOutQuart(t) {
   return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
@@ -10,8 +11,9 @@ function easeOutCubic(t) {
 }
 
 function easeDolly(t) {
-  /* Partenza dolce, avanzamento fluido, frenata morbidissima sull'arrivo frontale */
-  return 0.55 * easeInOutQuart(t) + 0.45 * easeOutCubic(t);
+  /* Resta in movimento fino alla faccia: non deve fermarsi prima e poi saltare. */
+  const s = t * t * (3 - 2 * t);
+  return 0.72 * t + 0.28 * s;
 }
 
 function lerp(a, b, t) {
@@ -49,6 +51,7 @@ function loadGlb(url) {
   }
   const p = new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
+    loader.setMeshoptDecoder(MeshoptDecoder);
     loader.load(url, resolve, undefined, (err) => {
       glbCache.delete(url);
       reject(err);
@@ -146,15 +149,61 @@ function projectGeometryUVsFromCamera(mesh, projCam, photoAspect, vBias = 0) {
   uv.needsUpdate = true;
 }
 
+function collectMeshes(root, test) {
+  const out = [];
+  root.traverse((obj) => {
+    if (obj.isMesh && test(String(obj.name || ''))) out.push(obj);
+  });
+  return out;
+}
+
+function spinPivot(parent, meshes) {
+  const list = meshes.filter(Boolean);
+  if (!list.length) return null;
+  parent.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  list.forEach((m) => box.expandByObject(m));
+  if (box.isEmpty()) return null;
+  const center = box.getCenter(new THREE.Vector3());
+  const pivot = new THREE.Group();
+  parent.add(pivot);
+  pivot.position.copy(parent.worldToLocal(center));
+  list.forEach((m) => pivot.attach(m));
+  return pivot;
+}
+
+function rememberMaterials(root) {
+  const bag = [];
+  root.traverse((obj) => {
+    if (!obj.isMesh) return;
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    mats.forEach((m) => {
+      if (!m || !m.color) return;
+      const cloned = m.clone();
+      if (Array.isArray(obj.material)) {
+        const i = obj.material.indexOf(m);
+        if (i >= 0) obj.material[i] = cloned;
+      } else obj.material = cloned;
+      bag.push({
+        mat: cloned,
+        color: cloned.color.clone(),
+        emissive: cloned.emissive ? cloned.emissive.clone() : null,
+        name: String(obj.name || '')
+      });
+    });
+  });
+  return bag;
+}
+
 /**
  * Ambiente soggiorno 3D completo (Camera Projection dalla foto originale)
- * + radio 3D originale 552k triangoli FERMA sul tavolo.
- * La telecamera parte dall'inquadratura 3/4 sinistra della foto e si avvicina
- * con arco fluido fino ad allinearsi frontalmente al pixel con la Vintage 50 ufficiale.
+ * + radio a pezzi (Bang). La telecamera è la stessa di prima.
+ * Manopole e tasti seguono lo stato del gameplay.
  */
 export function playApproach3D(opts = {}) {
   const {
     modelUrl,
+    worldUrl = '',
     roomEmptyUrl = '',
     roomWallUrl = '',
     targetEl = null,
@@ -165,10 +214,13 @@ export function playApproach3D(opts = {}) {
     photoAspect: photoAspectOpt = 0,
     onReady = null,
     onArrive = null,
-    onDone = null
+    onDone = null,
+    onFail = null,
+    getFace = null
   } = opts;
 
   const isWorkshop = preset === 'falegname';
+  const useWorld = Boolean(worldUrl);
   const photoAspect = photoAspectOpt > 0
     ? photoAspectOpt
     : (isWorkshop ? 3072 / 1290 : 1024 / 636);
@@ -181,17 +233,26 @@ export function playApproach3D(opts = {}) {
   root.appendChild(canvasHost);
   document.body.appendChild(root);
 
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    powerPreference: 'high-performance'
-  });
-  /* Piena densità pixel fino a 3x Retina per nitidezza massima del 3D su smartphone e monitor HiDPI */
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+      failIfMajorPerformanceCaveat: false
+    });
+  } catch (e) {
+    if (root.parentNode) root.parentNode.removeChild(root);
+    try { onFail?.(); } catch (err) { /* ignore */ }
+    return { stop() {}, setT() {}, setFace() {}, el: root };
+  }
+  /* 2x tiene la texture nitida e non fa perdere il contesto WebGL (a 3x + ombre il telefono mostra solo un lampo). */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = isWorkshop ? 1.08 : 1.03;
+  /* Reinhard tiene i colori della texture, senza lo schiacciamento scuro di ACES. */
+  renderer.toneMapping = THREE.ReinhardToneMapping;
+  renderer.toneMappingExposure = useWorld ? 1.28 : (isWorkshop ? 1.62 : 1.5);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   canvasHost.appendChild(renderer.domElement);
@@ -204,7 +265,7 @@ export function playApproach3D(opts = {}) {
   const envRT = buildWarmRoomEnv(renderer);
   scene.environment = envRT.texture;
 
-  const fovStart = isWorkshop ? 36 : 34;
+  const fovStart = useWorld ? 40 : (isWorkshop ? 36 : 34);
   const fovEnd = 32;
   const camera = new THREE.PerspectiveCamera(
     fovStart,
@@ -215,22 +276,23 @@ export function playApproach3D(opts = {}) {
 
   /* Illuminazione: soggiorno = finestra sx; falegname = lampada articolare dall'alto-sinistra */
   const hemi = new THREE.HemisphereLight(
-    isWorkshop ? 0xffe8c8 : 0xfff4e2,
-    isWorkshop ? 0x1a120c : 0x261a10,
-    isWorkshop ? 0.42 : 0.56
+    isWorkshop ? 0xfff2dc : 0xfff8ee,
+    isWorkshop ? 0x3a2a1c : 0x4a3424,
+    isWorkshop ? 0.72 : 0.85
   );
+  if (useWorld) hemi.intensity = 1.2;
   scene.add(hemi);
 
   const sunKey = new THREE.DirectionalLight(
-    isWorkshop ? 0xffd9a0 : 0xfff1d6,
-    isWorkshop ? 1.85 : 1.48
+    isWorkshop ? 0xffe2b8 : 0xfff6e4,
+    isWorkshop ? 2.15 : 1.85
   );
   sunKey.position.set(
     isWorkshop ? -1.8 : -3.2,
     isWorkshop ? 4.2 : 2.8,
     isWorkshop ? 1.6 : 3.0
   );
-  sunKey.castShadow = true;
+  sunKey.castShadow = !useWorld;
   sunKey.shadow.mapSize.set(1024, 1024);
   sunKey.shadow.radius = 6;
   sunKey.shadow.camera.near = 0.8;
@@ -243,11 +305,16 @@ export function playApproach3D(opts = {}) {
   scene.add(sunKey);
 
   const fill = new THREE.DirectionalLight(
-    isWorkshop ? 0xc8d4e0 : 0xffe6c4,
-    isWorkshop ? 0.32 : 0.44
+    isWorkshop ? 0xe4eef8 : 0xfff0d8,
+    isWorkshop ? 0.7 : 0.82
   );
   fill.position.set(isWorkshop ? 2.8 : 2.5, isWorkshop ? 1.6 : 1.2, isWorkshop ? 2.4 : 3.2);
   scene.add(fill);
+
+  /* Luce frontale: la faccia resta chiara come nel viewer dove è stato creato il modello. */
+  const faceLight = new THREE.DirectionalLight(0xfffaf2, isWorkshop ? 0.85 : 0.95);
+  faceLight.position.set(0.2, 0.8, 4.2);
+  scene.add(faceLight);
 
   if (isWorkshop) {
     /* Rimbalzo caldo della lampada sul banco */
@@ -259,6 +326,7 @@ export function playApproach3D(opts = {}) {
   let disposed = false;
   let raf = 0;
   let startTime = 0;
+  let endTimer = 0;
   let arriveFired = false;
 
   const camStart = new THREE.Vector3(-1.12, 0.69, 2.95);
@@ -272,6 +340,106 @@ export function playApproach3D(opts = {}) {
   let radioH = 1.015;
   let radioZFace = 0.205;
   let radioYCenter = 0.545;
+  let radioFrontZ = 0.2;
+  const radioAnchor = new THREE.Vector3();
+  let worldCamPos = null;
+  let worldCamLook = null;
+  let tunePivot = null;
+  let volPivot = null;
+  let powerPivot = null;
+  let pausePivot = null;
+  let signalPivot = null;
+  let cursorPivot = null;
+  let cursorX0 = 0;
+  let cursorTravel = 0.09;
+  let slideParts = [];
+  let matBag = [];
+  let faceKey = '';
+
+  function rigGameplayParts(modelRoot) {
+    const by = (re) => collectMeshes(modelRoot, (name) => re.test(name));
+    tunePivot = spinPivot(modelRoot, by(/Tuning fluted grip|Molded concentric tuning|Tuning index/));
+    volPivot = spinPivot(modelRoot, by(/Volume fluted grip|Spun volume cap|Volume index/));
+    powerPivot = spinPivot(modelRoot, by(/Power pivoted rocker/));
+    pausePivot = spinPivot(modelRoot, by(/Pause pivoted rocker/));
+    signalPivot = spinPivot(modelRoot, by(/Tapered signal pointer/));
+    cursorPivot = spinPivot(modelRoot, by(/Sliding dial cursor/));
+    cursorX0 = cursorPivot ? cursorPivot.position.x : 0;
+    cursorTravel = 0.09;
+    const scaleMarks = by(/Frequency chart|Cream dial ink printed scale/);
+    if (cursorPivot && scaleMarks.length) {
+      const box = new THREE.Box3();
+      scaleMarks.forEach((m) => box.expandByObject(m));
+      const span = box.getSize(new THREE.Vector3()).x / (modelRoot.scale.x || 1);
+      if (span > 0.02) cursorTravel = span * 0.42;
+    }
+    const slides = [
+      [/FM\/AM selector|FM\/AM toggle/, 0.011],
+      [/MONO\/STEREO selector/, 0.011],
+      [/AUTO\/MANUAL selector/, 0.011],
+      [/PRESET selector|PRESET toggle/, 0]
+    ];
+    slideParts = slides.map(([re, travel]) => {
+      const meshes = by(re);
+      const pivot = spinPivot(modelRoot, meshes);
+      return pivot ? { pivot, x0: pivot.position.x, z0: pivot.position.z, travel } : null;
+    }).filter(Boolean);
+    matBag = rememberMaterials(modelRoot);
+  }
+
+  function applyGameplayFace(face) {
+    if (!face) return;
+    const key = [
+      face.power ? 1 : 0,
+      face.stopped ? 1 : 0,
+      Math.round((face.tuneDeg || 0) * 10),
+      Math.round((face.volDeg || 0) * 10),
+      face.am ? 1 : 0,
+      face.stereo ? 1 : 0,
+      face.manual ? 1 : 0,
+      face.preset ? 1 : 0,
+      Math.round((face.signalDeg || 0) * 2),
+      Math.round((face.tune01 || 0) * 200),
+    ].join('|');
+    if (key === faceKey) return;
+    faceKey = key;
+    const zOf = (deg) => -THREE.MathUtils.degToRad(deg || 0);
+    if (tunePivot) tunePivot.rotation.z = zOf(face.tuneDeg);
+    if (volPivot) volPivot.rotation.z = zOf(face.volDeg);
+    if (signalPivot) signalPivot.rotation.z = zOf(face.signalDeg);
+    if (cursorPivot) {
+      const p = Math.max(0, Math.min(1, face.tune01 ?? 0.5));
+      cursorPivot.position.x = cursorX0 + (p - 0.5) * cursorTravel;
+    }
+    if (powerPivot) powerPivot.rotation.x = face.power ? 0.32 : -0.22;
+    if (pausePivot) pausePivot.rotation.x = face.stopped ? 0.28 : -0.16;
+    const dx = [
+      face.am ? 0.006 : -0.012,
+      face.stereo ? 0.006 : -0.012,
+      face.manual ? 0.006 : -0.012,
+      0
+    ];
+    slideParts.forEach((part, i) => {
+      part.pivot.position.x = part.x0 + dx[i];
+      part.pivot.position.z = part.z0 + (i === 3 && face.preset ? -0.004 : 0);
+    });
+    const on = Boolean(face.power);
+    matBag.forEach((rec) => {
+      const lamp = /pilot lens|Lamp ferrule/i.test(rec.name);
+      const ch = /Channel (Down|Up) key/i.test(rec.name);
+      const cast = /Cast key/i.test(rec.name);
+      if (on) rec.mat.color.copy(rec.color);
+      else rec.mat.color.copy(rec.color).multiplyScalar(lamp ? 0.22 : 0.48);
+      if (rec.mat.emissive) {
+        if (on && lamp) rec.mat.emissive.set(0xc8f6ff);
+        else if (on && ch) rec.mat.emissive.set(0x39e86a);
+        else if (on && cast) rec.mat.emissive.set(0x3c78ff);
+        else if (rec.emissive) rec.mat.emissive.copy(rec.emissive);
+        else rec.mat.emissive.set(0x000000);
+        rec.mat.emissiveIntensity = on && (lamp || ch || cast) ? (lamp ? 0.85 : 0.55) : 0;
+      }
+    });
+  }
 
   function calibrateCameraEndpoints() {
     const vw = Math.max(1, window.innerWidth);
@@ -286,7 +454,8 @@ export function playApproach3D(opts = {}) {
        così la radio 3D a t=1 combacia al pixel con il .chassis della Vintage 50 ufficiale! */
     const distForH = radioH / (2 * tanHalf * fracH);
     const distForW = radioW / (2 * tanHalf * aspect * fracW);
-    const distEnd = Math.max(distForH, distForW) * 1.018;
+    /* Stesso rapporto della faccia di gameplay: altezza e larghezza arrivano insieme. */
+    const distEnd = (distForH + distForW) * 0.5;
 
     let dyWorld = 0;
     let dxWorld = 0;
@@ -302,27 +471,34 @@ export function playApproach3D(opts = {}) {
     camEnd.set(dxWorld, radioYCenter + dyWorld, radioZFace + distEnd);
     lookEnd.set(dxWorld, radioYCenter + dyWorld, radioZFace);
 
+    if (useWorld && worldCamPos) {
+      camStart.copy(worldCamPos);
+      lookStart.copy(worldCamLook);
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(fovEnd * 0.5));
+      const distEnd = radioH / (2 * tanHalf * Math.max(0.55, fracH));
+      camEnd.set(radioAnchor.x, radioAnchor.y, radioFrontZ + distEnd);
+      lookEnd.set(radioAnchor.x, radioAnchor.y, radioFrontZ);
+      return;
+    }
+
     /* Partenza: radio GIÀ poggiata sul tavolo e ben visibile, poi solo zoom come soggiorno.
        Falegname: frontale, radio ~42% altezza schermo (non minuscola che “appare dopo”). */
     if (isWorkshop) {
-      const tanHalfStart = Math.tan(THREE.MathUtils.degToRad(fovStart * 0.5));
-      const fracHStart = 0.42;
-      const distStart = Math.max(radioH / (2 * tanHalfStart * fracHStart), distEnd * 1.55);
+      const distStart = Math.max(distEnd * 2.7, 4.1);
       camStart.set(
         -distStart * 0.05,
-        radioYCenter + 0.22,
-        radioZFace + distStart * 0.98
+        radioYCenter + 0.36,
+        radioZFace + distStart
       );
-      /* Guarda leggermente sopra il centro: la base Y=0 resta sul piano del banco in basso */
-      lookStart.set(0.02, radioYCenter + 0.12, 0.02);
+      lookStart.set(0, radioYCenter, radioZFace);
     } else {
-      const distStart = Math.max(distEnd * 1.85, 3.25);
+      const distStart = Math.max(distEnd * 3.2, 4.6);
       camStart.set(
-        -distStart * 0.37,
-        radioYCenter + 0.32,
-        distStart * 0.93
+        -distStart * 0.18,
+        radioYCenter + 0.28,
+        radioZFace + distStart
       );
-      lookStart.set(0.08, radioYCenter + 0.06, 0.0);
+      lookStart.set(0, radioYCenter, radioZFace);
     }
   }
 
@@ -413,8 +589,8 @@ export function playApproach3D(opts = {}) {
 
   function applyCameraAt(t) {
     const e = easeDolly(t);
-    const arcZ = Math.sin(Math.PI * e) * (isWorkshop ? 0.10 : 0.14);
-    const arcY = Math.sin(Math.PI * e) * (isWorkshop ? 0.035 : 0.04);
+    const arcZ = useWorld ? 0 : Math.sin(Math.PI * e) * (isWorkshop ? 0.10 : 0.14);
+    const arcY = useWorld ? 0 : Math.sin(Math.PI * e) * (isWorkshop ? 0.035 : 0.04);
     camPos.set(
       lerp(camStart.x, camEnd.x, e),
       lerp(camStart.y, camEnd.y, e) + arcY,
@@ -432,6 +608,7 @@ export function playApproach3D(opts = {}) {
     }
     camera.position.copy(camPos);
     camera.lookAt(lookPos);
+    try { applyGameplayFace(getFace?.()); } catch (e) { /* ignore */ }
     renderer.render(scene, camera);
   }
 
@@ -449,6 +626,7 @@ export function playApproach3D(opts = {}) {
   function cleanup() {
     if (disposed) return;
     disposed = true;
+    window.clearTimeout(endTimer);
     window.cancelAnimationFrame(raf);
     window.removeEventListener('resize', onResize);
     try { envRT.dispose(); } catch (e) { /* ignore */ }
@@ -456,24 +634,37 @@ export function playApproach3D(opts = {}) {
     if (root.parentNode) root.parentNode.removeChild(root);
   }
 
+  renderer.domElement.addEventListener('webglcontextlost', (ev) => {
+    ev.preventDefault();
+    if (disposed) return;
+    cleanup();
+    try { (onFail || onDone)?.(); } catch (err) { /* ignore */ }
+  });
+
   function tick(now) {
     if (disposed) return;
+    if (!startTime) startTime = now;
     const elapsed = now - startTime;
     const t = Math.min(1, elapsed / durationMs);
-    applyCameraAt(t);
+    try {
+      applyCameraAt(t);
+    } catch (e) {
+      cleanup();
+      try { (onFail || onDone)?.(); } catch (err) { /* ignore */ }
+      return;
+    }
 
-    /* Arrivo super graduale: già al 72% la camera è quasi frontale e inizia un crossfade
-       vellutato di 1.25s con messa a fuoco progressiva verso la Vintage 50 in alta definizione */
-    if (!arriveFired && t >= 0.72) {
+    /* La faccia di gameplay entra solo a zoom concluso, sulla stessa misura. */
+    if (!arriveFired && t >= 1) {
       arriveFired = true;
       root.classList.add('is-end');
       try { onArrive?.(); } catch (err) { /* ignore */ }
     }
     if (t >= 1) {
-      window.setTimeout(() => {
+      endTimer = window.setTimeout(() => {
         cleanup();
         try { onDone?.(); } catch (err) { /* ignore */ }
-      }, 320);
+      }, 700);
       return;
     }
     raf = window.requestAnimationFrame(tick);
@@ -481,61 +672,126 @@ export function playApproach3D(opts = {}) {
 
   const boot = async () => {
     try {
-      const [gltf, texRoomEmpty, texRoomWall] = await Promise.all([
-        loadGlb(modelUrl),
-        loadTexture(roomEmptyUrl),
-        loadTexture(roomWallUrl)
-      ]);
+      const loaded = await Promise.all(useWorld
+        ? [loadGlb(modelUrl), loadGlb(worldUrl)]
+        : [loadGlb(modelUrl), loadTexture(roomEmptyUrl), loadTexture(roomWallUrl)]);
+      const gltf = loaded[0];
+      const texRoomEmpty = useWorld ? null : loaded[1];
+      const texRoomWall = useWorld ? null : loaded[2];
+      const worldGltf = useWorld ? loaded[1] : null;
       if (disposed) return;
 
       const baseScene = gltf.scene || gltf.scenes?.[0];
       if (!baseScene) {
         cleanup();
-        try { onDone?.(); } catch (e) { /* ignore */ }
+        try { (onFail || onDone)?.(); } catch (e) { /* ignore */ }
         return;
       }
       /* Clona la radice così la cache in memoria rimane intatta per replay istantanei */
       const modelRoot = baseScene.clone(true);
+      /* Il modello arriva sdraiato, faccia verso il basso.
+         La mette in piedi: faccia verso la camera e verso l'alto, cassa a destra. */
+      modelRoot.quaternion.setFromRotationMatrix(new THREE.Matrix4().set(
+        1, 0, 0, 0,
+        0, 0, 1, 0,
+        0, -1, 0, 0,
+        0, 0, 0, 1
+      ));
+      modelRoot.updateMatrixWorld(true);
+      const rawBox = new THREE.Box3().setFromObject(modelRoot);
+      const rawH = rawBox.getSize(new THREE.Vector3()).y || 1;
+      /* Nel salotto 3D l'altezza è quella di una radio vera sul mobile. Altrimenti resta la scala della carrellata. */
+      modelRoot.scale.multiplyScalar((useWorld ? 0.56 : 1.04) / rawH);
 
-      /* Qualità massima PBR sul modello originale 552k */
       modelRoot.traverse((obj) => {
         if (!obj.isMesh) return;
-        obj.castShadow = true;
-        obj.receiveShadow = true;
+        obj.castShadow = !useWorld;
+        obj.receiveShadow = !useWorld;
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
         mats.forEach((m) => {
           if (!m) return;
-          m.side = THREE.FrontSide;
+          m.side = THREE.DoubleSide;
           ['map', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach((k) => {
             if (m[k]) {
               m[k].anisotropy = maxAniso;
               m[k].needsUpdate = true;
             }
           });
-          if ('envMapIntensity' in m) m.envMapIntensity = 0.85;
+          if ('envMapIntensity' in m) m.envMapIntensity = 0.18;
+          /* La scala FM/AM è carta stampata: il normal map la faceva sembrare scolpita. */
+          if (m.normalScale) m.normalScale.set(0.08, 0.08);
           m.needsUpdate = true;
         });
       });
 
-      /* Centra e poggia ESATTAMENTE a Y = 0 sul tavolo. La radio resta 100% FERMA! */
-      const box = new THREE.Box3().setFromObject(modelRoot);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      modelRoot.position.set(-center.x, -box.min.y, -center.z);
-      modelRoot.rotation.set(0, 0, 0);
-
-      radioW = size.x || 1.888;
-      /* Escludi i ~4.5% di piedini sotto: il .chassis ufficiale Vintage 50 corrisponde al corpo cornice */
-      radioH = (size.y || 1.061) * 0.956;
-      radioZFace = size.z * 0.375;
-      radioYCenter = (size.y || 1.061) * 0.536;
-
       scene.add(modelRoot);
-      /* Attendi 1 frame di layout così .skin-vintage50 ha già applicato la misura reale del .chassis */
+      rigGameplayParts(modelRoot);
+      try { applyGameplayFace(getFace?.()); } catch (e) { /* ignore */ }
+      /* Attendi il layout vero del .chassis, poi allarga la faccia esattamente su quel rettangolo. */
       await new Promise((r) => window.requestAnimationFrame(() => r()));
       if (disposed) return;
+      const faceRect = targetEl?.getBoundingClientRect?.();
+      const faceAspect = faceRect && faceRect.width > 80 && faceRect.height > 40
+        ? faceRect.width / faceRect.height
+        : 978 / 508;
+      let box = new THREE.Box3().setFromObject(modelRoot);
+      let size = box.getSize(new THREE.Vector3());
+      const haveAspect = size.x / Math.max(size.y, 1e-6);
+      /* Niente stiramento in larghezza: deformava la scala FM/AM stampata. */
+      if (!useWorld && haveAspect > 0.2) modelRoot.scale.x *= faceAspect / haveAspect;
+      modelRoot.updateMatrixWorld(true);
+      box = new THREE.Box3().setFromObject(modelRoot);
+      size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      if (useWorld && worldGltf) {
+        const worldRoot = worldGltf.scene || worldGltf.scenes?.[0];
+        worldRoot.traverse((obj) => {
+          if (!obj.isMesh) return;
+          obj.castShadow = false;
+          obj.receiveShadow = true;
+        });
+        scene.add(worldRoot);
+        const camHolder = new THREE.Object3D();
+        camHolder.applyMatrix4(new THREE.Matrix4().set(
+          0.9993798964236851, -0.005201295117062011, 0.03482483529450786, -1.2805290222167969,
+          0.0, 0.9890296069671825, 0.14771742125538334, 2.5073909759521484,
+          -0.035211115065904644, -0.14762582115417885, 0.9884163061708209, 10.113485336303711,
+          0, 0, 0, 1
+        ));
+        worldCamPos = camHolder.position.clone();
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camHolder.quaternion);
+        worldCamLook = worldCamPos.clone().add(fwd.multiplyScalar(8));
+        const ray = new THREE.Raycaster();
+        const down = new THREE.Vector3(0, -1, 0);
+        let spot = null;
+        [[-1.15, 2.25], [-0.35, 2.15], [-1.9, 2.45], [0.15, 1.9]].forEach(([x, z]) => {
+          if (spot) return;
+          ray.set(new THREE.Vector3(x, 3.2, z), down);
+          const hits = ray.intersectObject(worldRoot, true);
+          const hit = hits[0];
+          if (hit && hit.point.y < 0.4 && hit.point.y > -1.2) {
+            spot = { x, z, y: hit.point.y };
+          }
+        });
+        if (!spot) spot = { x: -1.15, z: 2.25, y: -0.28 };
+        modelRoot.position.set(spot.x - center.x, spot.y - box.min.y, spot.z - center.z);
+      } else {
+        modelRoot.position.set(-center.x, -box.min.y, -center.z);
+      }
+      modelRoot.updateMatrixWorld(true);
+      box = new THREE.Box3().setFromObject(modelRoot);
+      size = box.getSize(new THREE.Vector3());
+      const placed = box.getCenter(new THREE.Vector3());
+
+      radioW = size.x || 1.888;
+      radioH = size.y || 1.061;
+      radioZFace = useWorld ? box.max.z : size.z * 0.5;
+      radioFrontZ = box.max.z;
+      radioYCenter = useWorld ? placed.y : (size.y || 1.061) * 0.5;
+      radioAnchor.set(placed.x, placed.y, box.max.z);
       calibrateCameraEndpoints();
-      buildProjectedRoom(texRoomEmpty, texRoomWall);
+      if (!useWorld) buildProjectedRoom(texRoomEmpty, texRoomWall);
 
       const initialT = typeof freezeAt === 'number' ? THREE.MathUtils.clamp(freezeAt, 0, 1) : 0;
       applyCameraAt(initialT);
@@ -548,11 +804,12 @@ export function playApproach3D(opts = {}) {
       raf = window.requestAnimationFrame(tick);
     } catch (e) {
       cleanup();
-      try { onDone?.(); } catch (err) { /* ignore */ }
+      try { (onFail || onDone)?.(); } catch (err) { /* ignore */ }
     }
   };
 
   boot();
 
-  return { stop: cleanup, setT: applyCameraAt, el: root };
+  /* v315: pezzi Bang legati al gameplay */
+  return { stop: cleanup, setT: applyCameraAt, setFace: applyGameplayFace, el: root };
 }

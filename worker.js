@@ -531,7 +531,74 @@ function proxyHlsAsAac(masterUrl) {
   return new Response(stream, { status: 200, headers });
 }
 
-async function proxyStream(target, hops = 0) {
+/* Icecast infila titoli dentro l'MP3. Chrome li salta, il WebView del tablet no:
+   parte un attimo e poi si chiude. Qui i blocchi metadata vengono scartati. */
+function stripIcyMetadata(body, metaint) {
+  const reader = body.getReader();
+  let audioLeft = metaint;
+  let metaLeft = 0;
+  return new ReadableStream({
+    async pull(controller) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+        if (!value || !value.length) continue;
+        const parts = [];
+        let i = 0;
+        while (i < value.length) {
+          if (metaLeft > 0) {
+            const n = Math.min(metaLeft, value.length - i);
+            metaLeft -= n;
+            i += n;
+            continue;
+          }
+          if (audioLeft === 0) {
+            metaLeft = value[i] * 16;
+            i += 1;
+            audioLeft = metaint;
+            continue;
+          }
+          const n = Math.min(audioLeft, value.length - i);
+          parts.push(value.subarray(i, i + n));
+          i += n;
+          audioLeft -= n;
+        }
+        if (!parts.length) continue;
+        let total = 0;
+        for (const p of parts) total += p.length;
+        const out = new Uint8Array(total);
+        let o = 0;
+        for (const p of parts) {
+          out.set(p, o);
+          o += p.length;
+        }
+        controller.enqueue(out);
+        return;
+      }
+    },
+    cancel() {
+      try { reader.cancel(); } catch (e) { /* ignore */ }
+    }
+  });
+}
+
+/* Il WebView del tablet manda Range: bytes=0- e, se la diretta risponde 200,
+   legge pochi secondi e chiude. Il numero è l'offset della sua cache, non un punto del file. */
+function liveBodyResponse(request, body, headers) {
+  headers.set('Accept-Ranges', 'bytes');
+  const range = request?.headers?.get('Range') || '';
+  const match = /^bytes=(\d+)-/i.exec(range);
+  if (!match) return new Response(body, { status: 200, headers });
+  const start = Number(match[1]);
+  const total = start + 2000000000;
+  headers.set('Content-Range', `bytes ${start}-${total - 1}/${total}`);
+  return new Response(body, { status: 206, headers });
+}
+
+async function proxyStream(target, hops = 0, request = null) {
   if (hops > 5 || !isPublicHttp(target)) {
     return new Response('URL non consentito', { status: 400 });
   }
@@ -555,7 +622,7 @@ async function proxyStream(target, hops = 0) {
   if ([301, 302, 303, 307, 308].includes(up.status)) {
     const loc = up.headers.get('location');
     if (!loc) return new Response('Redirect senza destinazione', { status: 502 });
-    return proxyStream(new URL(loc, target).href, hops + 1);
+    return proxyStream(new URL(loc, target).href, hops + 1, request);
   }
 
   const ct = String(up.headers.get('content-type') || '');
@@ -571,7 +638,7 @@ async function proxyStream(target, hops = 0) {
 
   if (/text\/html/i.test(ct) && !target.includes('/;') && hops < 3) {
     const next = target.endsWith('/') ? `${target};` : `${target}/;`;
-    return proxyStream(next, hops + 1);
+    return proxyStream(next, hops + 1, request);
   }
   if (/text\/html|json|xml/i.test(ct)) {
     return new Response('Flusso non audio', { status: 502 });
@@ -582,9 +649,9 @@ async function proxyStream(target, hops = 0) {
   headers.set('Cache-Control', 'no-store');
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Headers', 'Range, Icy-MetaData');
-  headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-  if (up.headers.get('accept-ranges')) headers.set('Accept-Ranges', up.headers.get('accept-ranges'));
-  return new Response(up.body, { status: 200, headers });
+  const metaint = Number(up.headers.get('icy-metaint') || 0);
+  const body = metaint > 0 ? stripIcyMetadata(up.body, metaint) : up.body;
+  return liveBodyResponse(request, body, headers);
 }
 
 function json(data, status = 200) {
@@ -792,7 +859,7 @@ export default {
       if (!target || target.length > 2000) {
         return new Response('Manca il flusso', { status: 400 });
       }
-      return proxyStream(target, 0);
+      return proxyStream(target, 0, request);
     }
 
     return env.ASSETS.fetch(request);

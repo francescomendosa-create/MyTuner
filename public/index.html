@@ -13,14 +13,15 @@
 <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="application-name" content="MyTuner">
-<link rel="stylesheet" href="css/radio.css?v=285">
+<link rel="stylesheet" href="css/radio.css?v=332">
+<link rel="preload" as="image" href="img/bg/banco-falegname.jpg">
 <link rel="preload" as="image" href="img/skins/vintage-50-face.jpg?v=270">
 <link rel="preload" as="image" href="img/skins/vintage-50-crown.png?v=262">
-<link rel="preload" as="image" href="img/skins/vintage-50-spin.png?v=262">
+<link rel="preload" as="image" href="img/skins/vintage-50-spin.png?v=262" fetchpriority="high">
 <link rel="preload" as="image" href="img/skins/vintage-50-vol-crown.png?v=261">
-<link rel="preload" as="image" href="img/skins/vintage-50-vol-spin.png?v=261">
-<link rel="preload" as="image" href="img/skins/vintage-50-fm-up.png?v=265">
-<link rel="preload" as="image" href="img/skins/vintage-50-fm-down.png?v=266">
+<link rel="preload" as="image" href="img/skins/vintage-50-vol-spin.png?v=261" fetchpriority="high">
+<link rel="preload" as="image" href="img/skins/vintage-50-fm-up.png?v=265" fetchpriority="high">
+<link rel="preload" as="image" href="img/skins/vintage-50-fm-down.png?v=266" fetchpriority="high">
 <link rel="preload" as="image" href="img/skins/classic-7080-thumb.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
@@ -50,6 +51,8 @@ window.__onGCastApiAvailable = function (isAvailable) {
   </filter>
 </svg>
 
+<div class="display-edit-banner is-hidden" id="displayEditBanner" aria-live="polite">MODIFICA DISPLAY</div>
+<div class="settings-bay-marquee is-hidden" id="settingsBayMarquee" aria-hidden="true"></div>
 <div class="radio" id="radio">
   <div class="chassis">
     <div class="vintage-needle-rail" id="vintageNeedleRail" aria-hidden="true"><i id="vintageNeedle"></i></div>
@@ -265,6 +268,13 @@ window.__onGCastApiAvailable = function (isAvailable) {
             </div>
           </div>
           <div class="glass-reflect" aria-hidden="true"></div>
+          <div class="settings-bay" id="settingsBay">
+          <button type="button" class="settings-bay-rimodula is-hidden" id="btnSettingsBayRimodula" aria-label="Rimodula">RIMODULA</button>
+          <i class="settings-bay-handle is-nw is-hidden" data-handle="nw" aria-hidden="true"></i>
+          <i class="settings-bay-handle is-ne is-hidden" data-handle="ne" aria-hidden="true"></i>
+          <i class="settings-bay-handle is-sw is-hidden" data-handle="sw" aria-hidden="true"></i>
+          <i class="settings-bay-handle is-se is-hidden" data-handle="se" aria-hidden="true"></i>
+          <div class="settings-swipe-zone" id="settingsSwipeZone" aria-hidden="true"></div>
           <div class="monitor-settings is-hidden" id="monitorSettings" aria-label="Impostazioni">
             <div class="monitor-settings-head" aria-hidden="true"></div>
             <div class="monitor-settings-icons settings-page is-on" id="monitorSettingsBody" role="listbox" aria-label="Voci impostazioni">
@@ -339,6 +349,59 @@ window.__onGCastApiAvailable = function (isAvailable) {
                 </span>
                 <span class="monitor-set-lab">RADIO</span>
               </button>
+              <button type="button" class="monitor-set-ico-btn" id="btnEditDisplay" data-set="editDisplay" role="option" aria-label="Modifica">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <path d="M12 44l28-28 8 8-28 28H12v-8z" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"/>
+                    <path d="M36 20l8 8" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M14 50h36" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">MODIFICA</span>
+              </button>
+              <button type="button" class="monitor-set-ico-btn" id="btnAnimationSettings" data-set="animation" role="option" aria-label="Animazione">
+                <span class="monitor-set-ico" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" focusable="false">
+                    <path d="M10 40c8-14 16-22 22-22s14 8 22 22" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M18 46c6-10 12-16 14-16s8 6 14 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="32" cy="18" r="3.2" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="monitor-set-lab">ANIMAZIONE</span>
+              </button>
+            </div>
+            <div class="monitor-edit-display settings-page" id="monitorEditDisplayPane" aria-label="Modifica display">
+              <div class="edit-display-title">MODIFICA DISPLAY</div>
+              <p class="edit-display-hint" id="editDisplayHint">Attiva solo da Vintage 50: sposta e ridimensiona il riquadro impostazioni.</p>
+              <button type="button" class="edit-display-toggle" id="btnEditDisplayToggle" aria-pressed="false">
+                <span class="edit-display-toggle-lab" id="editDisplayToggleLab">ATTIVA</span>
+              </button>
+            </div>
+            <div class="monitor-edit-display settings-page" id="monitorAnimationPane" aria-label="Animazione">
+              <div class="edit-display-title">ANIMAZIONE</div>
+              <p class="edit-display-hint" id="animationHint">Su Vintage 50, con sfondi 3D, ripete l’avvicinamento ogni tanto.</p>
+              <button type="button" class="edit-display-toggle" id="btnAnimationToggle" aria-pressed="false">
+                <span class="edit-display-toggle-lab" id="animationToggleLab">OFF</span>
+              </button>
+              <div class="anim-interval-lab">INTERVALLO</div>
+              <div class="anim-interval-row" id="animIntervalRow" role="listbox" aria-label="Intervallo animazione">
+                <button type="button" class="anim-interval-btn" data-sec="15" role="option">15s</button>
+                <button type="button" class="anim-interval-btn" data-sec="30" role="option">30s</button>
+                <button type="button" class="anim-interval-btn" data-sec="60" role="option">60s</button>
+                <button type="button" class="anim-interval-btn" data-sec="90" role="option">90s</button>
+              </div>
+              <div class="anim-interval-lab">CARRELLATA</div>
+              <button type="button" class="edit-display-toggle anim-carousel-toggle" id="btnAnimCarouselToggle" aria-pressed="false">
+                <span class="edit-display-toggle-lab" id="animCarouselToggleLab">OFF</span>
+              </button>
+              <div class="anim-interval-lab">TRA SCENE</div>
+              <div class="anim-interval-row anim-interval-row-5" id="animCarouselSecRow" role="listbox" aria-label="Secondi tra scene carrellata">
+                <button type="button" class="anim-interval-btn" data-sec="3" role="option">3s</button>
+                <button type="button" class="anim-interval-btn" data-sec="5" role="option">5s</button>
+                <button type="button" class="anim-interval-btn" data-sec="10" role="option">10s</button>
+                <button type="button" class="anim-interval-btn" data-sec="15" role="option">15s</button>
+                <button type="button" class="anim-interval-btn" data-sec="20" role="option">20s</button>
+              </div>
             </div>
             <div class="monitor-settings-icons settings-page monitor-radios-page" id="monitorRadiosBody" role="listbox" aria-label="Modelli radio">
               <button type="button" class="monitor-set-ico-btn monitor-radio-card" id="btnRadioClassic" data-radio="" role="option" aria-label="Classic 70/80">
@@ -489,6 +552,7 @@ window.__onGCastApiAvailable = function (isAvailable) {
             </div>
             <div class="monitor-cast-list" id="monitorCastList" role="listbox" aria-label="Casse Cast"></div>
             <div class="monitor-cast-empty" id="monitorCastEmpty">Cerca dispositivi…</div>
+          </div>
           </div>
           <button type="button" class="alarm-ring-panel is-hidden" id="btnAlarmHush" aria-label="Taci sveglia">
             <span class="alarm-ring-glow" aria-hidden="true"></span>
@@ -725,6 +789,6 @@ window.__onGCastApiAvailable = function (isAvailable) {
   </button>
 </div>
 <script src="js/native-bridge.js"></script>
-<script type="module" src="js/main.js?v=285"></script>
+<script type="module" src="js/main.js?v=332"></script>
 </body>
 </html>

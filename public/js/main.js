@@ -1,4 +1,4 @@
-const APP_VERSION = 'v285';
+const APP_VERSION = 'v332';
 
 /* Skin radio: dichiarato subito (paintDial gira prima del blocco skin in fondo) */
 const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
@@ -2133,9 +2133,10 @@ function createEngine(media) {
         if (eng.ctx.state === 'suspended') eng.ctx.resume().catch(() => {});
         media.muted = false;
         media.volume = 1;
+        /* readyState 0 e paused = sta ancora aprendo lo stream. Su Android
+           resettare src in quel momento abortisce il play e la musica muore subito. */
         const broken = Boolean(media.error)
-          || media.networkState === 3 /* NETWORK_NO_SOURCE */
-          || (media.readyState === 0 && media.paused);
+          || media.networkState === 3; /* NETWORK_NO_SOURCE */
         if (broken) {
           try { media.removeAttribute('src'); media.load(); } catch (e) { /* ignore */ }
           media.src = hubUrl(`/stream?u=${encodeURIComponent(url)}`);
@@ -7386,6 +7387,18 @@ document.getElementById('btnRadioModels')?.addEventListener('click', (event) => 
   settingsTrail = false;
   openRadiosPane(true);
 });
+document.getElementById('btnEditDisplay')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  settingsTrail = false;
+  openEditDisplayPane(true);
+});
+document.getElementById('btnAnimationSettings')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  settingsTrail = false;
+  openAnimationPane(true);
+});
 document.getElementById('monitorRadiosBody')?.addEventListener('click', (event) => {
   const btn = event.target.closest('.monitor-set-ico-btn');
   if (!btn || !btn.closest('#monitorRadiosBody')) return;
@@ -7743,9 +7756,27 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
+let androidStreamRetries = 0;
+audio.addEventListener('playing', () => {
+  androidStreamRetries = 0;
+});
 audio.addEventListener('error', () => {
   if (!audio.error || audio.error.code === 1) return;
-  if (!state.power || state.stopped) return;
+  if (!state.power || state.stopped || castUi.casting) return;
+  const url = state.locked?.url || engine.currentUrl;
+  /* Android: il WebView manda spesso un errore sul primo aggancio. Un retry
+     sulla stessa stazione, senza rifare il grafo audio. */
+  if (isAndroid && url && androidStreamRetries < 2) {
+    androidStreamRetries += 1;
+    window.setTimeout(() => {
+      if (!state.power || state.stopped || castUi.casting) return;
+      try {
+        engine.play(url);
+        engine.setMix(1, 0);
+      } catch (e) { /* ignore */ }
+    }, 500);
+    return;
+  }
   engine.setMix(0, 1);
   flash('NO SIGNAL', true);
 });
@@ -8190,6 +8221,8 @@ const SETTINGS_PAGES = {
   home: 'monitorSettingsBody',
   home2: 'monitorHome2Body',
   radios: 'monitorRadiosBody',
+  editDisplay: 'monitorEditDisplayPane',
+  animation: 'monitorAnimationPane',
   user: 'monitorNameEditor',
   alarm: 'monitorAlarmEditor',
   stations: 'monitorStationsPane',
@@ -8357,7 +8390,9 @@ const BG_THEMES = [
     image: '/img/bg/soggiorno-radio-vicino.jpg',
     approach: true,
     approach3d: true,
-    approachModel: '/img/bg/soggiorno-radio-3d/radio.glb',
+    approachModel: '/img/bg/soggiorno-radio-3d/vintage60-hq.glb',
+    approachModelFull: '/img/bg/soggiorno-radio-3d/vintage60-hq.glb',
+    approachWorld: '/img/bg/soggiorno-radio-3d/salotto.glb',
     approachRoomEmpty: '/img/bg/soggiorno-vuoto.jpg',
     approachRoomWall: '/img/bg/soggiorno-stanza-parete.jpg',
     approachFar: '/img/bg/soggiorno-vuoto.jpg',
@@ -8372,7 +8407,8 @@ const BG_THEMES = [
     approach: true,
     approach3d: true,
     approachPreset: 'falegname',
-    approachModel: '/img/bg/soggiorno-radio-3d/radio.glb',
+    approachModel: '/img/bg/soggiorno-radio-3d/vintage60-hq.glb',
+    approachModelFull: '/img/bg/soggiorno-radio-3d/vintage60-hq.glb',
     approachRoomEmpty: '/img/bg/banco-falegname-vuoto.jpg',
     approachRoomWall: '/img/bg/banco-falegname-parete.jpg',
     approachPhotoAspect: 3072 / 1290,
@@ -8514,8 +8550,14 @@ function applySceneBg() {
   });
   if (theme?.skin) radio.classList.add(`skin-${theme.skin}`);
   applyRadioSkin();
-  if (has) radio.style.setProperty('--scene-bg', `url("${theme.image}?v=${APP_VERSION}")`);
-  else radio.style.removeProperty('--scene-bg');
+  if (has) {
+    radio.style.setProperty('--scene-bg', `url("${theme.image}")`);
+    try {
+      const bg = new Image();
+      bg.decoding = 'sync';
+      bg.src = theme.image;
+    } catch (e) { /* ignore */ }
+  } else radio.style.removeProperty('--scene-bg');
   layoutFullscreenFit();
   layoutSceneNiche();
 }
@@ -8624,39 +8666,102 @@ function revealOfficialRadioFromApproach(inPlace = false) {
   }
 }
 
-async function playSceneApproach3D(theme) {
-  /* Nascondi subito la radio ufficiale (resta in layout per la calibrazione camera),
-     così non “appare dopo”: il primo frame 3D mostra già radio poggiata sul tavolo. */
-  beginSceneApproachHideRadio(true);
+let approachGen = 0;
+let sceneApproachArmedAt = 0;
+
+async function playSceneApproach3D(theme, opts = {}) {
+  /* La foto dello sfondo resta visibile. Se il 3D non parte, fallback alle immagini. */
+  const gen = ++approachGen;
+  let ready = false;
+  let settled = false;
+  const nativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+  const usingFull = !opts.forceLite && nativeApp && theme.approachModelFull
+    && theme.approachModelFull !== theme.approachModel;
+  const modelPath = usingFull ? theme.approachModelFull : theme.approachModel;
+  const finish = () => {
+    if (settled || gen !== approachGen) return;
+    settled = true;
+    window.clearTimeout(giveUp);
+    try { sceneApproach3dHandle?.stop?.(); } catch (e) { /* ignore */ }
+    sceneApproach3dHandle = null;
+    stopSceneApproach();
+    radio?.classList.remove('is-scene-arriving');
+    try { opts.onComplete?.(); } catch (e) { /* ignore */ }
+  };
+  const failToPhotos = () => {
+    if (settled || gen !== approachGen) return;
+    if (!ready && usingFull) {
+      settled = true;
+      window.clearTimeout(giveUp);
+      try { sceneApproach3dHandle?.stop?.(); } catch (e) { /* ignore */ }
+      sceneApproach3dHandle = null;
+      playSceneApproach3D(theme, { ...opts, forceLite: true });
+      return;
+    }
+    if (ready || settled) return;
+    settled = true;
+    window.clearTimeout(giveUp);
+    try { sceneApproach3dHandle?.stop?.(); } catch (e) { /* ignore */ }
+    sceneApproach3dHandle = null;
+    stopSceneApproach({ keepDom: false });
+    playSceneApproachPhotos(theme, opts);
+  };
+  radio?.classList.add('is-scene-approaching');
+  const giveUp = window.setTimeout(() => {
+    failToPhotos();
+  }, usingFull ? 45000 : 20000);
   try {
     const mod = await import(`./scene-approach-3d.js?v=${APP_VERSION}`);
+    if (settled || ready) return;
     const v = `?v=${APP_VERSION}`;
     sceneApproach3dHandle = mod.playApproach3D({
-      modelUrl: `${theme.approachModel}${v}`,
+      modelUrl: `${modelPath}${v}`,
+      worldUrl: theme.approachWorld ? `${theme.approachWorld}${v}` : '',
       roomEmptyUrl: theme.approachRoomEmpty ? `${theme.approachRoomEmpty}${v}` : '',
       roomWallUrl: theme.approachRoomWall ? `${theme.approachRoomWall}${v}` : '',
       targetEl: chassis,
-      durationMs: 4700,
+      durationMs: 6200,
       preset: theme.approachPreset || 'soggiorno',
       photoAspect: theme.approachPhotoAspect || 0,
+      getFace: () => ({
+        power: Boolean(state.power),
+        stopped: Boolean(state.stopped),
+        tuneDeg: tuneAngle(),
+        tune01: (() => {
+          const spec = bandSpec();
+          return clamp((currentFreq() - spec.min) / (spec.max - spec.min), 0, 1);
+        })(),
+        signalDeg: -45.8 + clamp(sMeterSmooth, 0, 1) * 91.6,
+        volDeg: -150 + (state.volume / 10) * 300,
+        am: state.band === 'am',
+        stereo: Boolean(state.stereo),
+        manual: !state.auto,
+        preset: Boolean(document.getElementById('btnPreset')?.classList.contains('is-down'))
+      }),
+      onReady: () => {
+        ready = true;
+        window.clearTimeout(giveUp);
+        beginSceneApproachHideRadio(true);
+      },
       onArrive: () => {
         revealOfficialRadioFromApproach(true);
       },
       onDone: () => {
-        sceneApproach3dHandle = null;
-        stopSceneApproach();
-        radio?.classList.remove('is-scene-arriving');
+        finish();
+      },
+      onFail: () => {
+        if (ready) finish();
+        else failToPhotos();
       }
     });
   } catch (e) {
-    /* Fallback foto se WebGL/modulo non disponibile */
-    playSceneApproachPhotos(theme);
+    failToPhotos();
   }
 }
 
-function playSceneApproachPhotos(theme) {
-  const farUrl = `${theme.approachFar || theme.image}?v=${APP_VERSION}`;
-  const nearUrl = `${theme.approachNear || theme.image}?v=${APP_VERSION}`;
+function playSceneApproachPhotos(theme, opts = {}) {
+  const farUrl = `${theme.approachFar || theme.image}`;
+  const nearUrl = `${theme.approachNear || theme.image}`;
   [farUrl, nearUrl].forEach((url) => {
     try {
       const img = new Image();
@@ -8687,13 +8792,18 @@ function playSceneApproachPhotos(theme) {
     sceneApproachTimer = window.setTimeout(() => {
       stopSceneApproach();
       radio?.classList.remove('is-scene-arriving');
+      try { opts.onComplete?.(); } catch (e) { /* ignore */ }
     }, 1000);
   }, 3800);
 }
 
-function playSceneApproach(theme) {
+function playSceneApproach(theme, opts = {}) {
   if (!radio || !theme?.approach) return;
   stopSceneApproach({ keepDom: true });
+  sceneApproachArmedAt = performance.now();
+  /* Segna subito la carrellata, prima del download del modello:
+     il loop del signal altrimenti la spegne e resta solo un lampo. */
+  radio.classList.add('is-scene-approaching');
 
   if (theme.preferSkin && theme.preferSkin !== radioSkinId) {
     try { selectRadioSkin(theme.preferSkin, { silent: true, keepSettings: true }); } catch (e) { /* ignore */ }
@@ -8701,10 +8811,10 @@ function playSceneApproach(theme) {
   try { openMonitorSettings(false); } catch (e) { /* ignore */ }
 
   if (theme.approach3d && theme.approachModel) {
-    playSceneApproach3D(theme);
+    playSceneApproach3D(theme, opts);
     return;
   }
-  playSceneApproachPhotos(theme);
+  playSceneApproachPhotos(theme, opts);
 }
 
 function selectBgTheme(id) {
@@ -8717,6 +8827,7 @@ function selectBgTheme(id) {
   paintBgThemeList();
   scheduleRemoteState();
   flash(next ? (theme?.name || 'SFONDO') : 'SFONDO OFF', true);
+  syncBgAnimationSchedule({ reset: true });
   if (theme?.approach) playSceneApproach(theme);
 }
 
@@ -8738,17 +8849,13 @@ function preloadApproach3DAssets() {
   });
   import(`./scene-approach-3d.js?v=${APP_VERSION}`)
     .then((m) => {
-      const models = new Set(themes.map((t) => t.approachModel).filter(Boolean));
+      const nativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+      const models = new Set(themes.map((t) => (nativeApp && t.approachModelFull) || t.approachModel).filter(Boolean));
       models.forEach((u) => m.preloadModel3D?.(`${u}${v}`));
     })
     .catch(() => {});
 }
-/* Precarica in background il 3D dopo l'avvio (se non in risparmio dati) così l'animazione parte subito! */
-window.setTimeout(() => {
-  try {
-    if (!navigator.connection?.saveData) preloadApproach3DAssets();
-  } catch (e) { /* ignore */ }
-}, 2200);
+/* Il modello 3D (15MB) non si scarica all'avvio: rubava la rete allo sfondo. */
 
 function openBgPane(on, opts = {}) {
   const pane = document.getElementById('monitorBgPane');
@@ -9153,6 +9260,8 @@ function applyRadioSkin() {
     if (v50LampAm) v50LampAm.classList.toggle('is-lit', state.power && state.band === 'am');
     paintV50DialWx();
     try { layoutSceneNiche(); } catch (e) { /* ignore */ }
+    try { applyV50SettingsBayRect(); } catch (e) { /* ignore */ }
+    try { syncDisplayEditUi(); } catch (e) { /* ignore */ }
   } catch (e) { /* ignore */ }
 }
 
@@ -9173,6 +9282,9 @@ function selectRadioSkin(id, opts = {}) {
   if (!opts.keepSettings) {
     try { openMonitorSettings(false); } catch (e) { /* ignore */ }
   }
+  try { syncDisplayEditUi(); } catch (e) { /* ignore */ }
+  try { syncAnimationUi(); } catch (e) { /* ignore */ }
+  try { syncBgAnimationSchedule(); } catch (e) { /* ignore */ }
   scheduleRemoteState();
 }
 
@@ -9232,12 +9344,11 @@ function neighborRadioSkin(dir) {
 function skinSlideBlocked() {
   if (!radio || !chassis) return true;
   if (skinSlide?.busy) return true;
-  if (radio.classList.contains('is-scene-approaching') || radio.classList.contains('is-scene-arriving')) return true;
   if (typeof v50EditOn !== 'undefined' && v50EditOn) return true;
   if (radio.classList.contains('is-face-edit')) return true;
   if (radio.classList.contains('is-panel-zooming') || radio.classList.contains('is-tv-zoom')) return true;
-  const ms = document.getElementById('monitorSettings');
-  if (ms && !ms.classList.contains('is-hidden')) return true;
+  if (document.getElementById('monitorSettings')?.classList.contains('is-finger-drag')) return true;
+  if (document.getElementById('monitorSettings')?.classList.contains('is-finger-snap')) return true;
   const mc = document.getElementById('monitorCast');
   if (mc && !mc.classList.contains('is-hidden')) return true;
   return false;
@@ -9278,6 +9389,18 @@ function preloadSkinImage(url) {
   });
 }
 
+const V50_CRITICAL_URLS = [
+  '/img/skins/vintage-50-face.jpg?v=270',
+  '/img/skins/vintage-50-crown.png?v=262',
+  '/img/skins/vintage-50-spin.png?v=262',
+  '/img/skins/vintage-50-vol-crown.png?v=261',
+  '/img/skins/vintage-50-vol-spin.png?v=261',
+  '/img/skins/vintage-50-fm-up.png?v=265',
+  '/img/skins/vintage-50-fm-down.png?v=266',
+  '/img/skins/vintage-50-power.png?v=265',
+  '/img/skins/vintage-50-pause.png?v=265'
+];
+
 function prepareRadioSkinCarousel() {
   try { loadV50FaceImage(); } catch (e) { /* ignore */ }
   const urls = new Set(RADIO_SKIN_PRELOAD_URLS);
@@ -9286,7 +9409,9 @@ function prepareRadioSkinCarousel() {
     urls.add(base);
     urls.add(`${base}?v=${APP_VERSION}`);
   });
-  /* Precarica in background: lo swipe resta subito usabile */
+  V50_CRITICAL_URLS.forEach((u) => urls.add(u));
+  /* Face, tuning, volume e FM decodificati prima che la Vintage 50 entri in scena */
+  Promise.all(V50_CRITICAL_URLS.map(preloadSkinImage)).catch(() => {});
   Promise.all([...urls].map(preloadSkinImage)).catch(() => {});
 }
 
@@ -9298,6 +9423,7 @@ function buildRadioSkinGhost(nextId) {
   const ghost = document.createElement('div');
   ghost.className = 'radio radio-slide-ghost';
   if (nextId === 'vintage50') ghost.classList.add('skin-vintage50');
+  if (displayEditOn && nextId === 'vintage50') ghost.classList.add('is-display-edit');
   ['is-on', 'is-fit-fullscreen', 'has-scene-bg'].forEach((cls) => {
     if (radio.classList.contains(cls)) ghost.classList.add(cls);
   });
@@ -9323,7 +9449,6 @@ function buildRadioSkinGhost(nextId) {
   }
 
   const clone = chassis.cloneNode(true);
-  clone.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
   clone.querySelectorAll('video, audio').forEach((el) => el.remove());
   clone.querySelectorAll('canvas').forEach((el) => {
     try {
@@ -9340,11 +9465,50 @@ function buildRadioSkinGhost(nextId) {
   clone.style.removeProperty('height');
   clone.style.removeProperty('left');
   clone.style.removeProperty('top');
+  /* Allinea SUBITO la baia impostazioni del ghost alla skin di destinazione (zero scatti/stringi-allarga) */
+  const ghostBay = clone.querySelector('.settings-bay');
+  if (ghostBay) {
+    applySettingsBayLayoutTo(ghostBay, nextId === 'vintage50' ? 'vintage50' : '');
+    const ghostMs = ghostBay.querySelector('.monitor-settings');
+    if (ghostMs) {
+      ghostMs.classList.remove('is-finger-drag', 'is-finger-snap', 'is-peek-open');
+      ghostMs.style.transition = '';
+      ghostMs.style.transform = '';
+    }
+    const showGhostEdit = Boolean(displayEditOn && nextId === 'vintage50' && isMonitorSettingsOpen());
+    ghostBay.querySelector('.settings-bay-rimodula')?.classList.toggle('is-hidden', !showGhostEdit);
+    ghostBay.querySelectorAll('.settings-bay-handle').forEach((h) => {
+      h.classList.toggle('is-hidden', !showGhostEdit);
+    });
+  }
   ghost.appendChild(clone);
   clip.appendChild(ghost);
   document.body.appendChild(clip);
   void clone.offsetWidth;
   return { clip, ghost, ghostChassis: clone };
+}
+
+let vintageWarm = null;
+
+function parkVintageWarm(built) {
+  if (!built?.clip) return;
+  built.clip.style.visibility = 'hidden';
+  built.clip.classList.remove('is-slide-active');
+  if (built.ghostChassis) built.ghostChassis.style.transform = 'translate3d(120vw, 0, 0)';
+  vintageWarm = built;
+}
+
+function takeVintageWarm() {
+  const built = vintageWarm?.clip?.isConnected ? vintageWarm : buildRadioSkinGhost('vintage50');
+  vintageWarm = null;
+  built.clip.style.visibility = '';
+  built.clip.classList.add('is-slide-active');
+  return built;
+}
+
+function warmVintageSkin() {
+  if (vintageWarm?.clip?.isConnected || !chassis) return;
+  try { parkVintageWarm(buildRadioSkinGhost('vintage50')); } catch (e) { /* ignore */ }
 }
 
 function skinSlideSetOffsets(dxOut, dxIn, settling) {
@@ -9365,7 +9529,15 @@ function skinSlideSetOffsets(dxOut, dxIn, settling) {
 }
 
 function skinSlideTeardown() {
-  if (skinSlide?.clip?.parentNode) skinSlide.clip.parentNode.removeChild(skinSlide.clip);
+  if (skinSlide?.nextId === 'vintage50' && skinSlide.clip) {
+    parkVintageWarm({
+      clip: skinSlide.clip,
+      ghost: skinSlide.ghost,
+      ghostChassis: skinSlide.ghostChassis
+    });
+  } else if (skinSlide?.clip?.parentNode) {
+    skinSlide.clip.parentNode.removeChild(skinSlide.clip);
+  }
   radio?.classList.remove('is-skin-sliding');
   skinSlideClearChassisMotion();
   skinSlide = null;
@@ -9399,29 +9571,64 @@ function finishRadioSkinSlide(commit) {
     /* 2) Snap al posto + togli ghost nello stesso frame → niente rimbalzo */
     radio?.classList.remove('is-skin-sliding');
     skinSlideClearChassisMotion();
-    if (clip?.parentNode) clip.parentNode.removeChild(clip);
+    if (target === 'vintage50' && clip) {
+      parkVintageWarm({
+        clip,
+        ghost: skinSlide?.ghost,
+        ghostChassis: skinSlide?.ghostChassis
+      });
+    } else if (clip?.parentNode) clip.parentNode.removeChild(clip);
     skinSlide = null;
   }, SKIN_SLIDE_MS + 16);
 }
 
+function skinSlideIsTopBand(clientY, hit) {
+  if (hit?.closest?.('button, a, input, select, textarea, .knob, .key-well, .vol-wrap, .tune-bridge, .monitor-cast, .settings-btn, .face-edit-btn, .v50-edit-bar')) {
+    return false;
+  }
+  const band = Math.max(72, Math.round((window.innerHeight || 800) * 0.16));
+  if (clientY <= band) return true;
+  if (!chassis) return false;
+  try {
+    const r = chassis.getBoundingClientRect();
+    return Number.isFinite(r.top) && clientY < r.top - 1;
+  } catch (e) {
+    return false;
+  }
+}
+
 function onSkinSlidePointerDown(event) {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (skinSlide?.busy) {
+    skinSlideTeardown();
+  }
+  if (radio?.classList.contains('is-scene-approaching') || radio?.classList.contains('is-scene-arriving')) {
+    const born = performance.now() - sceneApproachArmedAt;
+    const onControl = event.target?.closest?.('button, a, input, select, textarea, .monitor-settings, .bg-theme-item, .knob, .key-well, .vol-wrap, .tune-bridge');
+    /* Il tap che avvia lo sfondo arriva ancora come pointerdown e spegneva la carrellata sul nascere. */
+    if (born > 900 && !onControl) {
+      try { stopSceneApproach(); } catch (e) { /* ignore */ }
+    }
+  }
   if (skinSlideBlocked()) return;
   if (RADIO_SKIN_ORDER.length < 2) return;
   const hit = event.target;
-  if (hit?.closest?.('button, a, input, select, textarea, .knob, .key-well, .vol-wrap, .tune-bridge, .monitor-settings, .monitor-cast, .settings-btn, .face-edit-btn, .v50-edit-bar')) {
+  if (hit?.closest?.('button, a, input, select, textarea, .knob, .key-well, .vol-wrap, .tune-bridge, .monitor-cast, .settings-btn, .face-edit-btn, .v50-edit-bar')) {
     return;
   }
   const x = event.clientX;
+  const y = event.clientY;
   const w = window.innerWidth || document.documentElement.clientWidth || 0;
   let dir = '';
   if (x >= w - SKIN_SLIDE_EDGE) dir = 'left';
   else if (x <= SKIN_SLIDE_EDGE) dir = 'right';
-  else return;
+  else if (skinSlideIsTopBand(y, hit)) {
+    dir = 'pending';
+  } else return;
 
   skinSlide = {
     dir,
-    nextId: neighborRadioSkin(dir),
+    nextId: dir === 'pending' ? '' : neighborRadioSkin(dir),
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
@@ -9453,6 +9660,11 @@ function onSkinSlidePointerMove(event) {
       skinSlide = null;
       return;
     }
+    if (skinSlide.dir === 'pending') {
+      if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
+      skinSlide.dir = dx < 0 ? 'left' : 'right';
+      skinSlide.nextId = neighborRadioSkin(skinSlide.dir);
+    }
     const going =
       (skinSlide.dir === 'left' && dx < -14) ||
       (skinSlide.dir === 'right' && dx > 14);
@@ -9469,7 +9681,7 @@ function onSkinSlidePointerMove(event) {
     chassis.style.setProperty('height', `${Math.round(liveRect.height)}px`, 'important');
     chassis.style.setProperty('max-width', 'none', 'important');
     chassis.style.setProperty('max-height', 'none', 'important');
-    const built = buildRadioSkinGhost(skinSlide.nextId);
+    const built = skinSlide.nextId === 'vintage50' ? takeVintageWarm() : buildRadioSkinGhost(skinSlide.nextId);
     skinSlide.clip = built.clip;
     skinSlide.ghost = built.ghost;
     skinSlide.ghostChassis = built.ghostChassis;
@@ -9538,12 +9750,732 @@ function openRadiosPane(on, opts = {}) {
   scheduleRemoteState();
 }
 
+/* ——— Modifica display (solo Vintage 50): sposta / ridimensiona baia impostazioni ——— */
+const DISPLAY_EDIT_KEY = 'mytuner-display-edit-on';
+const V50_SETTINGS_BAY_KEY = 'mytuner-v50-settings-bay';
+const V50_SETTINGS_BAY_DEFAULT = { left: 55.54, top: 10.78, width: 36.62, height: 43.73 };
+let displayEditOn = false;
+let bayMarqueeMode = false;
+let bayDrag = null;
+
+function readDisplayEditOn() {
+  try { return localStorage.getItem(DISPLAY_EDIT_KEY) === '1'; } catch (e) { return false; }
+}
+function writeDisplayEditOn(on) {
+  try { localStorage.setItem(DISPLAY_EDIT_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
+function readV50SettingsBayRect() {
+  try {
+    const raw = localStorage.getItem(V50_SETTINGS_BAY_KEY);
+    if (!raw) return { ...V50_SETTINGS_BAY_DEFAULT };
+    const o = JSON.parse(raw);
+    if (!o || typeof o.left !== 'number') return { ...V50_SETTINGS_BAY_DEFAULT };
+    return {
+      left: clamp(o.left, 0, 95),
+      top: clamp(o.top, 0, 95),
+      width: clamp(o.width, 12, 100),
+      height: clamp(o.height, 12, 100)
+    };
+  } catch (e) {
+    return { ...V50_SETTINGS_BAY_DEFAULT };
+  }
+}
+function writeV50SettingsBayRect(rect) {
+  try { localStorage.setItem(V50_SETTINGS_BAY_KEY, JSON.stringify(rect)); } catch (e) { /* ignore */ }
+}
+
+function applySettingsBayLayoutTo(bay, skinId) {
+  if (!bay) return;
+  bay.classList.remove('is-screen-frozen');
+  bay.style.position = '';
+  bay.style.zIndex = '';
+  if (skinId !== 'vintage50') {
+    bay.classList.remove('has-custom-rect');
+    bay.style.left = '';
+    bay.style.top = '';
+    bay.style.width = '';
+    bay.style.height = '';
+    bay.style.right = '';
+    bay.style.bottom = '';
+    return;
+  }
+  const r = readV50SettingsBayRect();
+  bay.classList.add('has-custom-rect');
+  bay.style.left = `${r.left}%`;
+  bay.style.top = `${r.top}%`;
+  bay.style.width = `${r.width}%`;
+  bay.style.height = `${r.height}%`;
+  bay.style.right = 'auto';
+  bay.style.bottom = 'auto';
+}
+
+function applyV50SettingsBayRect() {
+  applySettingsBayLayoutTo(document.getElementById('settingsBay'), radioSkinId);
+}
+
+function glassRectForBay() {
+  const glass = document.getElementById('glass');
+  return glass?.getBoundingClientRect?.() || null;
+}
+
+function bayRectToPercent(leftPx, topPx, widthPx, heightPx) {
+  const g = glassRectForBay();
+  if (!g || g.width < 8 || g.height < 8) return null;
+  return {
+    left: clamp((leftPx - g.left) / g.width * 100, 0, 100),
+    top: clamp((topPx - g.top) / g.height * 100, 0, 100),
+    width: clamp(widthPx / g.width * 100, 8, 100),
+    height: clamp(heightPx / g.height * 100, 8, 100)
+  };
+}
+
+function saveBayFromElement() {
+  const bay = document.getElementById('settingsBay');
+  const g = glassRectForBay();
+  if (!bay || !g) return;
+  const r = bay.getBoundingClientRect();
+  const pct = bayRectToPercent(r.left, r.top, r.width, r.height);
+  if (!pct) return;
+  /* Evita overflow oltre il glass */
+  if (pct.left + pct.width > 100) pct.width = 100 - pct.left;
+  if (pct.top + pct.height > 100) pct.height = 100 - pct.top;
+  writeV50SettingsBayRect(pct);
+  applyV50SettingsBayRect();
+}
+
+function syncDisplayEditUi() {
+  const banner = document.getElementById('displayEditBanner');
+  const toggle = document.getElementById('btnEditDisplayToggle');
+  const lab = document.getElementById('editDisplayToggleLab');
+  const hint = document.getElementById('editDisplayHint');
+  const rim = document.getElementById('btnSettingsBayRimodula');
+  const bay = document.getElementById('settingsBay');
+  const canEdit = radioSkinId === 'vintage50';
+  const active = Boolean(displayEditOn);
+
+  banner?.classList.toggle('is-hidden', !active);
+  radio?.classList.toggle('is-display-edit', active && canEdit);
+  radio?.classList.toggle('is-bay-marquee', Boolean(bayMarqueeMode && active && canEdit));
+
+  if (toggle) {
+    toggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+    toggle.classList.toggle('is-disabled', !canEdit && !active);
+  }
+  if (lab) lab.textContent = active ? 'DISATTIVA' : 'ATTIVA';
+  if (hint) {
+    hint.textContent = canEdit
+      ? (active
+        ? 'Sposta dal centro, ridimensiona dagli angoli, o tocca RIMODULA per ridisegnare il riquadro.'
+        : 'Attiva per spostare e ridimensionare il riquadro impostazioni sulla cassa Vintage.')
+      : 'Passa a Vintage 50 per attivare Modifica display.';
+  }
+
+  const showChrome = active && canEdit && isMonitorSettingsOpen();
+  rim?.classList.toggle('is-hidden', !showChrome);
+  bay?.querySelectorAll('.settings-bay-handle').forEach((h) => {
+    h.classList.toggle('is-hidden', !showChrome);
+  });
+}
+
+function setDisplayEditOn(on) {
+  const want = Boolean(on);
+  if (want && radioSkinId !== 'vintage50') {
+    flash('SOLO VINTAGE 50', true);
+    syncDisplayEditUi();
+    return;
+  }
+  displayEditOn = want;
+  writeDisplayEditOn(displayEditOn);
+  if (!displayEditOn) {
+    bayMarqueeMode = false;
+    const mq = document.getElementById('settingsBayMarquee');
+    mq?.classList.add('is-hidden');
+  }
+  syncDisplayEditUi();
+  scheduleRemoteState();
+}
+
+function openEditDisplayPane(on, opts = {}) {
+  const pane = document.getElementById('monitorEditDisplayPane');
+  if (!pane) return;
+  if (on) {
+    syncDisplayEditUi();
+    showSettingsPage('editDisplay', { dir: opts.dir || 'forward', instant: opts.instant });
+    paintSettingsFocus();
+  } else {
+    showSettingsPage('home2', { dir: opts.dir || 'back', instant: opts.instant });
+    paintSettingsFocus();
+  }
+  scheduleRemoteState();
+}
+
+document.getElementById('btnEditDisplayToggle')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  if (!displayEditOn && radioSkinId !== 'vintage50') {
+    flash('SOLO VINTAGE 50', true);
+    return;
+  }
+  setDisplayEditOn(!displayEditOn);
+});
+
+/* ——— Animazione sfondi 3D (solo Vintage 50 + temi approach3d) ——— */
+const BG_ANIMATION_KEY = 'mytuner-bg-animation-on';
+const BG_ANIM_SEC_KEY = 'mytuner-bg-animation-sec';
+const BG_ANIM_CAROUSEL_KEY = 'mytuner-bg-animation-carousel';
+const BG_ANIM_CAROUSEL_SEC_KEY = 'mytuner-bg-animation-carousel-sec';
+const BG_ANIM_SEC_OPTIONS = [15, 30, 60, 90];
+const BG_ANIM_CAROUSEL_SEC_OPTIONS = [3, 5, 10, 15, 20];
+const BG_ANIM_RETRY_MS = 12000;
+let bgAnimationOn = false;
+let bgAnimationSec = 90;
+let bgAnimCarouselOn = false;
+let bgAnimCarouselSec = 5;
+let bgAnimationTimer = 0;
+let bgAnimCarouselTimer = 0;
+let bgAnimCarouselRunning = false;
+let bgAnimCarouselAbort = false;
+let bgAnimCarouselHomeId = null;
+let bgAnimIgnoreActivityUntil = 0;
+let bgAnimApproachFinish = null;
+let bgAnimGapResolve = null;
+
+function readBgAnimationOn() {
+  try { return localStorage.getItem(BG_ANIMATION_KEY) === '1'; } catch (e) { return false; }
+}
+function writeBgAnimationOn(on) {
+  try { localStorage.setItem(BG_ANIMATION_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
+function readBgAnimationSec() {
+  try {
+    const n = Number(localStorage.getItem(BG_ANIM_SEC_KEY));
+    if (BG_ANIM_SEC_OPTIONS.includes(n)) return n;
+  } catch (e) { /* ignore */ }
+  return 90;
+}
+function writeBgAnimationSec(sec) {
+  try { localStorage.setItem(BG_ANIM_SEC_KEY, String(sec)); } catch (e) { /* ignore */ }
+}
+function readBgAnimCarouselOn() {
+  try { return localStorage.getItem(BG_ANIM_CAROUSEL_KEY) === '1'; } catch (e) { return false; }
+}
+function writeBgAnimCarouselOn(on) {
+  try { localStorage.setItem(BG_ANIM_CAROUSEL_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
+function readBgAnimCarouselSec() {
+  try {
+    const n = Number(localStorage.getItem(BG_ANIM_CAROUSEL_SEC_KEY));
+    if (BG_ANIM_CAROUSEL_SEC_OPTIONS.includes(n)) return n;
+  } catch (e) { /* ignore */ }
+  return 5;
+}
+function writeBgAnimCarouselSec(sec) {
+  try { localStorage.setItem(BG_ANIM_CAROUSEL_SEC_KEY, String(sec)); } catch (e) { /* ignore */ }
+}
+function bgAnimationIntervalMs() {
+  return Math.max(15, bgAnimationSec || 90) * 1000;
+}
+function bgAnimCarouselGapMs() {
+  return Math.max(3, bgAnimCarouselSec || 5) * 1000;
+}
+
+function approach3dThemes() {
+  return BG_THEMES.filter((t) => t.approach && t.approach3d && t.approachModel);
+}
+
+function currentApproach3dTheme() {
+  const theme = BG_THEMES.find((t) => t.id === bgThemeId);
+  if (!theme?.approach || !theme.approach3d || !theme.approachModel) return null;
+  return theme;
+}
+
+function canRunBgAnimationIdle() {
+  if (!bgAnimationOn || radioSkinId !== 'vintage50') return false;
+  if (bgAnimCarouselOn) return approach3dThemes().length > 0;
+  return Boolean(currentApproach3dTheme());
+}
+
+function clearBgAnimationTimer() {
+  window.clearTimeout(bgAnimationTimer);
+  bgAnimationTimer = 0;
+}
+
+function clearBgAnimCarouselTimer() {
+  window.clearTimeout(bgAnimCarouselTimer);
+  bgAnimCarouselTimer = 0;
+}
+
+function restoreBgAnimCarouselHome() {
+  if (bgAnimCarouselHomeId === null) return;
+  const home = bgAnimCarouselHomeId;
+  bgAnimCarouselHomeId = null;
+  if (home === bgThemeId) {
+    applySceneBg();
+    return;
+  }
+  bgThemeId = home;
+  try { persistBgThemeId(); } catch (e) { /* ignore */ }
+  applySceneBg();
+  try { paintBgThemeList(); } catch (e) { /* ignore */ }
+}
+
+function abortBgAnimCarousel() {
+  if (!bgAnimCarouselRunning && !bgAnimCarouselTimer && !bgAnimApproachFinish) return;
+  bgAnimCarouselAbort = true;
+  clearBgAnimCarouselTimer();
+  bgAnimCarouselRunning = false;
+  try { stopSceneApproach(); } catch (e) { /* ignore */ }
+  radio?.classList.remove('is-scene-arriving');
+  try { bgAnimApproachFinish?.(); } catch (e) { /* ignore */ }
+  if (bgAnimGapResolve) {
+    const r = bgAnimGapResolve;
+    bgAnimGapResolve = null;
+    try { r(); } catch (e) { /* ignore */ }
+  }
+  restoreBgAnimCarouselHome();
+}
+
+function noteBgAnimationActivity() {
+  if (!bgAnimationOn) return;
+  if (Date.now() < bgAnimIgnoreActivityUntil) return;
+  /* Il 3D è in volo anche prima di onReady: il frame del signal non deve spegnerlo. */
+  if (sceneApproach3dHandle) return;
+  if (radio?.classList.contains('is-scene-approaching') || radio?.classList.contains('is-scene-arriving')) return;
+  if (bgAnimCarouselRunning || bgAnimCarouselTimer) {
+    abortBgAnimCarousel();
+  }
+  if (canRunBgAnimationIdle()) scheduleBgAnimation(bgAnimationIntervalMs());
+  else clearBgAnimationTimer();
+}
+
+function scheduleBgAnimation(delayMs) {
+  clearBgAnimationTimer();
+  if (!canRunBgAnimationIdle()) return;
+  if (bgAnimCarouselRunning) return;
+  bgAnimationTimer = window.setTimeout(() => {
+    bgAnimationTimer = 0;
+    runScheduledBgAnimation();
+  }, Number.isFinite(delayMs) ? delayMs : bgAnimationIntervalMs());
+}
+
+function syncBgAnimationSchedule(opts = {}) {
+  if (!canRunBgAnimationIdle()) {
+    clearBgAnimationTimer();
+    if (!bgAnimationOn) abortBgAnimCarousel();
+    return;
+  }
+  if (bgAnimCarouselRunning) return;
+  if (opts.reset || !bgAnimationTimer) scheduleBgAnimation(bgAnimationIntervalMs());
+}
+
+function waitBgAnimCarouselGap(ms) {
+  return new Promise((resolve) => {
+    clearBgAnimCarouselTimer();
+    bgAnimGapResolve = resolve;
+    bgAnimCarouselTimer = window.setTimeout(() => {
+      bgAnimCarouselTimer = 0;
+      bgAnimGapResolve = null;
+      resolve();
+    }, ms);
+  });
+}
+
+function playSceneApproachAsync(theme) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (bgAnimApproachFinish === finish) bgAnimApproachFinish = null;
+      resolve();
+    };
+    bgAnimApproachFinish = finish;
+    try {
+      playSceneApproach(theme, { onComplete: finish });
+    } catch (e) {
+      finish();
+      return;
+    }
+    /* Safety se onComplete non arriva (modello nuovo più pesante) */
+    window.setTimeout(finish, 32000);
+  });
+}
+
+function orderedCarouselThemes() {
+  const all = approach3dThemes();
+  if (!all.length) return [];
+  const curIdx = all.findIndex((t) => t.id === bgThemeId);
+  if (curIdx <= 0) return all.slice();
+  return all.slice(curIdx).concat(all.slice(0, curIdx));
+}
+
+async function runBgAnimCarousel() {
+  const themes = orderedCarouselThemes();
+  if (!themes.length) {
+    scheduleBgAnimation(bgAnimationIntervalMs());
+    return;
+  }
+  bgAnimCarouselRunning = true;
+  bgAnimCarouselAbort = false;
+  bgAnimCarouselHomeId = bgThemeId;
+  bgAnimIgnoreActivityUntil = Date.now() + 400;
+
+  for (let i = 0; i < themes.length; i += 1) {
+    if (bgAnimCarouselAbort || !bgAnimationOn || radioSkinId !== 'vintage50') break;
+    const theme = themes[i];
+    bgThemeId = theme.id;
+    applySceneBg();
+    bgAnimIgnoreActivityUntil = Date.now() + 500;
+    await playSceneApproachAsync(theme);
+    if (bgAnimCarouselAbort || !bgAnimationOn) break;
+    if (i < themes.length - 1) {
+      await waitBgAnimCarouselGap(bgAnimCarouselGapMs());
+    }
+  }
+
+  bgAnimCarouselRunning = false;
+  clearBgAnimCarouselTimer();
+  if (!bgAnimCarouselAbort) {
+    /* Fine sequenza: resta l’ultimo sfondo della carrellata */
+    bgAnimCarouselHomeId = null;
+    try { persistBgThemeId(); } catch (e) { /* ignore */ }
+    try { paintBgThemeList(); } catch (e) { /* ignore */ }
+    try { scheduleRemoteState(); } catch (e) { /* ignore */ }
+    if (bgAnimationOn && canRunBgAnimationIdle()) {
+      scheduleBgAnimation(bgAnimationIntervalMs());
+    }
+  }
+}
+
+function runScheduledBgAnimation() {
+  if (!canRunBgAnimationIdle()) return;
+  const busy =
+    Boolean(radio?.classList.contains('is-scene-approaching')) ||
+    Boolean(radio?.classList.contains('is-scene-arriving')) ||
+    isMonitorSettingsOpen() ||
+    displayEditOn ||
+    bgAnimCarouselRunning;
+  if (busy) {
+    scheduleBgAnimation(BG_ANIM_RETRY_MS);
+    return;
+  }
+
+  if (bgAnimCarouselOn) {
+    runBgAnimCarousel();
+    return;
+  }
+
+  const theme = currentApproach3dTheme();
+  if (!theme) return;
+  bgAnimIgnoreActivityUntil = Date.now() + 500;
+  playSceneApproach(theme, {
+    onComplete: () => {
+      if (bgAnimationOn && canRunBgAnimationIdle()) {
+        scheduleBgAnimation(bgAnimationIntervalMs());
+      }
+    }
+  });
+}
+
+function syncAnimationUi() {
+  const toggle = document.getElementById('btnAnimationToggle');
+  const lab = document.getElementById('animationToggleLab');
+  const carToggle = document.getElementById('btnAnimCarouselToggle');
+  const carLab = document.getElementById('animCarouselToggleLab');
+  const hint = document.getElementById('animationHint');
+  const active = Boolean(bgAnimationOn);
+  const onV50 = radioSkinId === 'vintage50';
+  const has3d = Boolean(currentApproach3dTheme());
+  const any3d = approach3dThemes().length > 0;
+
+  if (toggle) toggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+  if (lab) lab.textContent = active ? 'ON' : 'OFF';
+  if (carToggle) carToggle.setAttribute('aria-pressed', bgAnimCarouselOn ? 'true' : 'false');
+  if (carLab) carLab.textContent = bgAnimCarouselOn ? 'ON' : 'OFF';
+  document.querySelectorAll('#animIntervalRow .anim-interval-btn').forEach((btn) => {
+    const on = Number(btn.dataset.sec) === bgAnimationSec;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('#animCarouselSecRow .anim-interval-btn').forEach((btn) => {
+    const on = Number(btn.dataset.sec) === bgAnimCarouselSec;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (hint) {
+    if (!active) {
+      hint.textContent = 'Su Vintage 50, con sfondi 3D. Toccare la radio azzera il conteggio.';
+    } else if (!onV50) {
+      hint.textContent = 'ON: passa a Vintage 50.';
+    } else if (bgAnimCarouselOn && any3d) {
+      hint.textContent = `ON + carrellata: dopo ${bgAnimationSec}s idle, tutte le scene 3D con ${bgAnimCarouselSec}s tra loro.`;
+    } else if (!has3d) {
+      hint.textContent = 'ON: scegli uno sfondo 3D, oppure attiva Carrellata.';
+    } else {
+      hint.textContent = `ON: dopo ${bgAnimationSec}s senza toccare la radio riparte l’avvicinamento.`;
+    }
+  }
+}
+
+function setBgAnimationOn(on) {
+  bgAnimationOn = Boolean(on);
+  writeBgAnimationOn(bgAnimationOn);
+  syncAnimationUi();
+  if (bgAnimationOn) scheduleBgAnimation(bgAnimationIntervalMs());
+  else {
+    abortBgAnimCarousel();
+    clearBgAnimationTimer();
+  }
+  scheduleRemoteState();
+}
+
+function setBgAnimationSec(sec) {
+  const n = Number(sec);
+  bgAnimationSec = BG_ANIM_SEC_OPTIONS.includes(n) ? n : 90;
+  writeBgAnimationSec(bgAnimationSec);
+  syncAnimationUi();
+  if (bgAnimationOn && !bgAnimCarouselRunning) scheduleBgAnimation(bgAnimationIntervalMs());
+  scheduleRemoteState();
+}
+
+function setBgAnimCarouselOn(on) {
+  bgAnimCarouselOn = Boolean(on);
+  writeBgAnimCarouselOn(bgAnimCarouselOn);
+  syncAnimationUi();
+  if (bgAnimationOn && !bgAnimCarouselRunning) scheduleBgAnimation(bgAnimationIntervalMs());
+  scheduleRemoteState();
+}
+
+function setBgAnimCarouselSec(sec) {
+  const n = Number(sec);
+  bgAnimCarouselSec = BG_ANIM_CAROUSEL_SEC_OPTIONS.includes(n) ? n : 5;
+  writeBgAnimCarouselSec(bgAnimCarouselSec);
+  syncAnimationUi();
+  scheduleRemoteState();
+}
+
+function openAnimationPane(on, opts = {}) {
+  const pane = document.getElementById('monitorAnimationPane');
+  if (!pane) return;
+  if (on) {
+    syncAnimationUi();
+    showSettingsPage('animation', { dir: opts.dir || 'forward', instant: opts.instant });
+    paintSettingsFocus();
+  } else {
+    showSettingsPage('home2', { dir: opts.dir || 'back', instant: opts.instant });
+    paintSettingsFocus();
+  }
+  scheduleRemoteState();
+}
+
+document.getElementById('btnAnimationToggle')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  setBgAnimationOn(!bgAnimationOn);
+});
+
+document.getElementById('animIntervalRow')?.addEventListener('click', (event) => {
+  const btn = event.target.closest?.('.anim-interval-btn');
+  if (!btn) return;
+  event.stopPropagation();
+  playKeyClick();
+  setBgAnimationSec(Number(btn.dataset.sec));
+});
+
+document.getElementById('btnAnimCarouselToggle')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  setBgAnimCarouselOn(!bgAnimCarouselOn);
+});
+
+document.getElementById('animCarouselSecRow')?.addEventListener('click', (event) => {
+  const btn = event.target.closest?.('.anim-interval-btn');
+  if (!btn) return;
+  event.stopPropagation();
+  playKeyClick();
+  setBgAnimCarouselSec(Number(btn.dataset.sec));
+});
+
+document.getElementById('btnSettingsBayRimodula')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  playKeyClick();
+  if (!displayEditOn || radioSkinId !== 'vintage50') return;
+  bayMarqueeMode = true;
+  flash('DISEGNA RIQUADRO', true);
+  syncDisplayEditUi();
+});
+
+(function bindSettingsBayEditGestures() {
+  const bay = document.getElementById('settingsBay');
+  const panel = document.getElementById('monitorSettings');
+  const marquee = document.getElementById('settingsBayMarquee');
+  if (!bay || !panel) return;
+
+  function canManipulate() {
+    return displayEditOn && radioSkinId === 'vintage50' && isMonitorSettingsOpen() && !bayMarqueeMode;
+  }
+
+  function onBayPointerDown(event) {
+    if (!canManipulate()) return;
+    if (event.target.closest?.('#btnSettingsBayRimodula')) return;
+    const handle = event.target.closest?.('.settings-bay-handle');
+    const mode = handle ? (handle.getAttribute('data-handle') || 'se') : 'move';
+    if (!handle && !event.target.closest?.('.monitor-settings')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const r = bay.getBoundingClientRect();
+    bayDrag = {
+      mode,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      orig: { left: r.left, top: r.top, width: r.width, height: r.height }
+    };
+    try { bay.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
+    settingsSwipeLock = true;
+  }
+
+  function onBayPointerMove(event) {
+    if (!bayDrag || event.pointerId !== bayDrag.pointerId) return;
+    const dx = event.clientX - bayDrag.startX;
+    const dy = event.clientY - bayDrag.startY;
+    const o = bayDrag.orig;
+    let left = o.left;
+    let top = o.top;
+    let width = o.width;
+    let height = o.height;
+    const minW = 72;
+    const minH = 72;
+    const g = glassRectForBay();
+    if (bayDrag.mode === 'move') {
+      left = o.left + dx;
+      top = o.top + dy;
+    } else {
+      const m = bayDrag.mode;
+      if (m.includes('e')) width = Math.max(minW, o.width + dx);
+      if (m.includes('s')) height = Math.max(minH, o.height + dy);
+      if (m.includes('w')) {
+        width = Math.max(minW, o.width - dx);
+        left = o.left + (o.width - width);
+      }
+      if (m.includes('n')) {
+        height = Math.max(minH, o.height - dy);
+        top = o.top + (o.height - height);
+      }
+    }
+    if (g) {
+      left = clamp(left, g.left, g.right - minW);
+      top = clamp(top, g.top, g.bottom - minH);
+      width = clamp(width, minW, g.right - left);
+      height = clamp(height, minH, g.bottom - top);
+    }
+    const pct = bayRectToPercent(left, top, width, height);
+    if (!pct) return;
+    bay.style.left = `${pct.left}%`;
+    bay.style.top = `${pct.top}%`;
+    bay.style.width = `${pct.width}%`;
+    bay.style.height = `${pct.height}%`;
+  }
+
+  function onBayPointerUp(event) {
+    if (!bayDrag || event.pointerId !== bayDrag.pointerId) return;
+    bayDrag = null;
+    settingsSwipeLock = false;
+    saveBayFromElement();
+  }
+
+  bay.addEventListener('pointerdown', onBayPointerDown, true);
+  bay.addEventListener('pointermove', onBayPointerMove, true);
+  bay.addEventListener('pointerup', onBayPointerUp, true);
+  bay.addEventListener('pointercancel', onBayPointerUp, true);
+
+  /* Rimodula: selezione a rettangolo (come mouse destro Windows) */
+  let mq = null;
+  function onMarqueeDown(event) {
+    if (!bayMarqueeMode || !displayEditOn || radioSkinId !== 'vintage50') return;
+    if (event.target.closest?.('#btnSettingsBayRimodula, .settings-bay-handle, .monitor-settings button')) return;
+    const g = glassRectForBay();
+    if (!g) return;
+    event.preventDefault();
+    event.stopPropagation();
+    mq = {
+      pointerId: event.pointerId,
+      x0: clamp(event.clientX, g.left, g.right),
+      y0: clamp(event.clientY, g.top, g.bottom)
+    };
+    marquee?.classList.remove('is-hidden');
+    if (marquee) {
+      marquee.style.left = `${mq.x0}px`;
+      marquee.style.top = `${mq.y0}px`;
+      marquee.style.width = '0px';
+      marquee.style.height = '0px';
+    }
+    settingsSwipeLock = true;
+  }
+  function onMarqueeMove(event) {
+    if (!mq || event.pointerId !== mq.pointerId || !marquee) return;
+    const g = glassRectForBay();
+    if (!g) return;
+    const x1 = clamp(event.clientX, g.left, g.right);
+    const y1 = clamp(event.clientY, g.top, g.bottom);
+    const left = Math.min(mq.x0, x1);
+    const top = Math.min(mq.y0, y1);
+    marquee.style.left = `${left}px`;
+    marquee.style.top = `${top}px`;
+    marquee.style.width = `${Math.abs(x1 - mq.x0)}px`;
+    marquee.style.height = `${Math.abs(y1 - mq.y0)}px`;
+  }
+  function onMarqueeUp(event) {
+    if (!mq || event.pointerId !== mq.pointerId) return;
+    const g = glassRectForBay();
+    const x1 = event.clientX;
+    const y1 = event.clientY;
+    const left = Math.min(mq.x0, x1);
+    const top = Math.min(mq.y0, y1);
+    const width = Math.abs(x1 - mq.x0);
+    const height = Math.abs(y1 - mq.y0);
+    mq = null;
+    settingsSwipeLock = false;
+    marquee?.classList.add('is-hidden');
+    bayMarqueeMode = false;
+    if (g && width >= 48 && height >= 48) {
+      const pct = bayRectToPercent(
+        clamp(left, g.left, g.right),
+        clamp(top, g.top, g.bottom),
+        width,
+        height
+      );
+      if (pct) {
+        writeV50SettingsBayRect(pct);
+        applyV50SettingsBayRect();
+        flash('RIQUADRO SALVATO', true);
+      }
+    }
+    syncDisplayEditUi();
+  }
+
+  window.addEventListener('pointerdown', onMarqueeDown, true);
+  window.addEventListener('pointermove', onMarqueeMove, true);
+  window.addEventListener('pointerup', onMarqueeUp, true);
+  window.addEventListener('pointercancel', onMarqueeUp, true);
+})();
+
 radioSkinId = readRadioSkinId();
+displayEditOn = readDisplayEditOn();
+bgAnimationOn = readBgAnimationOn();
+bgAnimationSec = readBgAnimationSec();
+bgAnimCarouselOn = readBgAnimCarouselOn();
+bgAnimCarouselSec = readBgAnimCarouselSec();
 applyRadioSkin();
+applyV50SettingsBayRect();
+syncDisplayEditUi();
+syncAnimationUi();
 prepareRadioSkinCarousel();
+window.setTimeout(() => { try { warmVintageSkin(); } catch (e) { /* ignore */ } }, 500);
 
 bgThemeId = readBgThemeId();
 applySceneBg();
+syncBgAnimationSchedule();
 window.addEventListener('resize', scheduleFullscreenFit, { passive: true });
 window.addEventListener('orientationchange', scheduleFullscreenFit, { passive: true });
 if (window.visualViewport) {
@@ -9578,6 +10510,12 @@ function openMonitorSettings(on, opts = {}) {
     /* Nuova apertura manuale: non ripristinare una sospensione video */
     if (!preservePage) settingsSuspendedForVideo = false;
   }
+  /* Pulisci eventuali residui della gesture di apertura/chiusura */
+  if (!opts.keepPeek) {
+    panel.classList.remove('is-finger-drag', 'is-finger-snap', 'is-peek-open');
+    panel.style.transition = '';
+    panel.style.transform = '';
+  }
   panel.classList.toggle('is-hidden', !on);
   btn?.classList.toggle('is-open', Boolean(on));
   if (on) {
@@ -9592,6 +10530,7 @@ function openMonitorSettings(on, opts = {}) {
     settingsTrail = false;
     showSettingsPage('home', { instant: true });
   }
+  try { syncDisplayEditUi(); } catch (e) { /* ignore */ }
   scheduleRemoteState();
 }
 
@@ -10754,9 +11693,11 @@ function settingsNav(dir) {
 
 function settingsNeighbor(dir) {
   const forward = dir === 'forward';
-  /* home2 ↔ home solo verticale (nudgeHomeIcons), non swipe orizzontale */
-  if (settingsPage === 'home2') return null;
-  if (settingsPage === 'radios') return forward ? null : 'home2';
+  /* home2: orizzontale avanti no; indietro (sx→dx) esce dal menu */
+  if (settingsPage === 'home2') return forward ? null : '__close__';
+  if (settingsPage === 'radios' || settingsPage === 'editDisplay' || settingsPage === 'animation') {
+    return forward ? null : 'home2';
+  }
   if (forward) {
     if (settingsPage === 'home') return 'user';
     if (settingsPage === 'user') return 'alarm';
@@ -10766,7 +11707,7 @@ function settingsNeighbor(dir) {
     if (settingsPage === 'clock') return 'bg';
     return null;
   }
-  /* Home: swipe sx→dx chiude impostazioni */
+  /* Home / Home2: swipe sx→dx chiude impostazioni */
   if (settingsPage === 'home') return '__close__';
   /* Sottopagine speciali */
   if (settingsPage === 'standbyMins') return 'standby';
@@ -10939,6 +11880,14 @@ function settingsBack(opts = {}) {
     openRadiosPane(false, { dir: 'back', instant });
     return;
   }
+  if (settingsPage === 'editDisplay') {
+    openEditDisplayPane(false, { dir: 'back', instant });
+    return;
+  }
+  if (settingsPage === 'animation') {
+    openAnimationPane(false, { dir: 'back', instant });
+    return;
+  }
   if (settingsPage === 'home2') {
     openHome2Pane(false, { dir: 'down', instant });
     return;
@@ -11002,6 +11951,8 @@ function settingsEnter() {
   else if (btn.dataset.set === 'clock') openClockPane(true);
   else if (btn.dataset.set === 'bg') openBgPane(true);
   else if (btn.dataset.set === 'radio') openRadiosPane(true);
+  else if (btn.dataset.set === 'editDisplay') openEditDisplayPane(true);
+  else if (btn.dataset.set === 'animation') openAnimationPane(true);
   else if (btn.dataset.radio !== undefined) selectRadioSkin(btn.dataset.radio || '');
 }
 
@@ -11343,6 +12294,215 @@ function settingsEnter() {
   }, { passive: true });
 })();
 
+/* Swipe dx→sx: il pannello scorre dentro da destra (stesso feel delle pagine home) */
+(function bindSettingsSwipeOpen() {
+  const zone = document.getElementById('settingsSwipeZone');
+  const panel = document.getElementById('monitorSettings');
+  const btn = document.getElementById('btnSpecSettings');
+  if (!zone || !panel) return;
+  const SNAP = 0.28;
+  let tracking = false;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastT = 0;
+  let vx = 0;
+  let axis = null;
+  let width = 1;
+  let snapTimer = 0;
+  let pointerId = null;
+
+  function canOpen() {
+    if (isMonitorSettingsOpen() && !panel.classList.contains('is-peek-open')) return false;
+    if (panel.classList.contains('is-finger-snap')) return false;
+    const cast = document.getElementById('monitorCast');
+    if (cast && !cast.classList.contains('is-hidden')) return false;
+    const alarm = document.querySelector('.alarm-ring-panel:not(.is-hidden)');
+    if (alarm) return false;
+    if (radio?.classList.contains('is-scene-approaching') || radio?.classList.contains('is-scene-arriving')) return false;
+    if (radio?.classList.contains('is-face-edit') || radio?.classList.contains('is-skin-sliding')) return false;
+    if (typeof v50EditOn !== 'undefined' && v50EditOn) return false;
+    if (skinSlide?.busy || skinSlide?.armed) return false;
+    return true;
+  }
+
+  function beginOpenPeek() {
+    if (dragging) return true;
+    if (!canOpen()) return false;
+    try { openCastPicker(false); } catch (e) { /* ignore */ }
+    settingsSuspendedForVideo = false;
+    settingsFocus = 0;
+    settingsTrail = false;
+    showSettingsPage('home', { instant: true });
+    paintDeviceNameLabel();
+    paintSettingsFocus();
+
+    panel.classList.add('is-peek-open', 'is-finger-drag');
+    panel.classList.remove('is-hidden');
+    btn?.classList.add('is-open');
+    panel.style.transition = 'none';
+    panel.style.transform = 'translate3d(100%,0,0)';
+    void panel.offsetWidth;
+    width = Math.max(1, panel.getBoundingClientRect().width || zone.getBoundingClientRect().width || 1);
+    panel.style.transform = `translate3d(${width}px,0,0)`;
+    dragging = true;
+    settingsSwipeLock = true;
+    scheduleRemoteState();
+    return true;
+  }
+
+  function applyOpenDrag(dx) {
+    if (!dragging) return;
+    const pulled = Math.max(0, Math.min(width, -dx));
+    panel.style.transform = `translate3d(${width - pulled}px,0,0)`;
+  }
+
+  function finishOpenDrag(commit, dx) {
+    if (!dragging) {
+      tracking = false;
+      axis = null;
+      return;
+    }
+    const pulled = Math.max(0, Math.min(width, -dx));
+    const progress = pulled / width;
+    const fast = Math.abs(vx) > 0.55 && vx < 0;
+    const shouldCommit = commit && (progress >= SNAP || (fast && progress > 0.08));
+
+    panel.classList.remove('is-finger-drag');
+    panel.classList.add('is-finger-snap');
+    panel.style.transition = 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)';
+    panel.style.transform = shouldCommit
+      ? 'translate3d(0,0,0)'
+      : `translate3d(${width}px,0,0)`;
+
+    window.clearTimeout(snapTimer);
+    snapTimer = window.setTimeout(() => {
+      panel.classList.remove('is-finger-snap', 'is-peek-open');
+      panel.style.transition = '';
+      panel.style.transform = '';
+      dragging = false;
+      tracking = false;
+      axis = null;
+      settingsSwipeLock = false;
+      pointerId = null;
+      if (shouldCommit) {
+        /* Già visibile: conferma stato aperto senza riflash */
+        panel.classList.remove('is-hidden');
+        btn?.classList.add('is-open');
+        scheduleRemoteState();
+      } else {
+        openMonitorSettings(false, { keepPeek: false });
+      }
+    }, 290);
+  }
+
+  function onStart(clientX, clientY, id) {
+    if (!canOpen()) return;
+    if (panel.classList.contains('is-finger-snap')) return;
+    tracking = true;
+    dragging = false;
+    axis = null;
+    pointerId = id ?? null;
+    startX = clientX;
+    startY = clientY;
+    lastX = clientX;
+    lastT = performance.now();
+    vx = 0;
+  }
+
+  function onMove(clientX, clientY) {
+    if (!tracking) return false;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    const now = performance.now();
+    const dt = Math.max(1, now - lastT);
+    vx = (clientX - lastX) / dt;
+    lastX = clientX;
+    lastT = now;
+
+    if (!axis) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return false;
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        tracking = false;
+        axis = 'y';
+        return false;
+      }
+      if (dx > -10) return false;
+      axis = 'x';
+      if (!beginOpenPeek()) {
+        tracking = false;
+        return false;
+      }
+    }
+    if (axis !== 'x' || !dragging) return false;
+    applyOpenDrag(dx);
+    return true;
+  }
+
+  function onEnd() {
+    if (!tracking && !dragging) return;
+    const dx = lastX - startX;
+    const wasDrag = dragging;
+    tracking = false;
+    if (!wasDrag) {
+      axis = null;
+      return;
+    }
+    finishOpenDrag(true, dx);
+  }
+
+  function onCancel() {
+    if (!tracking && !dragging) return;
+    const dx = lastX - startX;
+    tracking = false;
+    if (dragging) finishOpenDrag(false, dx);
+    else axis = null;
+  }
+
+  zone.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    onStart(event.clientX, event.clientY, event.pointerId);
+    try { zone.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
+  }, { passive: true });
+
+  zone.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch') return;
+    if (pointerId != null && event.pointerId !== pointerId) return;
+    onMove(event.clientX, event.clientY);
+  }, { passive: true });
+
+  zone.addEventListener('pointerup', (event) => {
+    if (event.pointerType === 'touch') return;
+    lastX = event.clientX;
+    onEnd();
+  }, { passive: true });
+
+  zone.addEventListener('pointercancel', () => onCancel(), { passive: true });
+
+  zone.addEventListener('touchstart', (event) => {
+    const t = event.touches?.[0];
+    if (!t) return;
+    onStart(t.clientX, t.clientY, null);
+  }, { passive: true });
+
+  zone.addEventListener('touchmove', (event) => {
+    if (!tracking && !dragging) return;
+    const t = event.touches?.[0];
+    if (!t) return;
+    if (onMove(t.clientX, t.clientY)) event.preventDefault();
+  }, { passive: false });
+
+  zone.addEventListener('touchend', (event) => {
+    const t = event.changedTouches?.[0];
+    if (t) lastX = t.clientX;
+    onEnd();
+  }, { passive: true });
+
+  zone.addEventListener('touchcancel', () => onCancel(), { passive: true });
+})();
+
 function remoteDeviceId() {
   try {
     let id = localStorage.getItem(REMOTE_ID_KEY);
@@ -11680,6 +12840,7 @@ function bumpIdleActivity() {
     leaveIdleStandby();
   }
   if (idleDimmed) clearIdleDimUi();
+  try { noteBgAnimationActivity(); } catch (e) { /* ignore */ }
   if (document.hidden || pendingDisplayWake || idleStandbyActive) {
     paintIdleCountdowns();
     return;

@@ -1,5 +1,5 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v285';
+const CACHE = 'mytuner-fs-v332';
 const ASSETS = [
   '/',
   '/index.html',
@@ -70,8 +70,8 @@ const ASSETS = [
   '/img/bg/banco-falegname.jpg',
   '/img/bg/banco-falegname-lontano.jpg',
   '/img/bg/banco-falegname-vuoto.jpg',
-  '/img/bg/banco-falegname-parete.jpg',
-  '/img/bg/soggiorno-radio-3d/radio.glb'
+  '/img/bg/banco-falegname-parete.jpg'
+  /* radio.glb (~15MB): NON in precache — satura la rete allo start e ritarda lo sfondo */
 ];
 
 let guardWs = null;
@@ -105,25 +105,44 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/stream')) return;
 
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
-        }
-        return res;
-      })
-      .catch(async () => {
-        const hit = await caches.match(req, { ignoreSearch: true });
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const path = url.pathname;
+    /* I GLB non vanno in cache-first: un file vecchio o troncato restava servito
+       per sempre (ignoreSearch) e l'avvicinamento moriva in un lampo. */
+    if (/\.(glb|gltf)$/i.test(path)) {
+      try {
+        return await fetch(req);
+      } catch (e) {
+        const hit = await cache.match(req) || await cache.match(req, { ignoreSearch: true });
         if (hit) return hit;
-        if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
-          return (await caches.match('/index.html', { ignoreSearch: true }))
-            || (await caches.match('/'));
-        }
-        return hit;
-      })
-  );
+        return new Response('', { status: 504 });
+      }
+    }
+    const isMedia = path.startsWith('/img/') || path.startsWith('/icons/') || path.startsWith('/fonts/')
+      || /\.(png|jpe?g|webp|gif|svg|woff2?)$/i.test(path);
+    if (isMedia) {
+      const cached = await cache.match(req) || await cache.match(req, { ignoreSearch: true });
+      if (cached) {
+        fetch(req).then((res) => {
+          if (res && res.ok) cache.put(req, res.clone());
+        }).catch(() => {});
+        return cached;
+      }
+    }
+    try {
+      const res = await fetch(req);
+      if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
+      return res;
+    } catch (e) {
+      const hit = await cache.match(req) || await cache.match(req, { ignoreSearch: true });
+      if (hit) return hit;
+      if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+        return (await cache.match('/index.html')) || (await cache.match('/'));
+      }
+      return new Response('', { status: 504 });
+    }
+  })());
 });
 
 function guardWsUrl() {
