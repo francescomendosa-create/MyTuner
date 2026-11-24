@@ -302,19 +302,19 @@ export function playApproach3D(opts = {}) {
     camEnd.set(dxWorld, radioYCenter + dyWorld, radioZFace + distEnd);
     lookEnd.set(dxWorld, radioYCenter + dyWorld, radioZFace);
 
-    /* Partenza calibrata sulla foto del tema:
-       - soggiorno: 3/4 sinistra
-       - falegname: frontale ampio dall'alto (come la foto del banco) */
+    /* Partenza: radio GIÀ poggiata sul tavolo e ben visibile, poi solo zoom come soggiorno.
+       Falegname: frontale, radio ~42% altezza schermo (non minuscola che “appare dopo”). */
     if (isWorkshop) {
-      /* Partenza: radio appoggiata sul banco nella foto CSS (più in basso nel frame).
-         Si guarda un punto sopra il centro radio così la radio resta sul piano fotografato. */
-      const distStart = Math.max(distEnd * 2.05, 3.7);
+      const tanHalfStart = Math.tan(THREE.MathUtils.degToRad(fovStart * 0.5));
+      const fracHStart = 0.42;
+      const distStart = Math.max(radioH / (2 * tanHalfStart * fracHStart), distEnd * 1.55);
       camStart.set(
-        -distStart * 0.03,
-        radioYCenter + 0.38,
-        distStart * 1.0
+        -distStart * 0.05,
+        radioYCenter + 0.22,
+        radioZFace + distStart * 0.98
       );
-      lookStart.set(0.01, radioYCenter + 0.28, 0.05);
+      /* Guarda leggermente sopra il centro: la base Y=0 resta sul piano del banco in basso */
+      lookStart.set(0.02, radioYCenter + 0.12, 0.02);
     } else {
       const distStart = Math.max(distEnd * 1.85, 3.25);
       camStart.set(
@@ -327,47 +327,35 @@ export function playApproach3D(opts = {}) {
   }
 
   function buildProjectedRoom(texRoomEmpty, texRoomWall) {
-    /* Falegname: niente geometria stanza 3D (tagliava/storceva il banco).
-       Solo ombra di contatto sotto la radio; lo sfondo è la foto CSS cover. */
-    if (isWorkshop) {
-      const contactTex = createContactShadowTexture();
-      const contactShadow = new THREE.Mesh(
-        new THREE.PlaneGeometry(radioW * 1.18, 0.78),
-        new THREE.MeshBasicMaterial({
-          map: contactTex,
-          transparent: true,
-          depthWrite: false,
-          opacity: 0.78
-        })
-      );
-      contactShadow.rotation.x = -Math.PI / 2;
-      contactShadow.position.set(0.02, 0.003, -0.01);
-      scene.add(contactShadow);
-      return;
-    }
-
     const projCam = new THREE.PerspectiveCamera(fovStart, camera.aspect, 0.05, 40);
     projCam.position.copy(camStart);
     projCam.lookAt(lookStart);
     projCam.updateMatrixWorld(true);
     projCam.updateProjectionMatrix();
-    const vBias = camera.aspect > photoAspect ? -0.055 : 0.0;
-
-    const bgZ = -1.45;
-    const distToBg = camStart.z - bgZ;
-    const visH = 2 * distToBg * Math.tan(THREE.MathUtils.degToRad(fovStart * 0.5));
-    const visW = visH * Math.max(photoAspect, camera.aspect);
+    const vBias = camera.aspect > photoAspect
+      ? (isWorkshop ? -0.02 : -0.055)
+      : (isWorkshop ? 0.03 : 0.0);
 
     if (texRoomWall) texRoomWall.anisotropy = maxAniso;
     if (texRoomEmpty) texRoomEmpty.anisotropy = maxAniso;
 
-    const bgGeom = new THREE.PlaneGeometry(visW * 1.55, visH * 1.55, 28, 18);
+    /* Fondale fotografico (foto originale integra del banco / soggiorno) */
+    const bgZ = isWorkshop ? -1.15 : -1.45;
+    const distToBg = camStart.z - bgZ;
+    const visH = 2 * distToBg * Math.tan(THREE.MathUtils.degToRad(fovStart * 0.5));
+    const visW = visH * Math.max(photoAspect, camera.aspect);
+    const bgGeom = new THREE.PlaneGeometry(
+      visW * (isWorkshop ? 1.85 : 1.55),
+      visH * (isWorkshop ? 1.85 : 1.55),
+      32,
+      20
+    );
     const bgMat = new THREE.MeshBasicMaterial({
       map: texRoomEmpty || texRoomWall || null,
       color: 0xffffff
     });
     const bgMesh = new THREE.Mesh(bgGeom, bgMat);
-    bgMesh.position.set(0.18, radioYCenter + 0.06, bgZ);
+    bgMesh.position.set(isWorkshop ? 0.04 : 0.18, radioYCenter + (isWorkshop ? -0.05 : 0.06), bgZ);
     projectGeometryUVsFromCamera(bgMesh, projCam, photoAspect, vBias);
     scene.add(bgMesh);
 
@@ -376,43 +364,46 @@ export function playApproach3D(opts = {}) {
       color: 0xffffff
     });
 
-    const tblW = 6.8;
-    const tblBackZ = -0.82;
-    const tblFrontZ = 0.88;
+    /* Piano Y=0: la radio poggia QUI dalla prima frame */
+    const tblW = isWorkshop ? 8.5 : 6.8;
+    const tblBackZ = isWorkshop ? -0.55 : -0.82;
+    const tblFrontZ = isWorkshop ? 0.70 : 0.88;
     const tblD = tblFrontZ - tblBackZ;
     const tblCenterZ = (tblBackZ + tblFrontZ) * 0.5;
+    const tblX = isWorkshop ? 0.04 : 0.12;
 
-    const topGeom = new THREE.PlaneGeometry(tblW, tblD, 48, 22);
+    const topGeom = new THREE.PlaneGeometry(tblW, tblD, 48, 24);
     topGeom.rotateX(-Math.PI / 2);
     const tableTop = new THREE.Mesh(topGeom, tableMat);
-    tableTop.position.set(0.12, 0.0, tblCenterZ);
+    tableTop.position.set(tblX, 0.0, tblCenterZ);
     projectGeometryUVsFromCamera(tableTop, projCam, photoAspect, vBias);
     scene.add(tableTop);
 
-    const frontH = 1.55;
-    const frontGeom = new THREE.PlaneGeometry(tblW, frontH, 48, 14);
+    /* Grembiule: CORTO sul falegname (solo spessore banco), alto sul soggiorno */
+    const frontH = isWorkshop ? 0.42 : 1.55;
+    const frontGeom = new THREE.PlaneGeometry(tblW, frontH, 48, isWorkshop ? 8 : 14);
     const tableFront = new THREE.Mesh(frontGeom, tableMat);
-    tableFront.position.set(0.12, -frontH * 0.5, tblFrontZ);
+    tableFront.position.set(tblX, -frontH * 0.5, tblFrontZ);
     projectGeometryUVsFromCamera(tableFront, projCam, photoAspect, vBias);
     scene.add(tableFront);
 
     const shadowCatcher = new THREE.Mesh(
       new THREE.PlaneGeometry(tblW, tblD),
-      new THREE.ShadowMaterial({ opacity: 0.16 })
+      new THREE.ShadowMaterial({ opacity: isWorkshop ? 0.30 : 0.16 })
     );
     shadowCatcher.rotation.x = -Math.PI / 2;
-    shadowCatcher.position.set(0.12, 0.0015, tblCenterZ);
+    shadowCatcher.position.set(tblX, 0.0015, tblCenterZ);
     shadowCatcher.receiveShadow = true;
     scene.add(shadowCatcher);
 
     const contactTex = createContactShadowTexture();
     const contactShadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(radioW * 1.12, 0.72),
+      new THREE.PlaneGeometry(radioW * 1.14, 0.76),
       new THREE.MeshBasicMaterial({
         map: contactTex,
         transparent: true,
         depthWrite: false,
-        opacity: 0.82
+        opacity: 0.84
       })
     );
     contactShadow.rotation.x = -Math.PI / 2;
@@ -422,8 +413,8 @@ export function playApproach3D(opts = {}) {
 
   function applyCameraAt(t) {
     const e = easeDolly(t);
-    const arcZ = Math.sin(Math.PI * e) * (isWorkshop ? 0.08 : 0.14);
-    const arcY = Math.sin(Math.PI * e) * (isWorkshop ? 0.03 : 0.04);
+    const arcZ = Math.sin(Math.PI * e) * (isWorkshop ? 0.10 : 0.14);
+    const arcY = Math.sin(Math.PI * e) * (isWorkshop ? 0.035 : 0.04);
     camPos.set(
       lerp(camStart.x, camEnd.x, e),
       lerp(camStart.y, camEnd.y, e) + arcY,
@@ -441,13 +432,6 @@ export function playApproach3D(opts = {}) {
     }
     camera.position.copy(camPos);
     camera.lookAt(lookPos);
-    /* Zoom lento della foto CSS durante l'avvicinamento (parallasse leggera senza deformare il banco) */
-    if (isWorkshop) {
-      const bgScale = 1 + e * 0.22;
-      const bgY = 50 - e * 4;
-      root.style.backgroundSize = `${bgScale * 100}%`;
-      root.style.backgroundPosition = `center ${bgY}%`;
-    }
     renderer.render(scene, camera);
   }
 

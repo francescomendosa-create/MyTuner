@@ -1,4 +1,4 @@
-const APP_VERSION = 'v284';
+const APP_VERSION = 'v285';
 
 /* Skin radio: dichiarato subito (paintDial gira prima del blocco skin in fondo) */
 const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
@@ -8625,8 +8625,9 @@ function revealOfficialRadioFromApproach(inPlace = false) {
 }
 
 async function playSceneApproach3D(theme) {
-  /* NON nascondiamo la radio né mostriamo foto tagliate prima che il 3D sia pronto:
-     appena il primo frame WebGL è renderizzato (onReady), parte subito l'animazione 3D fluida! */
+  /* Nascondi subito la radio ufficiale (resta in layout per la calibrazione camera),
+     così non “appare dopo”: il primo frame 3D mostra già radio poggiata sul tavolo. */
+  beginSceneApproachHideRadio(true);
   try {
     const mod = await import(`./scene-approach-3d.js?v=${APP_VERSION}`);
     const v = `?v=${APP_VERSION}`;
@@ -8638,12 +8639,6 @@ async function playSceneApproach3D(theme) {
       durationMs: 4700,
       preset: theme.approachPreset || 'soggiorno',
       photoAspect: theme.approachPhotoAspect || 0,
-      onReady: () => {
-        /* Nascondi la Vintage 50 sotto solo quando il canvas 3D è ormai opaco sopra (260ms) */
-        window.setTimeout(() => {
-          if (sceneApproach3dHandle) beginSceneApproachHideRadio(true);
-        }, 260);
-      },
       onArrive: () => {
         revealOfficialRadioFromApproach(true);
       },

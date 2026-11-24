@@ -1,5 +1,5 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v284';
+const CACHE = 'mytuner-fs-v285';
 const ASSETS = [
   '/',
   '/index.html',
