@@ -1,5 +1,5 @@
 /* MyTuner — PWA + guardian standby (presenza Connect di backup, non sostituisce la pagina) */
-const CACHE = 'mytuner-fs-v277';
+const CACHE = 'mytuner-fs-v284';
 const ASSETS = [
   '/',
   '/index.html',
@@ -58,7 +58,8 @@ const ASSETS = [
   '/img/bg/scaffale-panoramico.jpg',
   '/img/bg/soggiorno-radio-lontano.jpg',
   '/img/bg/soggiorno-radio-vicino.jpg',
-  '/img/bg/soggiorno-radio-3d/radio.glb',
+  '/img/bg/soggiorno-vuoto.jpg',
+  '/img/bg/soggiorno-stanza-parete.jpg',
   '/js/scene-approach-3d.js',
   '/js/vendor/three/three.module.js',
   '/js/vendor/three/examples/jsm/loaders/GLTFLoader.js',
@@ -66,7 +67,11 @@ const ASSETS = [
   '/img/bg/laccata-grigia.png',
   '/img/bg/acciaio-incassato.png',
   '/img/bg/soggiorno-chiaro.jpg',
-  '/img/bg/banco-falegname.jpg'
+  '/img/bg/banco-falegname.jpg',
+  '/img/bg/banco-falegname-lontano.jpg',
+  '/img/bg/banco-falegname-vuoto.jpg',
+  '/img/bg/banco-falegname-parete.jpg',
+  '/img/bg/soggiorno-radio-3d/radio.glb'
 ];
 
 let guardWs = null;

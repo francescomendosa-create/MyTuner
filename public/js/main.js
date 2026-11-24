@@ -1,4 +1,4 @@
-const APP_VERSION = 'v277';
+const APP_VERSION = 'v284';
 
 /* Skin radio: dichiarato subito (paintDial gira prima del blocco skin in fondo) */
 const RADIO_SKIN_KEY = 'mytuner-radio-skin-v1';
@@ -8358,15 +8358,27 @@ const BG_THEMES = [
     approach: true,
     approach3d: true,
     approachModel: '/img/bg/soggiorno-radio-3d/radio.glb',
-    approachFar: '/img/bg/soggiorno-radio-lontano.jpg',
+    approachRoomEmpty: '/img/bg/soggiorno-vuoto.jpg',
+    approachRoomWall: '/img/bg/soggiorno-stanza-parete.jpg',
+    approachFar: '/img/bg/soggiorno-vuoto.jpg',
     approachNear: '/img/bg/soggiorno-radio-vicino.jpg',
     preferSkin: 'vintage50'
   },
   {
     id: 'banco-falegname',
     name: 'Banco falegname',
-    thumb: '/img/bg/banco-falegname.jpg',
-    image: '/img/bg/banco-falegname.jpg'
+    thumb: '/img/bg/banco-falegname-lontano.jpg',
+    image: '/img/bg/banco-falegname.jpg',
+    approach: true,
+    approach3d: true,
+    approachPreset: 'falegname',
+    approachModel: '/img/bg/soggiorno-radio-3d/radio.glb',
+    approachRoomEmpty: '/img/bg/banco-falegname-vuoto.jpg',
+    approachRoomWall: '/img/bg/banco-falegname-parete.jpg',
+    approachPhotoAspect: 3072 / 1290,
+    approachFar: '/img/bg/banco-falegname-vuoto.jpg',
+    approachNear: '/img/bg/banco-falegname.jpg',
+    preferSkin: 'vintage50'
   }
 ];
 let bgThemeId = '';
@@ -8586,24 +8598,25 @@ function ensureSceneApproachEl() {
   return root;
 }
 
-function beginSceneApproachHideRadio() {
+function beginSceneApproachHideRadio(inPlace = false) {
   radio.classList.add('is-scene-approaching');
   radio.classList.remove('is-scene-arriving');
   if (chassis) {
     chassis.style.transition = 'none';
     chassis.style.opacity = '0';
-    chassis.style.transform = 'translate3d(0, 10%, 0) scale(0.82)';
-    chassis.style.filter = 'blur(3px)';
+    chassis.style.transform = inPlace ? '' : 'translate3d(0, 10%, 0) scale(0.82)';
+    chassis.style.filter = inPlace ? 'blur(0.8px) brightness(0.97) saturate(0.96)' : 'blur(3px)';
   }
 }
 
-function revealOfficialRadioFromApproach() {
+function revealOfficialRadioFromApproach(inPlace = false) {
   radio.classList.remove('is-scene-approaching');
   radio.classList.add('is-scene-arriving');
   if (chassis) {
     void chassis.offsetWidth;
-    chassis.style.transition =
-      'opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 980ms cubic-bezier(0.22, 1, 0.36, 1), filter 720ms ease';
+    chassis.style.transition = inPlace
+      ? 'opacity 1250ms cubic-bezier(0.32, 0.04, 0.22, 1), filter 1350ms cubic-bezier(0.22, 1, 0.36, 1)'
+      : 'opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 980ms cubic-bezier(0.22, 1, 0.36, 1), filter 720ms ease';
     chassis.style.opacity = '1';
     chassis.style.transform = '';
     chassis.style.filter = 'none';
@@ -8612,14 +8625,27 @@ function revealOfficialRadioFromApproach() {
 }
 
 async function playSceneApproach3D(theme) {
-  beginSceneApproachHideRadio();
+  /* NON nascondiamo la radio né mostriamo foto tagliate prima che il 3D sia pronto:
+     appena il primo frame WebGL è renderizzato (onReady), parte subito l'animazione 3D fluida! */
   try {
     const mod = await import(`./scene-approach-3d.js?v=${APP_VERSION}`);
+    const v = `?v=${APP_VERSION}`;
     sceneApproach3dHandle = mod.playApproach3D({
-      modelUrl: `${theme.approachModel}?v=${APP_VERSION}`,
-      durationMs: 4300,
+      modelUrl: `${theme.approachModel}${v}`,
+      roomEmptyUrl: theme.approachRoomEmpty ? `${theme.approachRoomEmpty}${v}` : '',
+      roomWallUrl: theme.approachRoomWall ? `${theme.approachRoomWall}${v}` : '',
+      targetEl: chassis,
+      durationMs: 4700,
+      preset: theme.approachPreset || 'soggiorno',
+      photoAspect: theme.approachPhotoAspect || 0,
+      onReady: () => {
+        /* Nascondi la Vintage 50 sotto solo quando il canvas 3D è ormai opaco sopra (260ms) */
+        window.setTimeout(() => {
+          if (sceneApproach3dHandle) beginSceneApproachHideRadio(true);
+        }, 260);
+      },
       onArrive: () => {
-        revealOfficialRadioFromApproach();
+        revealOfficialRadioFromApproach(true);
       },
       onDone: () => {
         sceneApproach3dHandle = null;
@@ -8699,11 +8725,42 @@ function selectBgTheme(id) {
   if (theme?.approach) playSceneApproach(theme);
 }
 
+let approach3dPreloaded = false;
+function preloadApproach3DAssets() {
+  if (approach3dPreloaded) return;
+  approach3dPreloaded = true;
+  const themes = BG_THEMES.filter((t) => t.approach3d && t.approachModel);
+  if (!themes.length) return;
+  const v = `?v=${APP_VERSION}`;
+  const urls = new Set();
+  themes.forEach((theme) => {
+    [theme.approachRoomEmpty, theme.approachRoomWall, theme.approachNear].forEach((u) => {
+      if (u) urls.add(u);
+    });
+  });
+  urls.forEach((u) => {
+    try { fetch(`${u}${v}`, { credentials: 'same-origin' }).catch(() => {}); } catch (e) { /* ignore */ }
+  });
+  import(`./scene-approach-3d.js?v=${APP_VERSION}`)
+    .then((m) => {
+      const models = new Set(themes.map((t) => t.approachModel).filter(Boolean));
+      models.forEach((u) => m.preloadModel3D?.(`${u}${v}`));
+    })
+    .catch(() => {});
+}
+/* Precarica in background il 3D dopo l'avvio (se non in risparmio dati) così l'animazione parte subito! */
+window.setTimeout(() => {
+  try {
+    if (!navigator.connection?.saveData) preloadApproach3DAssets();
+  } catch (e) { /* ignore */ }
+}, 2200);
+
 function openBgPane(on, opts = {}) {
   const pane = document.getElementById('monitorBgPane');
   if (!pane) return;
   if (on) {
     paintBgThemeList();
+    preloadApproach3DAssets();
     showSettingsPage('bg', { dir: opts.dir || 'forward', instant: opts.instant });
   } else {
     showSettingsPage('home', { dir: opts.dir || 'back', instant: opts.instant });

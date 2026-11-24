@@ -8412,9 +8412,14 @@ audio {
   filter: drop-shadow(0 0 4px rgba(50, 120, 255, 0.7));
 }
 
-/* Avvicinamento WebGL (modello radio.glb) */
+/* Avvicinamento WebGL (modello radio.glb 3K Ultra-HD + stanza 3D — zero foto tagliata, zero schermo nero!) */
 .scene-approach-3d {
-  background: #1a120c;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.28s ease-out;
+}
+.scene-approach-3d.is-run {
+  opacity: 1;
 }
 .scene-approach-3d-host,
 .scene-approach-3d-host canvas {
@@ -8425,7 +8430,8 @@ audio {
   display: block;
 }
 .scene-approach-3d.is-end {
-  transition: opacity 0.7s ease;
+  opacity: 0;
+  transition: opacity 1.25s cubic-bezier(0.32, 0.04, 0.22, 1);
 }
 
 /* Avvicinamento 3D sfondo “Soggiorno radio” — dolly camera verso la radio */
